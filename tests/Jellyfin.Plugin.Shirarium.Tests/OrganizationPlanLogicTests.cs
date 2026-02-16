@@ -395,6 +395,194 @@ public sealed class OrganizationPlanLogicTests
         }
     }
 
+    [Fact]
+    public void BuildPlan_WithSkipPolicy_SkipsExistingTargetConflicts()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var organizationRoot = Path.Combine(root, "organized");
+            var existingTarget = Path.Combine(organizationRoot, "Noroi (2005)", "Noroi (2005).mkv");
+            Directory.CreateDirectory(Path.GetDirectoryName(existingTarget)!);
+            File.WriteAllText(existingTarget, "existing");
+
+            var config = new PluginConfiguration
+            {
+                DryRunMode = true,
+                OrganizationRootPath = organizationRoot,
+                NormalizePathSegments = true,
+                TargetConflictPolicy = "skip"
+            };
+
+            var snapshot = new ScanResultSnapshot
+            {
+                Suggestions =
+                [
+                    CreateSuggestion(
+                        Path.Combine(root, "incoming", "noroi-source.mkv"),
+                        suggestedTitle: "Noroi",
+                        suggestedMediaType: "movie",
+                        suggestedYear: 2005)
+                ]
+            };
+
+            var plan = OrganizationPlanner.BuildPlan(snapshot, config);
+            var entry = Assert.Single(plan.Entries);
+
+            Assert.Equal("skip", entry.Action);
+            Assert.Equal("TargetAlreadyExists", entry.Reason);
+            Assert.Equal(existingTarget, entry.TargetPath);
+            Assert.Equal(0, plan.PlannedCount);
+            Assert.Equal(1, plan.SkippedCount);
+            Assert.Equal(0, plan.ConflictCount);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void BuildPlan_WithSuffixPolicy_SuffixesExistingTargetConflicts()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var organizationRoot = Path.Combine(root, "organized");
+            var existingTarget = Path.Combine(organizationRoot, "Noroi (2005)", "Noroi (2005).mkv");
+            var existingSuffix2 = Path.Combine(organizationRoot, "Noroi (2005)", "Noroi (2005) (2).mkv");
+            Directory.CreateDirectory(Path.GetDirectoryName(existingTarget)!);
+            File.WriteAllText(existingTarget, "existing");
+            File.WriteAllText(existingSuffix2, "existing-2");
+
+            var config = new PluginConfiguration
+            {
+                DryRunMode = true,
+                OrganizationRootPath = organizationRoot,
+                NormalizePathSegments = true,
+                TargetConflictPolicy = "suffix"
+            };
+
+            var snapshot = new ScanResultSnapshot
+            {
+                Suggestions =
+                [
+                    CreateSuggestion(
+                        Path.Combine(root, "incoming", "noroi-source.mkv"),
+                        suggestedTitle: "Noroi",
+                        suggestedMediaType: "movie",
+                        suggestedYear: 2005)
+                ]
+            };
+
+            var plan = OrganizationPlanner.BuildPlan(snapshot, config);
+            var entry = Assert.Single(plan.Entries);
+
+            Assert.Equal("move", entry.Action);
+            Assert.Equal("PlannedWithSuffix", entry.Reason);
+            Assert.Equal(
+                Path.Combine(organizationRoot, "Noroi (2005)", "Noroi (2005) (3).mkv"),
+                entry.TargetPath);
+            Assert.Equal(1, plan.PlannedCount);
+            Assert.Equal(0, plan.SkippedCount);
+            Assert.Equal(0, plan.ConflictCount);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void BuildPlan_WithSkipPolicy_SkipsDuplicateTargetsExceptFirst()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var organizationRoot = Path.Combine(root, "organized");
+            var config = new PluginConfiguration
+            {
+                DryRunMode = true,
+                OrganizationRootPath = organizationRoot,
+                NormalizePathSegments = true,
+                TargetConflictPolicy = "skip"
+            };
+
+            var sourceA = Path.Combine(root, "incoming", "a.mkv");
+            var sourceB = Path.Combine(root, "incoming", "b.mkv");
+            var snapshot = new ScanResultSnapshot
+            {
+                Suggestions =
+                [
+                    CreateSuggestion(sourceA, "Noroi", "movie", suggestedYear: 2005),
+                    CreateSuggestion(sourceB, "Noroi", "movie", suggestedYear: 2005)
+                ]
+            };
+
+            var plan = OrganizationPlanner.BuildPlan(snapshot, config);
+            var moveEntry = Assert.Single(plan.Entries, entry => entry.Action == "move");
+            var skippedEntry = Assert.Single(plan.Entries, entry => entry.Action == "skip");
+
+            Assert.Equal(sourceA, moveEntry.SourcePath);
+            Assert.Equal("DuplicateTargetInPlan", skippedEntry.Reason);
+            Assert.Equal(1, plan.PlannedCount);
+            Assert.Equal(1, plan.SkippedCount);
+            Assert.Equal(0, plan.ConflictCount);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void BuildPlan_WithSuffixPolicy_SuffixesDuplicateTargets()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var organizationRoot = Path.Combine(root, "organized");
+            var config = new PluginConfiguration
+            {
+                DryRunMode = true,
+                OrganizationRootPath = organizationRoot,
+                NormalizePathSegments = true,
+                TargetConflictPolicy = "suffix"
+            };
+
+            var sourceA = Path.Combine(root, "incoming", "a.mkv");
+            var sourceB = Path.Combine(root, "incoming", "b.mkv");
+            var snapshot = new ScanResultSnapshot
+            {
+                Suggestions =
+                [
+                    CreateSuggestion(sourceA, "Noroi", "movie", suggestedYear: 2005),
+                    CreateSuggestion(sourceB, "Noroi", "movie", suggestedYear: 2005)
+                ]
+            };
+
+            var plan = OrganizationPlanner.BuildPlan(snapshot, config);
+            var moveEntries = plan.Entries.Where(entry => entry.Action == "move").ToArray();
+
+            Assert.Equal(2, moveEntries.Length);
+            Assert.Contains(moveEntries, entry => string.Equals(
+                entry.TargetPath,
+                Path.Combine(organizationRoot, "Noroi (2005)", "Noroi (2005).mkv"),
+                StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(moveEntries, entry => string.Equals(
+                entry.TargetPath,
+                Path.Combine(organizationRoot, "Noroi (2005)", "Noroi (2005) (2).mkv"),
+                StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(2, plan.PlannedCount);
+            Assert.Equal(0, plan.SkippedCount);
+            Assert.Equal(0, plan.ConflictCount);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
     private static ScanSuggestion CreateSuggestion(
         string sourcePath,
         string suggestedTitle,

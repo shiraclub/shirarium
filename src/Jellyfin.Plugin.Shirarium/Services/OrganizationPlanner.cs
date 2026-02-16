@@ -81,7 +81,7 @@ public sealed class OrganizationPlanner
                 config.EpisodePathTemplate))
             .ToList();
 
-        OrganizationPlanLogic.MarkDuplicateTargetConflicts(entries);
+        OrganizationPlanLogic.ResolveTargetConflicts(entries, config.TargetConflictPolicy);
 
         var snapshot = new OrganizationPlanSnapshot
         {

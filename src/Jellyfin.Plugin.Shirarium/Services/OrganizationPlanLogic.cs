@@ -7,6 +7,7 @@ internal static class OrganizationPlanLogic
 {
     internal const string DefaultMoviePathTemplate = "{TitleWithYear}/{TitleWithYear}";
     internal const string DefaultEpisodePathTemplate = "{Title}/Season {Season2}/{Title} - S{Season2}E{Episode2}";
+    internal const string DefaultTargetConflictPolicy = "fail";
 
     internal static string NormalizeSegment(string segment)
     {
@@ -15,6 +16,7 @@ internal static class OrganizationPlanLogic
             return "Unknown";
         }
 
+        segment = segment.Normalize(NormalizationForm.FormKC);
         var invalid = Path.GetInvalidFileNameChars();
         var builder = new StringBuilder(segment.Length);
         foreach (var ch in segment)
@@ -192,6 +194,163 @@ internal static class OrganizationPlanLogic
             entry.Action = "conflict";
             entry.Reason = "DuplicateTargetInPlan";
         }
+    }
+
+    internal static void ResolveTargetConflicts(IList<OrganizationPlanEntry> entries, string? targetConflictPolicy)
+    {
+        var policy = ParseTargetConflictPolicy(targetConflictPolicy);
+        if (policy == TargetConflictPolicy.Fail)
+        {
+            MarkDuplicateTargetConflicts(entries);
+            return;
+        }
+
+        var reservedTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in entries)
+        {
+            if (entry.Action == "move" && !string.IsNullOrWhiteSpace(entry.TargetPath))
+            {
+                reservedTargets.Add(entry.TargetPath);
+            }
+        }
+
+        var existingTargetConflicts = entries
+            .Where(entry =>
+                entry.Action == "conflict"
+                && string.Equals(entry.Reason, "TargetAlreadyExists", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(entry.TargetPath))
+            .OrderBy(entry => entry.SourcePath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(entry => entry.ItemId, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        foreach (var entry in existingTargetConflicts)
+        {
+            if (policy == TargetConflictPolicy.Skip)
+            {
+                entry.Action = "skip";
+                entry.Reason = "TargetAlreadyExists";
+                continue;
+            }
+
+            if (TryGetSuffixedTargetPath(entry.SourcePath!, entry.TargetPath!, reservedTargets, out var suffixedPath))
+            {
+                entry.TargetPath = suffixedPath;
+                entry.Action = "move";
+                entry.Reason = "PlannedWithSuffix";
+                reservedTargets.Add(suffixedPath!);
+                continue;
+            }
+
+            entry.Action = "conflict";
+            entry.Reason = "UnableToResolveTargetSuffix";
+        }
+
+        var duplicateGroups = entries
+            .Where(entry => entry.Action == "move" && !string.IsNullOrWhiteSpace(entry.TargetPath))
+            .GroupBy(entry => entry.TargetPath!, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .ToArray();
+
+        foreach (var group in duplicateGroups)
+        {
+            var ordered = group
+                .OrderBy(entry => entry.SourcePath, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(entry => entry.ItemId, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var keeper = ordered[0];
+
+            foreach (var entry in ordered.Skip(1))
+            {
+                if (policy == TargetConflictPolicy.Skip)
+                {
+                    entry.Action = "skip";
+                    entry.Reason = "DuplicateTargetInPlan";
+                    continue;
+                }
+
+                if (TryGetSuffixedTargetPath(entry.SourcePath!, entry.TargetPath!, reservedTargets, out var suffixedPath))
+                {
+                    entry.TargetPath = suffixedPath;
+                    entry.Action = "move";
+                    entry.Reason = "PlannedWithSuffix";
+                    reservedTargets.Add(suffixedPath!);
+                    continue;
+                }
+
+                entry.Action = "conflict";
+                entry.Reason = "UnableToResolveTargetSuffix";
+            }
+
+            // Preserve deterministic winner reason for duplicate groups.
+            if (string.Equals(keeper.Reason, "DuplicateTargetInPlan", StringComparison.OrdinalIgnoreCase))
+            {
+                keeper.Reason = "Planned";
+            }
+        }
+    }
+
+    private static bool TryGetSuffixedTargetPath(
+        string sourcePath,
+        string targetPath,
+        ISet<string> reservedTargets,
+        out string? suffixedPath)
+    {
+        suffixedPath = null;
+
+        var directory = Path.GetDirectoryName(targetPath);
+        var extension = Path.GetExtension(targetPath);
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(targetPath);
+        if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(fileNameWithoutExtension))
+        {
+            return false;
+        }
+
+        for (var index = 2; index <= 9999; index++)
+        {
+            var candidate = Path.Combine(directory, $"{fileNameWithoutExtension} ({index}){extension}");
+            if (PathEquals(sourcePath, candidate))
+            {
+                continue;
+            }
+
+            if (File.Exists(candidate))
+            {
+                continue;
+            }
+
+            if (reservedTargets.Contains(candidate))
+            {
+                continue;
+            }
+
+            suffixedPath = candidate;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static TargetConflictPolicy ParseTargetConflictPolicy(string? targetConflictPolicy)
+    {
+        if (string.IsNullOrWhiteSpace(targetConflictPolicy))
+        {
+            return TargetConflictPolicy.Fail;
+        }
+
+        return targetConflictPolicy.Trim().ToLowerInvariant() switch
+        {
+            "fail" => TargetConflictPolicy.Fail,
+            "skip" => TargetConflictPolicy.Skip,
+            "suffix" => TargetConflictPolicy.Suffix,
+            _ => TargetConflictPolicy.Fail
+        };
+    }
+
+    private enum TargetConflictPolicy
+    {
+        Fail,
+        Skip,
+        Suffix
     }
 
     private static Dictionary<string, string> BuildMovieTemplateTokens(string title, int? year)

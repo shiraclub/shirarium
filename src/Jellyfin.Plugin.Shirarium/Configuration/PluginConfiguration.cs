@@ -83,4 +83,12 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     /// Available tokens: {Title}, {Season}, {Season2}, {Episode}, {Episode2}.
     /// </remarks>
     public string EpisodePathTemplate { get; set; } = "{Title}/Season {Season2}/{Title} - S{Season2}E{Episode2}";
+
+    /// <summary>
+    /// Gets or sets the plan-time target conflict policy.
+    /// </summary>
+    /// <remarks>
+    /// Valid values: <c>fail</c>, <c>skip</c>, <c>suffix</c>.
+    /// </remarks>
+    public string TargetConflictPolicy { get; set; } = "fail";
 }

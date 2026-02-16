@@ -196,6 +196,7 @@ Plugin configuration includes:
 - `NormalizePathSegments`
 - `MoviePathTemplate`
 - `EpisodePathTemplate`
+- `TargetConflictPolicy` (`fail`, `skip`, `suffix`)
 
 Template tokens:
 - Movie: `{Title}`, `{TitleWithYear}`, `{Year}`
