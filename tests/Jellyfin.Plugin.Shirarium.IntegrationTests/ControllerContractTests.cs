@@ -206,6 +206,216 @@ public sealed class ControllerContractTests
         }
     }
 
+    [Fact]
+    public async Task PreflightReviewedPlan_ReturnsPreview_AndDoesNotMoveFiles()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var sourcePath = Path.Combine(root, "incoming", "A.mkv");
+            var targetPath = Path.Combine(root, "organized", "A", "A.mkv");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(sourcePath, "content-a");
+            var plan = await WritePlanAsync(applicationPaths, sourcePath, targetPath);
+
+            var controller = CreateController(applicationPaths);
+            var response = controller.PreflightReviewedPlan(
+                new PreflightReviewedPlanRequest
+                {
+                    ExpectedPlanFingerprint = plan.PlanFingerprint
+                },
+                CancellationToken.None);
+
+            var ok = Assert.IsType<OkObjectResult>(response.Result);
+            var payload = Assert.IsType<PreflightReviewedPlanResponse>(ok.Value);
+
+            Assert.Equal(plan.PlanFingerprint, payload.PlanFingerprint);
+            Assert.Equal(1, payload.MoveCandidateCount);
+            Assert.Equal(1, payload.PreviewResult.AppliedCount);
+            Assert.Equal("preview", payload.PreviewResult.Results[0].Status);
+            Assert.Equal("WouldMove", payload.PreviewResult.Results[0].Reason);
+
+            Assert.True(File.Exists(sourcePath));
+            Assert.False(File.Exists(targetPath));
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task ReviewLock_ApplyById_UsesFrozenSelection_AfterOverridesChange()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var sourcePath = Path.Combine(root, "incoming", "A.mkv");
+            var targetPath = Path.Combine(root, "organized", "A", "A.mkv");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(sourcePath, "content-a");
+            var plan = await WritePlanAsync(applicationPaths, sourcePath, targetPath);
+            var controller = CreateController(applicationPaths);
+
+            var createLockResponse = await controller.CreateReviewLock(
+                new CreateReviewLockRequest
+                {
+                    ExpectedPlanFingerprint = plan.PlanFingerprint
+                },
+                CancellationToken.None);
+            var createdLock = Assert.IsType<OkObjectResult>(createLockResponse.Result);
+            var lockPayload = Assert.IsType<CreateReviewLockResponse>(createdLock.Value);
+
+            await controller.PatchOrganizationPlanEntryOverrides(
+                new PatchOrganizationPlanEntryOverridesRequest
+                {
+                    ExpectedPlanFingerprint = plan.PlanFingerprint,
+                    Patches =
+                    [
+                        new OrganizationPlanEntryOverridePatch
+                        {
+                            SourcePath = sourcePath,
+                            Action = "skip"
+                        }
+                    ]
+                },
+                CancellationToken.None);
+
+            var applyLockResponse = await controller.ApplyReviewLock(lockPayload.ReviewId, CancellationToken.None);
+            var applyLockOk = Assert.IsType<OkObjectResult>(applyLockResponse.Result);
+            var applyResult = Assert.IsType<ApplyOrganizationPlanResult>(applyLockOk.Value);
+            Assert.Equal(1, applyResult.AppliedCount);
+            Assert.False(File.Exists(sourcePath));
+            Assert.True(File.Exists(targetPath));
+
+            var latestLock = ReviewLockStore.ReadById(applicationPaths, lockPayload.ReviewId);
+            Assert.NotNull(latestLock);
+            Assert.Equal(applyResult.RunId, latestLock!.AppliedRunId);
+            Assert.NotNull(latestLock.AppliedAtUtc);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task ReviewLock_ListAndGet_ReturnCreatedLock()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var sourcePath = Path.Combine(root, "incoming", "A.mkv");
+            var targetPath = Path.Combine(root, "organized", "A", "A.mkv");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(sourcePath, "content-a");
+            var plan = await WritePlanAsync(applicationPaths, sourcePath, targetPath);
+            var controller = CreateController(applicationPaths);
+
+            var createLockResponse = await controller.CreateReviewLock(
+                new CreateReviewLockRequest
+                {
+                    ExpectedPlanFingerprint = plan.PlanFingerprint
+                },
+                CancellationToken.None);
+            var createdLock = Assert.IsType<OkObjectResult>(createLockResponse.Result);
+            var lockPayload = Assert.IsType<CreateReviewLockResponse>(createdLock.Value);
+
+            var listResponse = controller.GetReviewLocks(limit: 10);
+            var listOk = Assert.IsType<OkObjectResult>(listResponse.Result);
+            var listPayload = Assert.IsType<ReviewLockListResponse>(listOk.Value);
+            Assert.True(listPayload.TotalCount >= 1);
+            Assert.Contains(listPayload.Items, item => item.ReviewId == lockPayload.ReviewId);
+
+            var getResponse = controller.GetReviewLock(lockPayload.ReviewId);
+            var getOk = Assert.IsType<OkObjectResult>(getResponse.Result);
+            var getPayload = Assert.IsType<ReviewLockSnapshot>(getOk.Value);
+            Assert.Equal(lockPayload.ReviewId, getPayload.ReviewId);
+            Assert.Equal(plan.PlanFingerprint, getPayload.PlanFingerprint);
+            Assert.Single(getPayload.SelectedSourcePaths);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task HistoryEndpoints_ReturnPlanAndOverrideRevisions()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var sourcePath = Path.Combine(root, "incoming", "A.mkv");
+            var targetPathA = Path.Combine(root, "organized", "A", "A.mkv");
+            var targetPathB = Path.Combine(root, "organized", "B", "A.mkv");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(sourcePath, "content-a");
+            var planA = await WritePlanAsync(applicationPaths, sourcePath, targetPathA);
+            var planB = await WritePlanAsync(applicationPaths, sourcePath, targetPathB);
+
+            await OrganizationPlanOverridesStore.WriteAsync(
+                applicationPaths,
+                new OrganizationPlanOverridesSnapshot
+                {
+                    PlanFingerprint = planB.PlanFingerprint,
+                    Entries =
+                    [
+                        new OrganizationPlanEntryOverride
+                        {
+                            SourcePath = sourcePath,
+                            Action = "skip"
+                        }
+                    ]
+                });
+
+            await OrganizationPlanOverridesStore.WriteAsync(
+                applicationPaths,
+                new OrganizationPlanOverridesSnapshot
+                {
+                    PlanFingerprint = planB.PlanFingerprint,
+                    Entries =
+                    [
+                        new OrganizationPlanEntryOverride
+                        {
+                            SourcePath = sourcePath,
+                            Action = "move",
+                            TargetPath = targetPathB
+                        }
+                    ]
+                });
+
+            var controller = CreateController(applicationPaths);
+
+            var planHistoryResponse = controller.GetOrganizationPlanHistory(limit: 10);
+            var planHistoryOk = Assert.IsType<OkObjectResult>(planHistoryResponse.Result);
+            var planHistoryPayload = Assert.IsType<OrganizationPlanHistoryResponse>(planHistoryOk.Value);
+            Assert.True(planHistoryPayload.TotalCount >= 2);
+            Assert.True(planHistoryPayload.Items.Length >= 2);
+            Assert.Contains(planHistoryPayload.Items, item => item.PlanFingerprint == planA.PlanFingerprint);
+            Assert.Contains(planHistoryPayload.Items, item => item.PlanFingerprint == planB.PlanFingerprint);
+
+            var overrideHistoryResponse = controller.GetOrganizationPlanOverridesHistory(limit: 10);
+            var overrideHistoryOk = Assert.IsType<OkObjectResult>(overrideHistoryResponse.Result);
+            var overrideHistoryPayload = Assert.IsType<OrganizationPlanOverridesHistoryResponse>(overrideHistoryOk.Value);
+            Assert.True(overrideHistoryPayload.TotalCount >= 2);
+            Assert.True(overrideHistoryPayload.Items.Length >= 2);
+            Assert.All(overrideHistoryPayload.Items, item => Assert.Equal(planB.PlanFingerprint, item.PlanFingerprint));
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
     private static ShirariumController CreateController(TestApplicationPaths applicationPaths)
     {
         return new ShirariumController(

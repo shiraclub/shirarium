@@ -9,12 +9,13 @@ internal static class OrganizationApplyLogic
         IEnumerable<string> selectedSourcePaths,
         CancellationToken cancellationToken = default)
     {
-        return ApplySelected(
+        return EvaluateSelected(
             plan,
             selectedSourcePaths,
             File.Exists,
             path => _ = Directory.CreateDirectory(path),
             File.Move,
+            executeMoves: true,
             cancellationToken);
     }
 
@@ -25,6 +26,40 @@ internal static class OrganizationApplyLogic
         Action<string> ensureDirectory,
         Action<string, string> moveFile,
         CancellationToken cancellationToken = default)
+    {
+        return EvaluateSelected(
+            plan,
+            selectedSourcePaths,
+            fileExists,
+            ensureDirectory,
+            moveFile,
+            executeMoves: true,
+            cancellationToken);
+    }
+
+    internal static ApplyOrganizationPlanResult PreviewSelected(
+        OrganizationPlanSnapshot plan,
+        IEnumerable<string> selectedSourcePaths,
+        CancellationToken cancellationToken = default)
+    {
+        return EvaluateSelected(
+            plan,
+            selectedSourcePaths,
+            File.Exists,
+            _ => { },
+            (_, _) => { },
+            executeMoves: false,
+            cancellationToken);
+    }
+
+    private static ApplyOrganizationPlanResult EvaluateSelected(
+        OrganizationPlanSnapshot plan,
+        IEnumerable<string> selectedSourcePaths,
+        Func<string, bool> fileExists,
+        Action<string> ensureDirectory,
+        Action<string, string> moveFile,
+        bool executeMoves,
+        CancellationToken cancellationToken)
     {
         var rootValidation = TryGetCanonicalPath(plan.RootPath, out var canonicalRootPath);
 
@@ -183,6 +218,19 @@ internal static class OrganizationApplyLogic
                     TargetPath = targetPath,
                     Status = "failed",
                     Reason = "TargetAlreadyExists"
+                });
+                continue;
+            }
+
+            if (!executeMoves)
+            {
+                appliedCount++;
+                itemResults.Add(new ApplyOrganizationPlanItemResult
+                {
+                    SourcePath = entry.SourcePath,
+                    TargetPath = targetPath,
+                    Status = "preview",
+                    Reason = "WouldMove"
                 });
                 continue;
             }

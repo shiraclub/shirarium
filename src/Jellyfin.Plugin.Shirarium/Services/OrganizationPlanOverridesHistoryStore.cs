@@ -5,69 +5,74 @@ using MediaBrowser.Common.Configuration;
 namespace Jellyfin.Plugin.Shirarium.Services;
 
 /// <summary>
-/// File-based persistence helper for organization planning snapshots.
+/// File-based persistence helper for organization-plan override revision history.
 /// </summary>
-public static class OrganizationPlanStore
+public static class OrganizationPlanOverridesHistoryStore
 {
+    private const int MaxEntries = 200;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true
     };
 
     /// <summary>
-    /// Gets the organization plan file path for the current Jellyfin data directory.
+    /// Gets the override history file path for the current Jellyfin data directory.
     /// </summary>
     /// <param name="applicationPaths">Jellyfin application paths.</param>
-    /// <returns>Absolute plan file path.</returns>
+    /// <returns>Absolute override history file path.</returns>
     public static string GetFilePath(IApplicationPaths applicationPaths)
     {
         var folder = Path.Combine(applicationPaths.DataPath, "plugins", "Shirarium");
         Directory.CreateDirectory(folder);
-        return Path.Combine(folder, "organization-plan.json");
+        return Path.Combine(folder, "organization-plan-overrides-history.json");
     }
 
     /// <summary>
-    /// Reads the latest organization plan snapshot from disk.
+    /// Reads override history entries from disk.
     /// </summary>
     /// <param name="applicationPaths">Jellyfin application paths.</param>
-    /// <returns>The stored plan snapshot, or an empty plan if not found or invalid.</returns>
-    public static OrganizationPlanSnapshot Read(IApplicationPaths applicationPaths)
+    /// <returns>Persisted override history entries ordered by write sequence.</returns>
+    public static OrganizationPlanOverridesSnapshot[] Read(IApplicationPaths applicationPaths)
     {
         var filePath = GetFilePath(applicationPaths);
         if (!File.Exists(filePath))
         {
-            return new OrganizationPlanSnapshot();
+            return [];
         }
 
         try
         {
             var json = File.ReadAllText(filePath);
-            var snapshot = JsonSerializer.Deserialize<OrganizationPlanSnapshot>(json, JsonOptions)
-                ?? new OrganizationPlanSnapshot();
-            snapshot.PlanFingerprint = PlanFingerprint.Compute(snapshot);
-            return snapshot;
+            return JsonSerializer.Deserialize<OrganizationPlanOverridesSnapshot[]>(json, JsonOptions)
+                ?? [];
         }
         catch
         {
-            return new OrganizationPlanSnapshot();
+            return [];
         }
     }
 
     /// <summary>
-    /// Writes an organization plan snapshot to disk.
+    /// Appends one override revision to history with bounded retention.
     /// </summary>
     /// <param name="applicationPaths">Jellyfin application paths.</param>
-    /// <param name="snapshot">Plan snapshot to persist.</param>
+    /// <param name="snapshot">Override snapshot to append.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public static async Task WriteAsync(
+    public static async Task AppendAsync(
         IApplicationPaths applicationPaths,
-        OrganizationPlanSnapshot snapshot,
+        OrganizationPlanOverridesSnapshot snapshot,
         CancellationToken cancellationToken = default)
     {
-        snapshot.PlanFingerprint = PlanFingerprint.Compute(snapshot);
+        var entries = Read(applicationPaths).ToList();
+        entries.Add(snapshot);
+
+        if (entries.Count > MaxEntries)
+        {
+            entries = entries.Skip(entries.Count - MaxEntries).ToList();
+        }
+
         var filePath = GetFilePath(applicationPaths);
-        var json = JsonSerializer.Serialize(snapshot, JsonOptions);
+        var json = JsonSerializer.Serialize(entries.ToArray(), JsonOptions);
         await File.WriteAllTextAsync(filePath, json, cancellationToken);
-        await OrganizationPlanHistoryStore.AppendAsync(applicationPaths, snapshot, cancellationToken);
     }
 }

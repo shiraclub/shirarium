@@ -321,12 +321,7 @@ public sealed class ShirariumController : ControllerBase
             request.ExpectedPlanFingerprint);
         var effectivePlan = OrganizationPlanReviewLogic.BuildEffectivePlan(plan, overridesSnapshot);
 
-        var selectedSourcePaths = request.SourcePaths.Length > 0
-            ? request.SourcePaths
-            : effectivePlan.Entries
-                .Where(entry => entry.Action.Equals("move", StringComparison.OrdinalIgnoreCase))
-                .Select(entry => entry.SourcePath)
-                .ToArray();
+        var selectedSourcePaths = ResolveSelectedSourcePaths(request.SourcePaths, effectivePlan);
 
         if (selectedSourcePaths.Length == 0)
         {
@@ -355,6 +350,283 @@ public sealed class ShirariumController : ControllerBase
         {
             return Conflict("Another apply or undo operation is already in progress.");
         }
+    }
+
+    /// <summary>
+    /// Preflights reviewed plan entries and returns exactly what would move/skip/fail without mutating files.
+    /// </summary>
+    /// <param name="request">Reviewed preflight request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Preview result for reviewed selection.</returns>
+    [HttpPost("preflight-reviewed-plan")]
+    public ActionResult<PreflightReviewedPlanResponse> PreflightReviewedPlan(
+        [FromBody] PreflightReviewedPlanRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return BadRequest("Request body is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ExpectedPlanFingerprint))
+        {
+            return BadRequest("ExpectedPlanFingerprint is required.");
+        }
+
+        var plan = OrganizationPlanStore.Read(_applicationPaths);
+        if (!request.ExpectedPlanFingerprint.Equals(plan.PlanFingerprint, StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+        }
+
+        var overridesSnapshot = OrganizationPlanOverridesStore.ReadForFingerprint(
+            _applicationPaths,
+            request.ExpectedPlanFingerprint);
+        var effectivePlan = OrganizationPlanReviewLogic.BuildEffectivePlan(plan, overridesSnapshot);
+        var selectedSourcePaths = ResolveSelectedSourcePaths(request.SourcePaths, effectivePlan);
+
+        var previewResult = OrganizationApplyLogic.PreviewSelected(
+            effectivePlan,
+            selectedSourcePaths,
+            cancellationToken);
+
+        return Ok(new PreflightReviewedPlanResponse
+        {
+            GeneratedAtUtc = DateTimeOffset.UtcNow,
+            PlanFingerprint = effectivePlan.PlanFingerprint,
+            MoveCandidateCount = effectivePlan.Entries.Count(entry => entry.Action.Equals("move", StringComparison.OrdinalIgnoreCase)),
+            SelectedSourcePaths = selectedSourcePaths,
+            PreviewResult = previewResult
+        });
+    }
+
+    /// <summary>
+    /// Creates an immutable review lock snapshot that freezes reviewed selection and effective plan.
+    /// </summary>
+    /// <param name="request">Review lock creation request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Created lock metadata.</returns>
+    [HttpPost("review-locks")]
+    public async Task<ActionResult<CreateReviewLockResponse>> CreateReviewLock(
+        [FromBody] CreateReviewLockRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return BadRequest("Request body is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ExpectedPlanFingerprint))
+        {
+            return BadRequest("ExpectedPlanFingerprint is required.");
+        }
+
+        var plan = OrganizationPlanStore.Read(_applicationPaths);
+        if (!request.ExpectedPlanFingerprint.Equals(plan.PlanFingerprint, StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+        }
+
+        var overridesSnapshot = OrganizationPlanOverridesStore.ReadForFingerprint(
+            _applicationPaths,
+            request.ExpectedPlanFingerprint);
+        var effectivePlan = OrganizationPlanReviewLogic.BuildEffectivePlan(plan, overridesSnapshot);
+        var selectedSourcePaths = ResolveSelectedSourcePaths(request.SourcePaths, effectivePlan);
+        if (selectedSourcePaths.Length == 0)
+        {
+            return BadRequest("No reviewed move entries selected to lock.");
+        }
+
+        var lockSnapshot = new ReviewLockSnapshot
+        {
+            ReviewId = Guid.NewGuid().ToString("N"),
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            PlanFingerprint = effectivePlan.PlanFingerprint,
+            PlanRootPath = effectivePlan.RootPath,
+            SelectedSourcePaths = selectedSourcePaths,
+            EffectivePlan = effectivePlan,
+            OverridesSnapshot = overridesSnapshot
+        };
+
+        await ReviewLockStore.AppendAsync(_applicationPaths, lockSnapshot, cancellationToken);
+
+        return Ok(new CreateReviewLockResponse
+        {
+            ReviewId = lockSnapshot.ReviewId,
+            CreatedAtUtc = lockSnapshot.CreatedAtUtc,
+            PlanFingerprint = lockSnapshot.PlanFingerprint,
+            MoveCandidateCount = effectivePlan.Entries.Count(entry => entry.Action.Equals("move", StringComparison.OrdinalIgnoreCase)),
+            SelectedCount = lockSnapshot.SelectedSourcePaths.Length
+        });
+    }
+
+    /// <summary>
+    /// Lists persisted immutable review lock snapshots.
+    /// </summary>
+    /// <param name="limit">Maximum returned items.</param>
+    /// <returns>Review lock metadata list.</returns>
+    [HttpGet("review-locks")]
+    public ActionResult<ReviewLockListResponse> GetReviewLocks([FromQuery] int limit = 20)
+    {
+        if (limit <= 0 || limit > 200)
+        {
+            return BadRequest("limit must be within [1, 200].");
+        }
+
+        var entries = ReviewLockStore.Read(_applicationPaths)
+            .OrderByDescending(entry => entry.CreatedAtUtc)
+            .ToArray();
+
+        return Ok(new ReviewLockListResponse
+        {
+            TotalCount = entries.Length,
+            Items = entries
+                .Take(limit)
+                .Select(entry => new ReviewLockSummary
+                {
+                    ReviewId = entry.ReviewId,
+                    CreatedAtUtc = entry.CreatedAtUtc,
+                    PlanFingerprint = entry.PlanFingerprint,
+                    SelectedCount = entry.SelectedSourcePaths.Length,
+                    AppliedRunId = entry.AppliedRunId,
+                    AppliedAtUtc = entry.AppliedAtUtc
+                })
+                .ToArray()
+        });
+    }
+
+    /// <summary>
+    /// Gets one immutable review lock snapshot by id.
+    /// </summary>
+    /// <param name="reviewId">Review lock id.</param>
+    /// <returns>Full review lock payload.</returns>
+    [HttpGet("review-locks/{reviewId}")]
+    public ActionResult<ReviewLockSnapshot> GetReviewLock([FromRoute] string reviewId)
+    {
+        if (string.IsNullOrWhiteSpace(reviewId))
+        {
+            return BadRequest("reviewId is required.");
+        }
+
+        var lockSnapshot = ReviewLockStore.ReadById(_applicationPaths, reviewId);
+        if (lockSnapshot is null)
+        {
+            return NotFound("Review lock not found.");
+        }
+
+        return Ok(lockSnapshot);
+    }
+
+    /// <summary>
+    /// Applies one immutable review lock snapshot by id.
+    /// </summary>
+    /// <param name="reviewId">Review lock id.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Apply result.</returns>
+    [HttpPost("review-locks/{reviewId}/apply")]
+    public async Task<ActionResult<ApplyOrganizationPlanResult>> ApplyReviewLock(
+        [FromRoute] string reviewId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reviewId))
+        {
+            return BadRequest("reviewId is required.");
+        }
+
+        var lockSnapshot = ReviewLockStore.ReadById(_applicationPaths, reviewId);
+        if (lockSnapshot is null)
+        {
+            return NotFound("Review lock not found.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(lockSnapshot.AppliedRunId))
+        {
+            return Conflict("Review lock already applied.");
+        }
+
+        if (lockSnapshot.SelectedSourcePaths.Length == 0)
+        {
+            return BadRequest("Review lock has no selected source paths.");
+        }
+
+        try
+        {
+            var result = await _applier.RunAsync(
+                new ApplyOrganizationPlanRequest
+                {
+                    ExpectedPlanFingerprint = lockSnapshot.PlanFingerprint,
+                    SourcePaths = lockSnapshot.SelectedSourcePaths
+                },
+                lockSnapshot.EffectivePlan,
+                cancellationToken);
+
+            await ReviewLockStore.MarkAppliedAsync(
+                _applicationPaths,
+                lockSnapshot.ReviewId,
+                result.RunId,
+                result.AppliedAtUtc,
+                cancellationToken);
+
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex) when (
+            ex.Message.Equals("PlanFingerprintMismatch", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict("Review lock fingerprint mismatch.");
+        }
+        catch (InvalidOperationException ex) when (
+            ex.Message.Equals("OperationAlreadyInProgress", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict("Another apply or undo operation is already in progress.");
+        }
+    }
+
+    /// <summary>
+    /// Lists persisted organization plan revisions.
+    /// </summary>
+    /// <param name="limit">Maximum returned items.</param>
+    /// <returns>Plan revision history.</returns>
+    [HttpGet("organization-plan-history")]
+    public ActionResult<OrganizationPlanHistoryResponse> GetOrganizationPlanHistory([FromQuery] int limit = 20)
+    {
+        if (limit <= 0 || limit > 200)
+        {
+            return BadRequest("limit must be within [1, 200].");
+        }
+
+        var entries = OrganizationPlanHistoryStore.Read(_applicationPaths)
+            .OrderByDescending(entry => entry.GeneratedAtUtc)
+            .ToArray();
+
+        return Ok(new OrganizationPlanHistoryResponse
+        {
+            TotalCount = entries.Length,
+            Items = entries.Take(limit).ToArray()
+        });
+    }
+
+    /// <summary>
+    /// Lists persisted organization plan override revisions.
+    /// </summary>
+    /// <param name="limit">Maximum returned items.</param>
+    /// <returns>Override revision history.</returns>
+    [HttpGet("organization-plan-overrides-history")]
+    public ActionResult<OrganizationPlanOverridesHistoryResponse> GetOrganizationPlanOverridesHistory([FromQuery] int limit = 20)
+    {
+        if (limit <= 0 || limit > 200)
+        {
+            return BadRequest("limit must be within [1, 200].");
+        }
+
+        var entries = OrganizationPlanOverridesHistoryStore.Read(_applicationPaths)
+            .OrderByDescending(entry => entry.UpdatedAtUtc)
+            .ToArray();
+
+        return Ok(new OrganizationPlanOverridesHistoryResponse
+        {
+            TotalCount = entries.Length,
+            Items = entries.Take(limit).ToArray()
+        });
     }
 
     /// <summary>
@@ -387,5 +659,34 @@ public sealed class ShirariumController : ControllerBase
         {
             return BadRequest(ex.Message);
         }
+    }
+
+    private static string[] ResolveSelectedSourcePaths(
+        IEnumerable<string> requestedSourcePaths,
+        OrganizationPlanSnapshot effectivePlan)
+    {
+        var normalizedRequestedPaths = NormalizeSourcePaths(requestedSourcePaths);
+        if (normalizedRequestedPaths.Length > 0)
+        {
+            return normalizedRequestedPaths;
+        }
+
+        return effectivePlan.Entries
+            .Where(entry => entry.Action.Equals("move", StringComparison.OrdinalIgnoreCase))
+            .Select(entry => entry.SourcePath)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string[] NormalizeSourcePaths(IEnumerable<string> sourcePaths)
+    {
+        return sourcePaths
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => path.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }

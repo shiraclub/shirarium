@@ -98,6 +98,6 @@ public static class OrganizationPlanOverridesStore
         var filePath = GetFilePath(applicationPaths);
         var json = JsonSerializer.Serialize(normalized, JsonOptions);
         await File.WriteAllTextAsync(filePath, json, cancellationToken);
+        await OrganizationPlanOverridesHistoryStore.AppendAsync(applicationPaths, normalized, cancellationToken);
     }
 }
-

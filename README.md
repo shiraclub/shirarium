@@ -121,6 +121,12 @@ List reviewed plan entries with server-side filtering/paging:
 .\scripts\show-organization-plan-view.ps1 -MovesOnly -PageSize 50
 ```
 
+Preflight reviewed entries (no file changes):
+
+```powershell
+.\scripts\preflight-reviewed-plan.ps1
+```
+
 Patch an entry override (set action/target/remove):
 
 ```powershell
@@ -129,7 +135,26 @@ Patch an entry override (set action/target/remove):
 .\scripts\patch-organization-plan-overrides.ps1 -SourcePath "D:\media\incoming\example.mkv" -Remove
 ```
 
-Apply reviewed move entries (all effective `move` entries by default):
+Create immutable review lock from current reviewed selection:
+
+```powershell
+.\scripts\create-review-lock.ps1
+```
+
+Inspect locks:
+
+```powershell
+.\scripts\show-review-locks.ps1 -Limit 20
+.\scripts\show-review-lock.ps1 -ReviewId "<review-id>"
+```
+
+Apply by immutable review lock id:
+
+```powershell
+.\scripts\apply-review-lock.ps1 -ReviewId "<review-id>"
+```
+
+Apply reviewed move entries directly (all effective `move` entries by default):
 
 ```powershell
 .\scripts\apply-reviewed-plan.ps1
@@ -166,6 +191,7 @@ Resolve undo target collisions by moving existing files aside:
 .\scripts\show-organization-plan.ps1
 .\scripts\show-apply-journal.ps1
 .\scripts\show-ops-status.ps1
+.\scripts\show-review-locks.ps1
 ```
 
 Snapshot locations:
@@ -185,9 +211,16 @@ data/jellyfin/config/data/plugins/Shirarium/apply-journal.json
 - `GET /shirarium/organization-plan-view`
 - `GET /shirarium/organization-plan-summary`
 - `PATCH /shirarium/organization-plan-entry-overrides`
+- `POST /shirarium/preflight-reviewed-plan`
 - `POST /shirarium/apply-plan`
 - `POST /shirarium/apply-plan-by-filter`
 - `POST /shirarium/apply-reviewed-plan`
+- `POST /shirarium/review-locks`
+- `GET /shirarium/review-locks`
+- `GET /shirarium/review-locks/{reviewId}`
+- `POST /shirarium/review-locks/{reviewId}/apply`
+- `GET /shirarium/organization-plan-history`
+- `GET /shirarium/organization-plan-overrides-history`
 - `POST /shirarium/undo-apply`
 - `GET /shirarium/ops-status`
 - `POST /v1/parse-filename` (engine)
@@ -234,6 +267,7 @@ Current test coverage:
 - Review override logic (persisted entry-level action/target overrides).
 - Integration flow coverage (`plan -> apply -> journal -> undo`) with lock/fingerprint safety checks.
 - Integration flow coverage for reviewed apply (`plan -> override -> apply`) including stale fingerprint rejection.
+- Controller contract coverage for review ops: reviewed preflight, immutable review lock create/list/get/apply, and history endpoints.
 - Ops status aggregation coverage from persisted plan/apply/undo snapshots.
 - Ops status scan observability coverage (candidate reason/source/confidence buckets).
 - Filesystem integration matrix for conflict policies (`fail`/`skip`/`suffix`) on mixed movie/episode planning and suffix-based round trips.

@@ -23,9 +23,16 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 - `GET /shirarium/organization-plan-view`
 - `GET /shirarium/organization-plan-summary`
 - `PATCH /shirarium/organization-plan-entry-overrides`
+- `POST /shirarium/preflight-reviewed-plan`
 - `POST /shirarium/apply-plan`
 - `POST /shirarium/apply-plan-by-filter`
 - `POST /shirarium/apply-reviewed-plan`
+- `POST /shirarium/review-locks`
+- `GET /shirarium/review-locks`
+- `GET /shirarium/review-locks/{reviewId}`
+- `POST /shirarium/review-locks/{reviewId}/apply`
+- `GET /shirarium/organization-plan-history`
+- `GET /shirarium/organization-plan-overrides-history`
 - `POST /shirarium/undo-apply`
 - `GET /shirarium/ops-status`
 
@@ -44,7 +51,10 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 - Filtered apply supports deterministic selection by strategy/reason/path prefix/confidence/limit with preview mode.
 - Plan review view supports server-side filtering/sorting/paging plus override visibility.
 - Per-entry overrides are persisted by plan fingerprint and support action/target path edits.
+- Reviewed preflight simulates exact would-move/would-skip/would-fail outcomes without filesystem mutation.
 - Reviewed apply combines latest plan + persisted overrides under the same fingerprint safety guard.
+- Immutable review locks freeze reviewed selection + effective plan for deterministic apply-by-id execution.
+- Plan and override revision histories are persisted and queryable for operator auditability.
 - Apply requires `expectedPlanFingerprint` and rejects stale plan submissions.
 - Apply and undo are serialized by a filesystem lock (`apply.lock`) to prevent concurrent file mutation runs.
 - Apply performs preflight safety checks before moving: canonical path validation, root-bound target validation, same-volume requirement, and target collision checks.
