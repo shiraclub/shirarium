@@ -105,6 +105,7 @@ http://localhost:8097
 ```powershell
 .\scripts\show-suggestions.ps1
 .\scripts\show-organization-plan.ps1
+.\scripts\show-apply-journal.ps1
 ```
 
 Snapshot locations:
@@ -112,6 +113,7 @@ Snapshot locations:
 ```text
 data/jellyfin/config/data/plugins/Shirarium/dryrun-suggestions.json
 data/jellyfin/config/data/plugins/Shirarium/organization-plan.json
+data/jellyfin/config/data/plugins/Shirarium/apply-journal.json
 ```
 
 ## API Endpoints
@@ -151,7 +153,7 @@ Current test coverage:
 - Ollama failure fallback behavior.
 - Plugin scan logic (candidate reasons, extension support, confidence gating).
 - Organization planning logic (path normalization, movie/episode path conventions, conflict/no-op handling, duplicate target detection).
-- Organization apply logic (selected-entry gating, move execution, skipped/failed reason handling).
+- Organization apply logic (selected-entry gating, preflight safety checks, move execution, skipped/failed reason handling).
 
 ## Configuration Notes
 
@@ -178,5 +180,7 @@ Plugin configuration includes:
 
 - No automatic file move/rename happens in the current pipeline.
 - Apply operations require explicit source-path selection and only execute entries currently marked `move`.
+- Apply preflight blocks unsafe operations: invalid paths, target outside root, cross-volume moves, and existing targets.
 - Suggestions and organization plans are persisted for review and auditing before any future apply phase.
+- Apply runs are written to `apply-journal.json` for auditability.
 - Core repo license: `GPL-3.0`.

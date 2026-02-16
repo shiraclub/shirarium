@@ -29,7 +29,7 @@ public sealed class OrganizationPlanApplier
     /// <param name="request">Apply request payload containing selected source paths.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Apply result containing per-item outcomes.</returns>
-    public Task<ApplyOrganizationPlanResult> RunAsync(
+    public async Task<ApplyOrganizationPlanResult> RunAsync(
         ApplyOrganizationPlanRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -39,13 +39,16 @@ public sealed class OrganizationPlanApplier
             request.SourcePaths,
             cancellationToken);
 
+        await ApplyJournalStore.AppendAsync(_applicationPaths, result, cancellationToken);
+
         _logger.LogInformation(
-            "Shirarium apply plan complete. Requested={Requested} Applied={Applied} Skipped={Skipped} Failed={Failed}",
+            "Shirarium apply plan complete. RunId={RunId} Requested={Requested} Applied={Applied} Skipped={Skipped} Failed={Failed}",
+            result.RunId,
             result.RequestedCount,
             result.AppliedCount,
             result.SkippedCount,
             result.FailedCount);
 
-        return Task.FromResult(result);
+        return result;
     }
 }

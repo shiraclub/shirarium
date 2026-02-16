@@ -13,11 +13,12 @@ public sealed class OrganizationApplyLogicTests
         try
         {
             var sourcePath = Path.Combine(root, "incoming", "noroi.mkv");
+            var organizationRoot = Path.Combine(root, "organized");
             var targetPath = Path.Combine(root, "organized", "Noroi (2005)", "Noroi (2005).mkv");
             Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
             File.WriteAllText(sourcePath, "content");
 
-            var plan = CreatePlan(new OrganizationPlanEntry
+            var plan = CreatePlan(organizationRoot, new OrganizationPlanEntry
             {
                 ItemId = "1",
                 SourcePath = sourcePath,
@@ -51,8 +52,9 @@ public sealed class OrganizationApplyLogicTests
         try
         {
             var sourcePath = Path.Combine(root, "incoming", "noroi.mkv");
+            var organizationRoot = Path.Combine(root, "organized");
             var targetPath = Path.Combine(root, "organized", "Noroi (2005)", "Noroi (2005).mkv");
-            var plan = CreatePlan(new OrganizationPlanEntry
+            var plan = CreatePlan(organizationRoot, new OrganizationPlanEntry
             {
                 ItemId = "1",
                 SourcePath = sourcePath,
@@ -83,13 +85,14 @@ public sealed class OrganizationApplyLogicTests
         try
         {
             var sourcePath = Path.Combine(root, "incoming", "noroi.mkv");
+            var organizationRoot = Path.Combine(root, "organized");
             var targetPath = Path.Combine(root, "organized", "Noroi (2005)", "Noroi (2005).mkv");
             Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
             Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
             File.WriteAllText(sourcePath, "source");
             File.WriteAllText(targetPath, "existing-target");
 
-            var plan = CreatePlan(new OrganizationPlanEntry
+            var plan = CreatePlan(organizationRoot, new OrganizationPlanEntry
             {
                 ItemId = "1",
                 SourcePath = sourcePath,
@@ -121,10 +124,11 @@ public sealed class OrganizationApplyLogicTests
         try
         {
             var sourcePath = Path.Combine(root, "incoming", "noroi.mkv");
+            var organizationRoot = Path.Combine(root, "organized");
             var targetPath = Path.Combine(root, "organized", "Noroi (2005)", "Noroi (2005).mkv");
             var unknownPath = Path.Combine(root, "incoming", "unknown.mkv");
 
-            var plan = CreatePlan(new OrganizationPlanEntry
+            var plan = CreatePlan(organizationRoot, new OrganizationPlanEntry
             {
                 ItemId = "1",
                 SourcePath = sourcePath,
@@ -154,11 +158,12 @@ public sealed class OrganizationApplyLogicTests
         try
         {
             var sourcePath = Path.Combine(root, "incoming", "noroi.mkv");
+            var organizationRoot = Path.Combine(root, "organized");
             var targetPath = Path.Combine(root, "organized", "Noroi (2005)", "Noroi (2005).mkv");
             Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
             File.WriteAllText(sourcePath, "content");
 
-            var plan = CreatePlan(new OrganizationPlanEntry
+            var plan = CreatePlan(organizationRoot, new OrganizationPlanEntry
             {
                 ItemId = "1",
                 SourcePath = sourcePath,
@@ -179,11 +184,82 @@ public sealed class OrganizationApplyLogicTests
         }
     }
 
-    private static OrganizationPlanSnapshot CreatePlan(params OrganizationPlanEntry[] entries)
+    [Fact]
+    public void ApplySelected_Fails_WhenTargetIsOutsidePlanRoot()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var sourcePath = Path.Combine(root, "incoming", "noroi.mkv");
+            var organizationRoot = Path.Combine(root, "organized");
+            var targetPath = Path.Combine(root, "elsewhere", "Noroi (2005).mkv");
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(sourcePath, "source");
+
+            var plan = CreatePlan(organizationRoot, new OrganizationPlanEntry
+            {
+                ItemId = "1",
+                SourcePath = sourcePath,
+                TargetPath = targetPath,
+                Action = "move",
+                Reason = "Planned"
+            });
+
+            var result = OrganizationApplyLogic.ApplySelected(plan, [sourcePath]);
+
+            Assert.Equal(1, result.RequestedCount);
+            Assert.Equal(0, result.AppliedCount);
+            Assert.Equal(0, result.SkippedCount);
+            Assert.Equal(1, result.FailedCount);
+            Assert.Equal("failed", result.Results[0].Status);
+            Assert.Equal("TargetOutsideRootPath", result.Results[0].Reason);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void ApplySelected_Fails_WhenCrossVolumeMoveWouldBeRequired()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        const string sourcePath = @"C:\incoming\noroi.mkv";
+        const string targetPath = @"D:\organized\Noroi (2005)\Noroi (2005).mkv";
+        const string rootPath = @"D:\organized";
+
+        var plan = CreatePlan(rootPath, new OrganizationPlanEntry
+        {
+            ItemId = "1",
+            SourcePath = sourcePath,
+            TargetPath = targetPath,
+            Action = "move",
+            Reason = "Planned"
+        });
+
+        var result = OrganizationApplyLogic.ApplySelected(
+            plan,
+            [sourcePath],
+            path => path.Equals(sourcePath, StringComparison.OrdinalIgnoreCase),
+            _ => { },
+            (_, _) => { });
+
+        Assert.Equal(1, result.RequestedCount);
+        Assert.Equal(0, result.AppliedCount);
+        Assert.Equal(0, result.SkippedCount);
+        Assert.Equal(1, result.FailedCount);
+        Assert.Equal("CrossVolumeMoveNotAllowed", result.Results[0].Reason);
+    }
+
+    private static OrganizationPlanSnapshot CreatePlan(string rootPath, params OrganizationPlanEntry[] entries)
     {
         return new OrganizationPlanSnapshot
         {
-            RootPath = "D:\\media",
+            RootPath = rootPath,
             DryRunMode = true,
             SourceSuggestionCount = entries.Length,
             PlannedCount = entries.Count(entry => entry.Action.Equals("move", StringComparison.OrdinalIgnoreCase)),

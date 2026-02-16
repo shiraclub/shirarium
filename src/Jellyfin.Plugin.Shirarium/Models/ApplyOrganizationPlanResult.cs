@@ -6,9 +6,19 @@ namespace Jellyfin.Plugin.Shirarium.Models;
 public sealed class ApplyOrganizationPlanResult
 {
     /// <summary>
+    /// Gets the unique identifier of this apply run.
+    /// </summary>
+    public string RunId { get; init; } = Guid.NewGuid().ToString("N");
+
+    /// <summary>
     /// Gets the UTC timestamp when this apply run was executed.
     /// </summary>
     public DateTimeOffset AppliedAtUtc { get; init; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// Gets the organization root path used for preflight validation in this apply run.
+    /// </summary>
+    public string PlanRootPath { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the number of unique selected paths requested.

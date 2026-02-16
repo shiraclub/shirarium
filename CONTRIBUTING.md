@@ -103,6 +103,7 @@ Local stack smoke test:
 .\scripts\run-dryrun-scan.ps1
 .\scripts\run-organization-plan.ps1
 .\scripts\apply-organization-plan.ps1 -SourcePath "D:\media\incoming\example.mkv"
+.\scripts\show-apply-journal.ps1
 ```
 
 ## Coding Expectations

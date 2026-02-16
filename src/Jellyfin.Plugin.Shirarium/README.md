@@ -12,6 +12,7 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 - Snapshot persistence:
   - `dryrun-suggestions.json`
   - `organization-plan.json`
+  - `apply-journal.json`
 
 ## Admin API
 
@@ -26,3 +27,4 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 - Planning follows Jellyfin naming best practices for movie/episode structures.
 - Behavior is non-destructive by default: no automatic file move/rename is performed.
 - Apply is explicit and selection-based: only source paths chosen by admin and marked `move` in plan are executed.
+- Apply performs preflight safety checks before moving: canonical path validation, root-bound target validation, same-volume requirement, and target collision checks.

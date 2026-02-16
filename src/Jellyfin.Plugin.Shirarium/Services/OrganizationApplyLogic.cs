@@ -26,6 +26,8 @@ internal static class OrganizationApplyLogic
         Action<string, string> moveFile,
         CancellationToken cancellationToken = default)
     {
+        var rootValidation = TryGetCanonicalPath(plan.RootPath, out var canonicalRootPath);
+
         var normalizedSelections = new HashSet<string>(
             selectedSourcePaths.Where(path => !string.IsNullOrWhiteSpace(path)),
             StringComparer.OrdinalIgnoreCase);
@@ -77,7 +79,73 @@ internal static class OrganizationApplyLogic
                 continue;
             }
 
-            var targetPath = entry.TargetPath;
+            if (!rootValidation)
+            {
+                failedCount++;
+                itemResults.Add(new ApplyOrganizationPlanItemResult
+                {
+                    SourcePath = entry.SourcePath,
+                    TargetPath = entry.TargetPath,
+                    Status = "failed",
+                    Reason = "InvalidPlanRootPath"
+                });
+                continue;
+            }
+
+            if (!TryGetCanonicalPath(entry.SourcePath, out var canonicalSourcePath))
+            {
+                failedCount++;
+                itemResults.Add(new ApplyOrganizationPlanItemResult
+                {
+                    SourcePath = entry.SourcePath,
+                    TargetPath = entry.TargetPath,
+                    Status = "failed",
+                    Reason = "InvalidSourcePath"
+                });
+                continue;
+            }
+            var sourcePath = canonicalSourcePath!;
+
+            if (!TryGetCanonicalPath(entry.TargetPath, out var canonicalTargetPath))
+            {
+                failedCount++;
+                itemResults.Add(new ApplyOrganizationPlanItemResult
+                {
+                    SourcePath = entry.SourcePath,
+                    TargetPath = entry.TargetPath,
+                    Status = "failed",
+                    Reason = "InvalidTargetPath"
+                });
+                continue;
+            }
+            var targetPath = canonicalTargetPath!;
+
+            if (!IsUnderRoot(targetPath, canonicalRootPath!))
+            {
+                failedCount++;
+                itemResults.Add(new ApplyOrganizationPlanItemResult
+                {
+                    SourcePath = entry.SourcePath,
+                    TargetPath = targetPath,
+                    Status = "failed",
+                    Reason = "TargetOutsideRootPath"
+                });
+                continue;
+            }
+
+            if (!IsSameVolume(sourcePath, targetPath))
+            {
+                failedCount++;
+                itemResults.Add(new ApplyOrganizationPlanItemResult
+                {
+                    SourcePath = entry.SourcePath,
+                    TargetPath = targetPath,
+                    Status = "failed",
+                    Reason = "CrossVolumeMoveNotAllowed"
+                });
+                continue;
+            }
+
             var targetDirectory = Path.GetDirectoryName(targetPath);
             if (string.IsNullOrWhiteSpace(targetDirectory))
             {
@@ -92,7 +160,7 @@ internal static class OrganizationApplyLogic
                 continue;
             }
 
-            if (!fileExists(entry.SourcePath))
+            if (!fileExists(sourcePath))
             {
                 failedCount++;
                 itemResults.Add(new ApplyOrganizationPlanItemResult
@@ -121,7 +189,7 @@ internal static class OrganizationApplyLogic
             try
             {
                 ensureDirectory(targetDirectory);
-                moveFile(entry.SourcePath, targetPath);
+                moveFile(sourcePath, targetPath);
                 appliedCount++;
                 itemResults.Add(new ApplyOrganizationPlanItemResult
                 {
@@ -147,12 +215,56 @@ internal static class OrganizationApplyLogic
         return new ApplyOrganizationPlanResult
         {
             AppliedAtUtc = DateTimeOffset.UtcNow,
+            PlanRootPath = plan.RootPath,
             RequestedCount = normalizedSelections.Count,
             AppliedCount = appliedCount,
             SkippedCount = skippedCount,
             FailedCount = failedCount,
             Results = itemResults.ToArray()
         };
+    }
+
+    private static bool TryGetCanonicalPath(string? path, out string? canonicalPath)
+    {
+        canonicalPath = null;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            canonicalPath = Path.GetFullPath(path)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsUnderRoot(string path, string rootPath)
+    {
+        if (path.Equals(rootPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var rootWithSeparator = rootPath + Path.DirectorySeparatorChar;
+        return path.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsSameVolume(string sourcePath, string targetPath)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return true;
+        }
+
+        var sourceRoot = Path.GetPathRoot(sourcePath) ?? string.Empty;
+        var targetRoot = Path.GetPathRoot(targetPath) ?? string.Empty;
+        return sourceRoot.Equals(targetRoot, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool PathEquals(string left, string right)
