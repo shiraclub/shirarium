@@ -1,0 +1,82 @@
+name: Smoke
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  jellyfin-smoke:
+    name: Jellyfin Runtime Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Build plugin release
+        run: dotnet build src/Jellyfin.Plugin.Shirarium/Jellyfin.Plugin.Shirarium.csproj -c Release
+
+      - name: Prepare plugin mount
+        run: |
+          mkdir -p artifacts/plugin
+          cp src/Jellyfin.Plugin.Shirarium/bin/Release/net9.0/Jellyfin.Plugin.Shirarium.dll artifacts/plugin/
+          cp src/Jellyfin.Plugin.Shirarium/bin/Release/net9.0/Jellyfin.Plugin.Shirarium.pdb artifacts/plugin/
+          cp src/Jellyfin.Plugin.Shirarium/bin/Release/net9.0/Jellyfin.Plugin.Shirarium.xml artifacts/plugin/
+
+      - name: Run Jellyfin smoke flow
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p data/media
+          mkdir -p data/jellyfin/config
+          mkdir -p data/jellyfin/cache
+
+          export MEDIA_PATH="${GITHUB_WORKSPACE}/data/media"
+          export JELLYFIN_PORT=8097
+
+          cleanup() {
+            docker compose down -v || true
+          }
+          trap cleanup EXIT
+
+          docker compose up -d jellyfin-dev engine
+
+          for i in {1..90}; do
+            code="$(curl -s -o /tmp/jellyfin-public.json -w "%{http_code}" "http://localhost:8097/System/Info/Public" || true)"
+            if [[ "${code}" == "200" ]]; then
+              break
+            fi
+            sleep 2
+          done
+
+          code="$(curl -s -o /tmp/jellyfin-public.json -w "%{http_code}" "http://localhost:8097/System/Info/Public" || true)"
+          if [[ "${code}" != "200" ]]; then
+            echo "Jellyfin did not become healthy in time (last status: ${code})."
+            docker logs shirarium-jellyfin-dev || true
+            exit 1
+          fi
+
+          endpoint_code="$(curl -s -o /tmp/shirarium-route.txt -w "%{http_code}" "http://localhost:8097/shirarium/organization-plan" || true)"
+          if [[ "${endpoint_code}" != "401" && "${endpoint_code}" != "403" ]]; then
+            echo "Expected /shirarium/organization-plan to require auth (401/403), got ${endpoint_code}."
+            cat /tmp/shirarium-route.txt || true
+            docker logs shirarium-jellyfin-dev || true
+            exit 1
+          fi
+
+          if ! grep -a -q "Configuration.configPage.html" "src/Jellyfin.Plugin.Shirarium/bin/Release/net9.0/Jellyfin.Plugin.Shirarium.dll"; then
+            echo "Plugin config page resource is missing from assembly."
+            exit 1
+          fi
+
+          docker logs shirarium-jellyfin-dev | tail -n 200 || true

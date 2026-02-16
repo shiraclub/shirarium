@@ -19,4 +19,9 @@ public static class SnapshotSchemaVersions
     /// Gets review-lock snapshot schema version.
     /// </summary>
     public const int ReviewLock = 1;
+
+    /// <summary>
+    /// Gets reviewed-preflight token snapshot schema version.
+    /// </summary>
+    public const int ReviewedPreflight = 1;
 }

@@ -52,10 +52,10 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 - Plan review view supports server-side filtering/sorting/paging plus override visibility.
 - Per-entry overrides are persisted by plan fingerprint and support action/target path edits.
 - Reviewed preflight simulates exact would-move/would-skip/would-fail outcomes without filesystem mutation.
-- Reviewed apply combines latest plan + persisted overrides under the same fingerprint safety guard.
+- Reviewed apply combines latest plan + persisted overrides under the same fingerprint safety guard and requires a valid preflight token.
 - Immutable review locks freeze reviewed selection + effective plan for deterministic apply-by-id execution.
 - Plan and override revision histories are persisted and queryable for operator auditability.
-- Jellyfin dashboard page (`Shirarium Review`) provides in-app tabs for Review, Preflight, Locks, and History.
+- Jellyfin dashboard page (`Shirarium Review`) provides in-app tabs for Review, Preflight, Locks, and History, including bulk action/prefix overrides.
 - Controller endpoints require Jellyfin elevation policy (`Policies.RequiresElevation`).
 - Apply requires `expectedPlanFingerprint` and rejects stale plan submissions.
 - Apply and undo are serialized by a filesystem lock (`apply.lock`) to prevent concurrent file mutation runs.
@@ -64,3 +64,4 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 - `ops-status` provides a compact operational summary of latest scan/plan/apply/undo runs for ops visibility.
 - Scan snapshots now include observability buckets for candidate reasons, parser sources, and confidence ranges.
 - Snapshot storage is strict in-dev: unsupported or missing `schemaVersion` values are ignored (no legacy migration path).
+- API validation/conflict responses use machine-readable payloads (`code`, `message`, optional `details`).

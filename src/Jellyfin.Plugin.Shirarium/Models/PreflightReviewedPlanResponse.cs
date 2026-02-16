@@ -16,6 +16,16 @@ public sealed class PreflightReviewedPlanResponse
     public string PlanFingerprint { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets one-time token required by <c>apply-reviewed-plan</c>.
+    /// </summary>
+    public string PreflightToken { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets UTC expiry timestamp for <see cref="PreflightToken"/>.
+    /// </summary>
+    public DateTimeOffset PreflightTokenExpiresAtUtc { get; init; }
+
+    /// <summary>
     /// Gets the count of reviewed entries marked as move.
     /// </summary>
     public int MoveCandidateCount { get; init; }

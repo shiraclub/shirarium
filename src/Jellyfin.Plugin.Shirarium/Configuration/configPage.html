@@ -185,6 +185,8 @@
                             <button is="emby-button" type="button" id="shirariumPreflightSelected" class="raised">Preflight Selected</button>
                             <button is="emby-button" type="button" id="shirariumApplySelected" class="raised">Apply Selected</button>
                             <button is="emby-button" type="button" id="shirariumCreateLockSelected" class="raised">Create Lock from Selected</button>
+                            <button is="emby-button" type="button" id="shirariumSelectFilteredMoves" class="raised">Select Filtered Moves</button>
+                            <button is="emby-button" type="button" id="shirariumClearSelection" class="raised">Clear Selection</button>
                         </div>
 
                         <div class="shirarium-inline">
@@ -222,6 +224,20 @@
                             </label>
                             <label>Page <input id="shirariumPage" type="number" min="1" value="1"></label>
                             <label>Page size <input id="shirariumPageSize" type="number" min="1" max="500" value="50"></label>
+                        </div>
+
+                        <div class="shirarium-inline">
+                            <label>Bulk action
+                                <select id="shirariumBulkAction">
+                                    <option value="move">move</option>
+                                    <option value="skip">skip</option>
+                                    <option value="none">none</option>
+                                    <option value="conflict">conflict</option>
+                                </select>
+                            </label>
+                            <button is="emby-button" type="button" id="shirariumApplyBulkAction">Apply Action to Selected</button>
+                            <label>Bulk target prefix <input id="shirariumBulkTargetPrefix" type="text" placeholder="D:\\media\\organized"></label>
+                            <button is="emby-button" type="button" id="shirariumApplyBulkTargetPrefix">Apply Target Prefix</button>
                         </div>
 
                         <div class="shirarium-table-wrap">
@@ -343,9 +359,13 @@
         (function () {
             var state = {
                 planFingerprint: "",
+                planRootPath: "",
                 selectedSourcePaths: {},
                 lastView: null,
-                lastPreflight: null
+                lastPreflight: null,
+                preflightToken: "",
+                preflightTokenExpiresAtUtc: null,
+                preflightSelectionKey: ""
             };
 
             var planReasonTone = {
@@ -413,6 +433,33 @@
                     .sort();
             }
 
+            function selectionKey(paths) {
+                var normalized = (paths || []).slice().sort();
+                return (state.planFingerprint || "") + "|" + normalized.join("|");
+            }
+
+            function invalidatePreflightToken() {
+                state.preflightToken = "";
+                state.preflightTokenExpiresAtUtc = null;
+                state.preflightSelectionKey = "";
+            }
+
+            function hasValidPreflightToken(paths) {
+                if (!state.preflightToken) {
+                    return false;
+                }
+
+                if (state.preflightSelectionKey !== selectionKey(paths)) {
+                    return false;
+                }
+
+                if (!state.preflightTokenExpiresAtUtc) {
+                    return false;
+                }
+
+                return Date.parse(state.preflightTokenExpiresAtUtc) > Date.now();
+            }
+
             function updateSelectedCount() {
                 el("shirariumSelectedCount").textContent = String(selectedPaths().length);
             }
@@ -446,7 +493,18 @@
 
                 if (!response.ok) {
                     var text = await response.text();
-                    throw new Error(text || ("HTTP " + response.status));
+                    var errorMessage = text || ("HTTP " + response.status);
+                    try {
+                        var parsed = JSON.parse(text);
+                        if (parsed && typeof parsed === "object") {
+                            var code = parsed.code ? ("[" + parsed.code + "] ") : "";
+                            var message = parsed.message || errorMessage;
+                            errorMessage = code + message;
+                        }
+                    } catch (parseError) {
+                    }
+
+                    throw new Error(errorMessage);
                 }
 
                 if (response.status === 204) {
@@ -464,11 +522,12 @@
 
                 return [action];
             }
-            function buildViewQuery() {
+            function buildViewQuery(options) {
+                options = options || {};
                 var minConfidenceValue = Number(el("shirariumMinConfidence").value || "0");
                 var minConfidence = Number.isFinite(minConfidenceValue) ? Math.max(0, Math.min(1, minConfidenceValue)) : 0;
-                var page = Math.max(1, Number(el("shirariumPage").value || "1"));
-                var pageSize = Math.max(1, Math.min(500, Number(el("shirariumPageSize").value || "50")));
+                var page = Math.max(1, Number(options.page || el("shirariumPage").value || "1"));
+                var pageSize = Math.max(1, Math.min(1000, Number(options.pageSize || el("shirariumPageSize").value || "50")));
 
                 var query = new URLSearchParams();
                 query.set("page", String(page));
@@ -490,6 +549,79 @@
                 });
 
                 return query.toString();
+            }
+
+            async function fetchViewPage(page, pageSize) {
+                return apiJson("shirarium/organization-plan-view?" + buildViewQuery({
+                    page: page,
+                    pageSize: pageSize
+                }), "GET");
+            }
+
+            async function loadAllFilteredEntries() {
+                var page = 1;
+                var pageSize = 500;
+                var allEntries = [];
+
+                while (true) {
+                    var payload = await fetchViewPage(page, pageSize);
+                    var entries = payload.entries || [];
+                    allEntries = allEntries.concat(entries);
+
+                    var totalFiltered = Number(payload.filteredEntries || 0);
+                    if (page * pageSize >= totalFiltered || entries.length === 0) {
+                        break;
+                    }
+
+                    page += 1;
+                }
+
+                return allEntries;
+            }
+
+            async function loadAllFilteredMoveSourcePaths() {
+                var sourcePathMap = {};
+                var allEntries = await loadAllFilteredEntries();
+                allEntries.forEach(function (entry) {
+                    if (String(entry.effectiveAction || "").toLowerCase() === "move" && entry.sourcePath) {
+                        sourcePathMap[entry.sourcePath] = true;
+                    }
+                });
+
+                return Object.keys(sourcePathMap).sort();
+            }
+
+            function getViewEntryBySourcePath(sourcePath) {
+                if (!state.lastView || !Array.isArray(state.lastView.entries)) {
+                    return null;
+                }
+
+                for (var i = 0; i < state.lastView.entries.length; i++) {
+                    var entry = state.lastView.entries[i];
+                    if ((entry.sourcePath || "") === sourcePath) {
+                        return entry;
+                    }
+                }
+
+                return null;
+            }
+
+            function tryBuildTargetWithPrefix(currentTargetPath, newPrefix) {
+                if (!currentTargetPath || !newPrefix || !state.planRootPath) {
+                    return null;
+                }
+
+                var normalizedRoot = state.planRootPath.replace(/\//g, "\\").replace(/\\+$/g, "");
+                var normalizedCurrent = String(currentTargetPath).replace(/\//g, "\\");
+                var normalizedPrefix = String(newPrefix).replace(/\//g, "\\").replace(/\\+$/g, "");
+                var rootPrefix = normalizedRoot + "\\";
+
+                if (normalizedCurrent.toLowerCase().indexOf(rootPrefix.toLowerCase()) !== 0) {
+                    return null;
+                }
+
+                var relativePath = normalizedCurrent.substring(rootPrefix.length);
+                return normalizedPrefix + "\\" + relativePath;
             }
 
             function renderReviewRows(entries) {
@@ -598,9 +730,17 @@
                 setError("");
                 try {
                     var query = buildViewQuery();
-                    var payload = await apiJson("shirarium/organization-plan-view?" + query, "GET");
+                    var results = await Promise.all([
+                        apiJson("shirarium/organization-plan-view?" + query, "GET"),
+                        apiJson("shirarium/organization-plan-summary", "GET")
+                    ]);
+
+                    var payload = results[0];
+                    var summary = results[1] || {};
                     state.lastView = payload;
                     state.planFingerprint = payload.planFingerprint || "";
+                    state.planRootPath = summary.rootPath || "";
+                    invalidatePreflightToken();
 
                     el("shirariumPlanFingerprint").textContent = state.planFingerprint || "-";
                     el("shirariumFilteredEntries").textContent = String(payload.filteredEntries || 0);
@@ -643,38 +783,54 @@
                     patches: [patch]
                 });
 
+                invalidatePreflightToken();
                 await loadReviewView();
             }
 
-            async function runPreflight() {
+            async function runPreflight(options) {
+                options = options || {};
                 if (!state.planFingerprint) {
                     throw new Error("No plan fingerprint loaded. Reload the review view first.");
                 }
 
-                Dashboard.showLoadingMsg();
+                var shouldShowLoading = options.showLoading !== false;
+                var paths = Array.isArray(options.paths) ? options.paths.slice() : selectedPaths();
+
+                if (shouldShowLoading) {
+                    Dashboard.showLoadingMsg();
+                }
                 setError("");
                 try {
                     var payload = await apiJson("shirarium/preflight-reviewed-plan", "POST", {
                         expectedPlanFingerprint: state.planFingerprint,
-                        sourcePaths: selectedPaths()
+                        sourcePaths: paths
                     });
 
                     state.lastPreflight = payload;
+                    state.preflightToken = payload.preflightToken || "";
+                    state.preflightTokenExpiresAtUtc = payload.preflightTokenExpiresAtUtc || null;
+                    state.preflightSelectionKey = selectionKey(payload.selectedSourcePaths || paths);
+
                     var result = payload.previewResult || {};
                     var results = result.results || [];
                     renderPreflightRows(results);
 
                     el("shirariumPreflightSummary").textContent =
                         "Generated " + formatDate(payload.generatedAtUtc)
+                        + " | tokenExpires=" + formatDate(payload.preflightTokenExpiresAtUtc)
                         + " | requested=" + String(result.requestedCount || 0)
                         + " | preview=" + String(result.appliedCount || 0)
                         + " | skipped=" + String(result.skippedCount || 0)
                         + " | failed=" + String(result.failedCount || 0);
                     setMessage("Preflight completed.");
+                    return payload;
                 } catch (error) {
                     setError(String(error.message || error));
+                    throw error;
                 } finally {
-                    Dashboard.hideLoadingMsg();
+                    if (shouldShowLoading) {
+                        Dashboard.hideLoadingMsg();
+                    }
                 }
             }
 
@@ -691,8 +847,16 @@
                 Dashboard.showLoadingMsg();
                 setError("");
                 try {
+                    if (!hasValidPreflightToken(paths)) {
+                        await runPreflight({
+                            showLoading: false,
+                            paths: paths
+                        });
+                    }
+
                     var payload = await apiJson("shirarium/apply-reviewed-plan", "POST", {
                         expectedPlanFingerprint: state.planFingerprint,
+                        preflightToken: state.preflightToken,
                         sourcePaths: paths
                     });
 
@@ -701,7 +865,141 @@
                         + " completed: applied=" + String(payload.appliedCount || 0)
                         + ", skipped=" + String(payload.skippedCount || 0)
                         + ", failed=" + String(payload.failedCount || 0));
+                    invalidatePreflightToken();
                     await loadReviewView();
+                } catch (error) {
+                    setError(String(error.message || error));
+                } finally {
+                    Dashboard.hideLoadingMsg();
+                }
+            }
+
+            async function selectFilteredMoves() {
+                Dashboard.showLoadingMsg();
+                setError("");
+                try {
+                    var movePaths = await loadAllFilteredMoveSourcePaths();
+                    movePaths.forEach(function (path) {
+                        state.selectedSourcePaths[path] = true;
+                    });
+                    updateSelectedCount();
+                    invalidatePreflightToken();
+                    await loadReviewView();
+                    setMessage("Selected " + String(movePaths.length) + " filtered move entries.");
+                } catch (error) {
+                    setError(String(error.message || error));
+                } finally {
+                    Dashboard.hideLoadingMsg();
+                }
+            }
+
+            function clearSelection() {
+                state.selectedSourcePaths = {};
+                invalidatePreflightToken();
+                updateSelectedCount();
+                Array.prototype.forEach.call(document.querySelectorAll("[data-select-source]"), function (checkbox) {
+                    checkbox.checked = false;
+                });
+                setMessage("Selection cleared.");
+            }
+
+            async function applyBulkAction() {
+                if (!state.planFingerprint) {
+                    throw new Error("No plan fingerprint loaded. Reload the review view first.");
+                }
+
+                var paths = selectedPaths();
+                if (!paths.length) {
+                    throw new Error("No selected entries.");
+                }
+
+                var action = (el("shirariumBulkAction").value || "").trim();
+                if (!action) {
+                    throw new Error("Bulk action is required.");
+                }
+
+                Dashboard.showLoadingMsg();
+                setError("");
+                try {
+                    var patches = paths.map(function (sourcePath) {
+                        return {
+                            sourcePath: sourcePath,
+                            action: action
+                        };
+                    });
+
+                    await apiJson("shirarium/organization-plan-entry-overrides", "PATCH", {
+                        expectedPlanFingerprint: state.planFingerprint,
+                        patches: patches
+                    });
+
+                    invalidatePreflightToken();
+                    await loadReviewView();
+                    setMessage("Applied bulk action '" + action + "' to " + String(paths.length) + " entries.");
+                } catch (error) {
+                    setError(String(error.message || error));
+                } finally {
+                    Dashboard.hideLoadingMsg();
+                }
+            }
+
+            async function applyBulkTargetPrefix() {
+                if (!state.planFingerprint) {
+                    throw new Error("No plan fingerprint loaded. Reload the review view first.");
+                }
+
+                var paths = selectedPaths();
+                if (!paths.length) {
+                    throw new Error("No selected entries.");
+                }
+
+                var prefix = (el("shirariumBulkTargetPrefix").value || "").trim();
+                if (!prefix) {
+                    throw new Error("Bulk target prefix is required.");
+                }
+
+                Dashboard.showLoadingMsg();
+                setError("");
+                try {
+                    var allEntries = await loadAllFilteredEntries();
+                    var targetBySource = {};
+                    allEntries.forEach(function (entry) {
+                        if (entry.sourcePath) {
+                            targetBySource[entry.sourcePath] = entry.effectiveTargetPath || "";
+                        }
+                    });
+
+                    var patches = [];
+                    var skipped = 0;
+                    paths.forEach(function (sourcePath) {
+                        var currentTarget = targetBySource[sourcePath] || (getViewEntryBySourcePath(sourcePath) || {}).effectiveTargetPath;
+                        var nextTarget = tryBuildTargetWithPrefix(currentTarget, prefix);
+                        if (!nextTarget) {
+                            skipped += 1;
+                            return;
+                        }
+
+                        patches.push({
+                            sourcePath: sourcePath,
+                            action: "move",
+                            targetPath: nextTarget
+                        });
+                    });
+
+                    if (!patches.length) {
+                        throw new Error("No selected entries could be remapped to the target prefix.");
+                    }
+
+                    await apiJson("shirarium/organization-plan-entry-overrides", "PATCH", {
+                        expectedPlanFingerprint: state.planFingerprint,
+                        patches: patches
+                    });
+
+                    invalidatePreflightToken();
+                    await loadReviewView();
+                    setMessage(
+                        "Applied target prefix to " + String(patches.length) + " entries."
+                        + (skipped > 0 ? (" Skipped " + String(skipped) + " entries outside plan root.") : ""));
                 } catch (error) {
                     setError(String(error.message || error));
                 } finally {
@@ -829,6 +1127,10 @@
                 el("shirariumPreflightSelected").addEventListener("click", runPreflight);
                 el("shirariumApplySelected").addEventListener("click", applyReviewed);
                 el("shirariumCreateLockSelected").addEventListener("click", createLock);
+                el("shirariumSelectFilteredMoves").addEventListener("click", selectFilteredMoves);
+                el("shirariumClearSelection").addEventListener("click", clearSelection);
+                el("shirariumApplyBulkAction").addEventListener("click", applyBulkAction);
+                el("shirariumApplyBulkTargetPrefix").addEventListener("click", applyBulkTargetPrefix);
                 el("shirariumReloadLocks").addEventListener("click", loadLocks);
                 el("shirariumReloadHistory").addEventListener("click", loadHistory);
 
@@ -842,6 +1144,7 @@
                         checkbox.checked = checked;
                         state.selectedSourcePaths[checkbox.getAttribute("data-select-source")] = checked;
                     });
+                    invalidatePreflightToken();
                     updateSelectedCount();
                 });
 
@@ -850,6 +1153,7 @@
                         if (id !== "shirariumPage") {
                             el("shirariumPage").value = "1";
                         }
+                        invalidatePreflightToken();
                         loadReviewView();
                     });
                 });
@@ -870,6 +1174,7 @@
                     var target = event.target;
                     if (target && target.hasAttribute("data-select-source")) {
                         state.selectedSourcePaths[target.getAttribute("data-select-source")] = !!target.checked;
+                        invalidatePreflightToken();
                         updateSelectedCount();
                     }
                 });

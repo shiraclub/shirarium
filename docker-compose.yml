@@ -1,6 +1,6 @@
 services:
   jellyfin-dev:
-    image: jellyfin/jellyfin:10.10.3
+    image: jellyfin/jellyfin:10.11.6
     container_name: shirarium-jellyfin-dev
     ports:
       - "${JELLYFIN_PORT:-8097}:8096"

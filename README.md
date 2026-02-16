@@ -123,7 +123,7 @@ Dashboard -> Plugins -> Shirarium -> Shirarium Review
 ```
 
 UI tabs:
-- `Review`: server-side paged plan browsing, row override patching, and selection.
+- `Review`: server-side paged plan browsing, row override patching, selection, and bulk actions.
 - `Preflight`: exact reviewed move simulation (`WouldMove`, skips, failures) before mutation.
 - `Locks`: immutable review lock create/list/get/apply.
 - `History`: plan and override revision snapshots.
@@ -172,6 +172,10 @@ Apply reviewed move entries directly (all effective `move` entries by default):
 ```powershell
 .\scripts\apply-reviewed-plan.ps1
 ```
+
+Note:
+- `apply-reviewed-plan` now requires a valid reviewed preflight token.
+- `scripts/apply-reviewed-plan.ps1` auto-runs preflight first when `-PreflightToken` is not supplied.
 
 Apply only specific reviewed entries:
 

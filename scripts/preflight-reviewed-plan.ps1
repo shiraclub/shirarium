@@ -2,7 +2,8 @@ param(
     [string[]]$SourcePath,
     [string]$JellyfinBaseUrl = "http://localhost:8097",
     [string]$PlanFingerprint,
-    [string]$AccessToken
+    [string]$AccessToken,
+    [switch]$OutputTokenOnly
 )
 
 Set-StrictMode -Version Latest
@@ -36,4 +37,9 @@ if ($SourcePath -and $SourcePath.Count -gt 0) {
 
 $json = $payload | ConvertTo-Json -Depth 6
 $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -ContentType "application/json" -Body $json
-$response | ConvertTo-Json -Depth 12
+if ($OutputTokenOnly) {
+    [string]$response.preflightToken
+}
+else {
+    $response | ConvertTo-Json -Depth 12
+}

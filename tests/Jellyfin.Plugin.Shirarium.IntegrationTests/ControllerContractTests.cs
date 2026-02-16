@@ -2,6 +2,7 @@ using Jellyfin.Plugin.Shirarium.Api;
 using Jellyfin.Plugin.Shirarium.Models;
 using Jellyfin.Plugin.Shirarium.Services;
 using MediaBrowser.Common.Api;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -54,9 +55,11 @@ public sealed class ControllerContractTests
                 },
                 CancellationToken.None);
 
-            var conflict = Assert.IsType<ConflictObjectResult>(response.Result);
-            var message = Assert.IsType<string>(conflict.Value);
-            Assert.Contains("fingerprint mismatch", message, StringComparison.OrdinalIgnoreCase);
+            var conflict = Assert.IsType<ObjectResult>(response.Result);
+            Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+            var error = Assert.IsType<ApiErrorResponse>(conflict.Value);
+            Assert.Equal("PlanFingerprintMismatch", error.Code);
+            Assert.Contains("fingerprint mismatch", error.Message, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
@@ -94,9 +97,12 @@ public sealed class ControllerContractTests
                 },
                 CancellationToken.None);
 
-            var badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
-            var message = Assert.IsType<string>(badRequest.Value);
-            Assert.Contains("Unsupported action override", message, StringComparison.OrdinalIgnoreCase);
+            var badRequest = Assert.IsType<ObjectResult>(response.Result);
+            Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+            var error = Assert.IsType<ApiErrorResponse>(badRequest.Value);
+            Assert.Equal("ValidationError", error.Code);
+            var details = Assert.IsType<string>(error.Details);
+            Assert.Contains("Unsupported action override", details, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
@@ -137,13 +143,16 @@ public sealed class ControllerContractTests
             var response = await controller.ApplyReviewedPlan(
                 new ApplyReviewedPlanRequest
                 {
-                    ExpectedPlanFingerprint = plan.PlanFingerprint
+                    ExpectedPlanFingerprint = plan.PlanFingerprint,
+                    PreflightToken = "unused-token"
                 },
                 CancellationToken.None);
 
-            var badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
-            var message = Assert.IsType<string>(badRequest.Value);
-            Assert.Equal("No reviewed move entries selected to apply.", message);
+            var badRequest = Assert.IsType<ObjectResult>(response.Result);
+            Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+            var error = Assert.IsType<ApiErrorResponse>(badRequest.Value);
+            Assert.Equal("NoReviewedMoveEntries", error.Code);
+            Assert.Equal("No reviewed move entries selected to apply.", error.Message);
         }
         finally
         {
@@ -164,12 +173,14 @@ public sealed class ControllerContractTests
             Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
             File.WriteAllText(sourcePath, "content-a");
             var plan = await WritePlanAsync(applicationPaths, sourcePath, targetPath);
+            var preflight = await RunPreflightAsync(CreateController(applicationPaths), plan.PlanFingerprint);
 
             var controller = CreateController(applicationPaths);
             var response = await controller.ApplyReviewedPlan(
                 new ApplyReviewedPlanRequest
                 {
-                    ExpectedPlanFingerprint = plan.PlanFingerprint
+                    ExpectedPlanFingerprint = plan.PlanFingerprint,
+                    PreflightToken = preflight.PreflightToken
                 },
                 CancellationToken.None);
 
@@ -211,9 +222,12 @@ public sealed class ControllerContractTests
                 Page = 0
             });
 
-            var badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
-            var message = Assert.IsType<string>(badRequest.Value);
-            Assert.Equal("Page must be greater than 0.", message);
+            var badRequest = Assert.IsType<ObjectResult>(response.Result);
+            Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+            var error = Assert.IsType<ApiErrorResponse>(badRequest.Value);
+            Assert.Equal("ValidationError", error.Code);
+            var details = Assert.IsType<string>(error.Details);
+            Assert.Equal("Page must be greater than 0.", details);
         }
         finally
         {
@@ -236,7 +250,7 @@ public sealed class ControllerContractTests
             var plan = await WritePlanAsync(applicationPaths, sourcePath, targetPath);
 
             var controller = CreateController(applicationPaths);
-            var response = controller.PreflightReviewedPlan(
+            var response = await controller.PreflightReviewedPlan(
                 new PreflightReviewedPlanRequest
                 {
                     ExpectedPlanFingerprint = plan.PlanFingerprint
@@ -247,6 +261,7 @@ public sealed class ControllerContractTests
             var payload = Assert.IsType<PreflightReviewedPlanResponse>(ok.Value);
 
             Assert.Equal(plan.PlanFingerprint, payload.PlanFingerprint);
+            Assert.False(string.IsNullOrWhiteSpace(payload.PreflightToken));
             Assert.Equal(1, payload.MoveCandidateCount);
             Assert.Equal(1, payload.PreviewResult.AppliedCount);
             Assert.Equal("preview", payload.PreviewResult.Results[0].Status);
@@ -254,6 +269,39 @@ public sealed class ControllerContractTests
 
             Assert.True(File.Exists(sourcePath));
             Assert.False(File.Exists(targetPath));
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyReviewedPlan_ReturnsBadRequest_WhenPreflightTokenMissing()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var sourcePath = Path.Combine(root, "incoming", "A.mkv");
+            var targetPath = Path.Combine(root, "organized", "A", "A.mkv");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(sourcePath, "content-a");
+            var plan = await WritePlanAsync(applicationPaths, sourcePath, targetPath);
+
+            var controller = CreateController(applicationPaths);
+            var response = await controller.ApplyReviewedPlan(
+                new ApplyReviewedPlanRequest
+                {
+                    ExpectedPlanFingerprint = plan.PlanFingerprint
+                },
+                CancellationToken.None);
+
+            var badRequest = Assert.IsType<ObjectResult>(response.Result);
+            Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+            var error = Assert.IsType<ApiErrorResponse>(badRequest.Value);
+            Assert.Equal("PreflightTokenRequired", error.Code);
         }
         finally
         {
@@ -567,6 +615,22 @@ public sealed class ControllerContractTests
         {
             CleanupTempRoot(root);
         }
+    }
+
+    private static async Task<PreflightReviewedPlanResponse> RunPreflightAsync(
+        ShirariumController controller,
+        string planFingerprint,
+        params string[] sourcePaths)
+    {
+        var response = await controller.PreflightReviewedPlan(
+            new PreflightReviewedPlanRequest
+            {
+                ExpectedPlanFingerprint = planFingerprint,
+                SourcePaths = sourcePaths ?? []
+            },
+            CancellationToken.None);
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        return Assert.IsType<PreflightReviewedPlanResponse>(ok.Value);
     }
 
     private static ShirariumController CreateController(TestApplicationPaths applicationPaths)

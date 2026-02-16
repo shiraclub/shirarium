@@ -4,6 +4,7 @@ using MediaBrowser.Common.Api;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
@@ -84,7 +85,7 @@ public sealed class ShirariumController : ControllerBase
         var validationError = OrganizationPlanViewLogic.ValidateRequest(request);
         if (!string.IsNullOrWhiteSpace(validationError))
         {
-            return BadRequest(validationError);
+            return BadRequestError("ValidationError", "Invalid organization-plan view request.", validationError);
         }
 
         var plan = OrganizationPlanStore.Read(_applicationPaths);
@@ -141,12 +142,12 @@ public sealed class ShirariumController : ControllerBase
     {
         if (request is null || request.SourcePaths.Length == 0)
         {
-            return BadRequest("At least one source path must be provided.");
+            return BadRequestError("SourcePathsRequired", "At least one source path must be provided.");
         }
 
         if (string.IsNullOrWhiteSpace(request.ExpectedPlanFingerprint))
         {
-            return BadRequest("ExpectedPlanFingerprint is required.");
+            return BadRequestError("ExpectedPlanFingerprintRequired", "ExpectedPlanFingerprint is required.");
         }
 
         try
@@ -157,12 +158,12 @@ public sealed class ShirariumController : ControllerBase
         catch (InvalidOperationException ex) when (
             ex.Message.Equals("PlanFingerprintMismatch", StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+            return ConflictError("PlanFingerprintMismatch", "Plan fingerprint mismatch. Refresh the organization plan and retry.");
         }
         catch (InvalidOperationException ex) when (
             ex.Message.Equals("OperationAlreadyInProgress", StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("Another apply or undo operation is already in progress.");
+            return ConflictError("OperationAlreadyInProgress", "Another apply or undo operation is already in progress.");
         }
     }
 
@@ -179,19 +180,19 @@ public sealed class ShirariumController : ControllerBase
     {
         if (request is null)
         {
-            return BadRequest("Request body is required.");
+            return BadRequestError("RequestBodyRequired", "Request body is required.");
         }
 
         var validationError = OrganizationPlanFilterLogic.Validate(request);
         if (!string.IsNullOrWhiteSpace(validationError))
         {
-            return BadRequest(validationError);
+            return BadRequestError("ValidationError", "Invalid apply-plan-by-filter request.", validationError);
         }
 
         var plan = OrganizationPlanStore.Read(_applicationPaths);
         if (!request.ExpectedPlanFingerprint.Equals(plan.PlanFingerprint, StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+            return ConflictError("PlanFingerprintMismatch", "Plan fingerprint mismatch. Refresh the organization plan and retry.");
         }
 
         var selection = OrganizationPlanFilterLogic.Select(plan, request);
@@ -236,12 +237,12 @@ public sealed class ShirariumController : ControllerBase
         catch (InvalidOperationException ex) when (
             ex.Message.Equals("PlanFingerprintMismatch", StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+            return ConflictError("PlanFingerprintMismatch", "Plan fingerprint mismatch. Refresh the organization plan and retry.");
         }
         catch (InvalidOperationException ex) when (
             ex.Message.Equals("OperationAlreadyInProgress", StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("Another apply or undo operation is already in progress.");
+            return ConflictError("OperationAlreadyInProgress", "Another apply or undo operation is already in progress.");
         }
     }
 
@@ -258,7 +259,7 @@ public sealed class ShirariumController : ControllerBase
     {
         if (request is null)
         {
-            return BadRequest("Request body is required.");
+            return BadRequestError("RequestBodyRequired", "Request body is required.");
         }
 
         var plan = OrganizationPlanStore.Read(_applicationPaths);
@@ -267,10 +268,10 @@ public sealed class ShirariumController : ControllerBase
         {
             if (validationError.Equals("PlanFingerprintMismatch", StringComparison.OrdinalIgnoreCase))
             {
-                return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+                return ConflictError("PlanFingerprintMismatch", "Plan fingerprint mismatch. Refresh the organization plan and retry.");
             }
 
-            return BadRequest(validationError);
+            return BadRequestError("ValidationError", "Invalid organization-plan override patch request.", validationError);
         }
 
         var currentSnapshot = OrganizationPlanOverridesStore.ReadForFingerprint(
@@ -305,18 +306,23 @@ public sealed class ShirariumController : ControllerBase
     {
         if (request is null)
         {
-            return BadRequest("Request body is required.");
+            return BadRequestError("RequestBodyRequired", "Request body is required.");
         }
 
         if (string.IsNullOrWhiteSpace(request.ExpectedPlanFingerprint))
         {
-            return BadRequest("ExpectedPlanFingerprint is required.");
+            return BadRequestError("ExpectedPlanFingerprintRequired", "ExpectedPlanFingerprint is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.PreflightToken))
+        {
+            return BadRequestError("PreflightTokenRequired", "PreflightToken is required. Run preflight-reviewed-plan first.");
         }
 
         var plan = OrganizationPlanStore.Read(_applicationPaths);
         if (!request.ExpectedPlanFingerprint.Equals(plan.PlanFingerprint, StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+            return ConflictError("PlanFingerprintMismatch", "Plan fingerprint mismatch. Refresh the organization plan and retry.");
         }
 
         var overridesSnapshot = OrganizationPlanOverridesStore.ReadForFingerprint(
@@ -328,7 +334,29 @@ public sealed class ShirariumController : ControllerBase
 
         if (selectedSourcePaths.Length == 0)
         {
-            return BadRequest("No reviewed move entries selected to apply.");
+            return BadRequestError("NoReviewedMoveEntries", "No reviewed move entries selected to apply.");
+        }
+
+        var consumeStatus = await ReviewedPreflightStore.ConsumeIfValidAsync(
+            _applicationPaths,
+            request.PreflightToken,
+            request.ExpectedPlanFingerprint,
+            selectedSourcePaths,
+            cancellationToken);
+        if (consumeStatus != ReviewedPreflightStore.ConsumeStatus.Success)
+        {
+            return consumeStatus switch
+            {
+                ReviewedPreflightStore.ConsumeStatus.MissingToken
+                    => BadRequestError("PreflightTokenRequired", "PreflightToken is required. Run preflight-reviewed-plan first."),
+                ReviewedPreflightStore.ConsumeStatus.TokenExpired
+                    => BadRequestError("PreflightTokenExpired", "Preflight token expired. Run preflight-reviewed-plan again."),
+                ReviewedPreflightStore.ConsumeStatus.PlanFingerprintMismatch
+                    => ConflictError("PreflightPlanFingerprintMismatch", "Preflight token does not match current plan fingerprint."),
+                ReviewedPreflightStore.ConsumeStatus.SelectedSourceMismatch
+                    => ConflictError("PreflightSelectionMismatch", "Preflight token does not match selected source paths."),
+                _ => BadRequestError("PreflightTokenInvalid", "Invalid preflight token. Run preflight-reviewed-plan again.")
+            };
         }
 
         try
@@ -346,12 +374,12 @@ public sealed class ShirariumController : ControllerBase
         catch (InvalidOperationException ex) when (
             ex.Message.Equals("PlanFingerprintMismatch", StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+            return ConflictError("PlanFingerprintMismatch", "Plan fingerprint mismatch. Refresh the organization plan and retry.");
         }
         catch (InvalidOperationException ex) when (
             ex.Message.Equals("OperationAlreadyInProgress", StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("Another apply or undo operation is already in progress.");
+            return ConflictError("OperationAlreadyInProgress", "Another apply or undo operation is already in progress.");
         }
     }
 
@@ -362,24 +390,24 @@ public sealed class ShirariumController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Preview result for reviewed selection.</returns>
     [HttpPost("preflight-reviewed-plan")]
-    public ActionResult<PreflightReviewedPlanResponse> PreflightReviewedPlan(
+    public async Task<ActionResult<PreflightReviewedPlanResponse>> PreflightReviewedPlan(
         [FromBody] PreflightReviewedPlanRequest request,
         CancellationToken cancellationToken)
     {
         if (request is null)
         {
-            return BadRequest("Request body is required.");
+            return BadRequestError("RequestBodyRequired", "Request body is required.");
         }
 
         if (string.IsNullOrWhiteSpace(request.ExpectedPlanFingerprint))
         {
-            return BadRequest("ExpectedPlanFingerprint is required.");
+            return BadRequestError("ExpectedPlanFingerprintRequired", "ExpectedPlanFingerprint is required.");
         }
 
         var plan = OrganizationPlanStore.Read(_applicationPaths);
         if (!request.ExpectedPlanFingerprint.Equals(plan.PlanFingerprint, StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+            return ConflictError("PlanFingerprintMismatch", "Plan fingerprint mismatch. Refresh the organization plan and retry.");
         }
 
         var overridesSnapshot = OrganizationPlanOverridesStore.ReadForFingerprint(
@@ -392,11 +420,18 @@ public sealed class ShirariumController : ControllerBase
             effectivePlan,
             selectedSourcePaths,
             cancellationToken);
+        var preflightEntry = await ReviewedPreflightStore.IssueAsync(
+            _applicationPaths,
+            effectivePlan.PlanFingerprint,
+            selectedSourcePaths,
+            cancellationToken);
 
         return Ok(new PreflightReviewedPlanResponse
         {
             GeneratedAtUtc = DateTimeOffset.UtcNow,
             PlanFingerprint = effectivePlan.PlanFingerprint,
+            PreflightToken = preflightEntry.Token,
+            PreflightTokenExpiresAtUtc = preflightEntry.ExpiresAtUtc,
             MoveCandidateCount = effectivePlan.Entries.Count(entry => entry.Action.Equals("move", StringComparison.OrdinalIgnoreCase)),
             SelectedSourcePaths = selectedSourcePaths,
             PreviewResult = previewResult
@@ -416,18 +451,18 @@ public sealed class ShirariumController : ControllerBase
     {
         if (request is null)
         {
-            return BadRequest("Request body is required.");
+            return BadRequestError("RequestBodyRequired", "Request body is required.");
         }
 
         if (string.IsNullOrWhiteSpace(request.ExpectedPlanFingerprint))
         {
-            return BadRequest("ExpectedPlanFingerprint is required.");
+            return BadRequestError("ExpectedPlanFingerprintRequired", "ExpectedPlanFingerprint is required.");
         }
 
         var plan = OrganizationPlanStore.Read(_applicationPaths);
         if (!request.ExpectedPlanFingerprint.Equals(plan.PlanFingerprint, StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+            return ConflictError("PlanFingerprintMismatch", "Plan fingerprint mismatch. Refresh the organization plan and retry.");
         }
 
         var overridesSnapshot = OrganizationPlanOverridesStore.ReadForFingerprint(
@@ -437,7 +472,7 @@ public sealed class ShirariumController : ControllerBase
         var selectedSourcePaths = ResolveSelectedSourcePaths(request.SourcePaths, effectivePlan);
         if (selectedSourcePaths.Length == 0)
         {
-            return BadRequest("No reviewed move entries selected to lock.");
+            return BadRequestError("NoReviewedMoveEntries", "No reviewed move entries selected to lock.");
         }
 
         var lockSnapshot = new ReviewLockSnapshot
@@ -473,7 +508,7 @@ public sealed class ShirariumController : ControllerBase
     {
         if (limit <= 0 || limit > 200)
         {
-            return BadRequest("limit must be within [1, 200].");
+            return BadRequestError("LimitOutOfRange", "limit must be within [1, 200].");
         }
 
         var entries = ReviewLockStore.Read(_applicationPaths)
@@ -508,13 +543,13 @@ public sealed class ShirariumController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(reviewId))
         {
-            return BadRequest("reviewId is required.");
+            return BadRequestError("ReviewIdRequired", "reviewId is required.");
         }
 
         var lockSnapshot = ReviewLockStore.ReadById(_applicationPaths, reviewId);
         if (lockSnapshot is null)
         {
-            return NotFound("Review lock not found.");
+            return NotFoundError("ReviewLockNotFound", "Review lock not found.");
         }
 
         return Ok(lockSnapshot);
@@ -533,13 +568,13 @@ public sealed class ShirariumController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(reviewId))
         {
-            return BadRequest("reviewId is required.");
+            return BadRequestError("ReviewIdRequired", "reviewId is required.");
         }
 
         var lockSnapshot = ReviewLockStore.ReadById(_applicationPaths, reviewId);
         if (lockSnapshot is null)
         {
-            return NotFound("Review lock not found.");
+            return NotFoundError("ReviewLockNotFound", "Review lock not found.");
         }
 
         if (!string.IsNullOrWhiteSpace(lockSnapshot.AppliedRunId))
@@ -551,12 +586,12 @@ public sealed class ShirariumController : ControllerBase
                 return Ok(existingRun);
             }
 
-            return Conflict("Review lock already applied.");
+            return ConflictError("ReviewLockAlreadyApplied", "Review lock already applied.");
         }
 
         if (lockSnapshot.SelectedSourcePaths.Length == 0)
         {
-            return BadRequest("Review lock has no selected source paths.");
+            return BadRequestError("ReviewLockEmptySelection", "Review lock has no selected source paths.");
         }
 
         try
@@ -582,12 +617,12 @@ public sealed class ShirariumController : ControllerBase
         catch (InvalidOperationException ex) when (
             ex.Message.Equals("PlanFingerprintMismatch", StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("Review lock fingerprint mismatch.");
+            return ConflictError("ReviewLockFingerprintMismatch", "Review lock fingerprint mismatch.");
         }
         catch (InvalidOperationException ex) when (
             ex.Message.Equals("OperationAlreadyInProgress", StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("Another apply or undo operation is already in progress.");
+            return ConflictError("OperationAlreadyInProgress", "Another apply or undo operation is already in progress.");
         }
     }
 
@@ -601,7 +636,7 @@ public sealed class ShirariumController : ControllerBase
     {
         if (limit <= 0 || limit > 200)
         {
-            return BadRequest("limit must be within [1, 200].");
+            return BadRequestError("LimitOutOfRange", "limit must be within [1, 200].");
         }
 
         var entries = OrganizationPlanHistoryStore.Read(_applicationPaths)
@@ -625,7 +660,7 @@ public sealed class ShirariumController : ControllerBase
     {
         if (limit <= 0 || limit > 200)
         {
-            return BadRequest("limit must be within [1, 200].");
+            return BadRequestError("LimitOutOfRange", "limit must be within [1, 200].");
         }
 
         var entries = OrganizationPlanOverridesHistoryStore.Read(_applicationPaths)
@@ -658,7 +693,7 @@ public sealed class ShirariumController : ControllerBase
         catch (InvalidOperationException ex) when (
             ex.Message.Equals("OperationAlreadyInProgress", StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("Another apply or undo operation is already in progress.");
+            return ConflictError("OperationAlreadyInProgress", "Another apply or undo operation is already in progress.");
         }
         catch (InvalidOperationException ex) when (
             ex.Message.Equals("NoApplyRunsInJournal", StringComparison.OrdinalIgnoreCase)
@@ -667,8 +702,36 @@ public sealed class ShirariumController : ControllerBase
             || ex.Message.Equals("ApplyRunHasNoUndoOperations", StringComparison.OrdinalIgnoreCase)
             || ex.Message.Equals("InvalidUndoTargetConflictPolicy", StringComparison.OrdinalIgnoreCase))
         {
-            return BadRequest(ex.Message);
+            return BadRequestError(ex.Message, ex.Message);
         }
+    }
+
+    private static ObjectResult BadRequestError(string code, string message, object? details = null)
+    {
+        return ErrorResponse(StatusCodes.Status400BadRequest, code, message, details);
+    }
+
+    private static ObjectResult ConflictError(string code, string message, object? details = null)
+    {
+        return ErrorResponse(StatusCodes.Status409Conflict, code, message, details);
+    }
+
+    private static ObjectResult NotFoundError(string code, string message, object? details = null)
+    {
+        return ErrorResponse(StatusCodes.Status404NotFound, code, message, details);
+    }
+
+    private static ObjectResult ErrorResponse(int statusCode, string code, string message, object? details = null)
+    {
+        return new ObjectResult(new ApiErrorResponse
+        {
+            Code = code,
+            Message = message,
+            Details = details
+        })
+        {
+            StatusCode = statusCode
+        };
     }
 
     private static string[] ResolveSelectedSourcePaths(
