@@ -118,6 +118,7 @@ Undo a specific run:
 .\scripts\show-suggestions.ps1
 .\scripts\show-organization-plan.ps1
 .\scripts\show-apply-journal.ps1
+.\scripts\show-ops-status.ps1
 ```
 
 Snapshot locations:
@@ -136,6 +137,7 @@ data/jellyfin/config/data/plugins/Shirarium/apply-journal.json
 - `GET /Shirarium/organization-plan`
 - `POST /Shirarium/apply-plan`
 - `POST /Shirarium/undo-apply`
+- `GET /Shirarium/ops-status`
 - `POST /v1/parse-filename` (engine)
 - `GET /health` (engine)
 
@@ -177,6 +179,7 @@ Current test coverage:
 - Plan fingerprint determinism.
 - Undo logic for journaled apply runs.
 - Integration flow coverage (`plan -> apply -> journal -> undo`) with lock/fingerprint safety checks.
+- Ops status aggregation coverage from persisted plan/apply/undo snapshots.
 
 ## Configuration Notes
 

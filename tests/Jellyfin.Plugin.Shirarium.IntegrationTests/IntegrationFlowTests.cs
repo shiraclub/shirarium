@@ -205,6 +205,61 @@ public sealed class IntegrationFlowTests
         }
     }
 
+    [Fact]
+    public async Task OpsStatus_ReturnsLatestPlanApplyAndUndoState()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var sourcePath = Path.Combine(root, "incoming", "Noroi 2005.mkv");
+            var targetPath = Path.Combine(root, "organized", "Noroi (2005)", "Noroi (2005).mkv");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(sourcePath, "content");
+
+            var plan = await WritePlanAsync(applicationPaths, sourcePath, targetPath);
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+            var applyResult = await applier.RunAsync(
+                new ApplyOrganizationPlanRequest
+                {
+                    ExpectedPlanFingerprint = plan.PlanFingerprint,
+                    SourcePaths = [sourcePath]
+                });
+
+            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance);
+            var undoResult = await undoer.RunAsync(
+                new UndoApplyRequest
+                {
+                    RunId = applyResult.RunId
+                });
+
+            var status = OpsStatusLogic.Build(
+                OrganizationPlanStore.Read(applicationPaths),
+                ApplyJournalStore.Read(applicationPaths));
+
+            Assert.True(status.Plan.HasPlan);
+            Assert.Equal(plan.PlanFingerprint, status.Plan.PlanFingerprint);
+            Assert.Equal(plan.RootPath, status.Plan.RootPath);
+            Assert.Equal(plan.PlannedCount, status.Plan.PlannedCount);
+
+            Assert.NotNull(status.LastApplyRun);
+            Assert.Equal(applyResult.RunId, status.LastApplyRun!.RunId);
+            Assert.Equal(applyResult.AppliedCount, status.LastApplyRun.AppliedCount);
+            Assert.True(status.LastApplyRun.WasUndone);
+            Assert.Equal(undoResult.UndoRunId, status.LastApplyRun.UndoneByRunId);
+
+            Assert.NotNull(status.LastUndoRun);
+            Assert.Equal(undoResult.UndoRunId, status.LastUndoRun!.UndoRunId);
+            Assert.Equal(applyResult.RunId, status.LastUndoRun.SourceApplyRunId);
+            Assert.Equal(undoResult.AppliedCount, status.LastUndoRun.AppliedCount);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
     private static async Task<OrganizationPlanSnapshot> WritePlanAsync(
         TestApplicationPaths applicationPaths,
         string sourcePath,

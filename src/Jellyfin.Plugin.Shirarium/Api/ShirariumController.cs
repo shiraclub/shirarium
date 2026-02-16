@@ -71,6 +71,18 @@ public sealed class ShirariumController : ControllerBase
     }
 
     /// <summary>
+    /// Gets aggregated operational status from latest plan/apply/undo snapshots.
+    /// </summary>
+    /// <returns>Aggregated operational status.</returns>
+    [HttpGet("ops-status")]
+    public ActionResult<OpsStatusResponse> GetOpsStatus()
+    {
+        var planSnapshot = OrganizationPlanStore.Read(_applicationPaths);
+        var journalSnapshot = ApplyJournalStore.Read(_applicationPaths);
+        return Ok(OpsStatusLogic.Build(planSnapshot, journalSnapshot));
+    }
+
+    /// <summary>
     /// Generates a non-destructive organization plan from the latest suggestion snapshot.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
