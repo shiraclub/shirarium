@@ -1,12 +1,26 @@
 # Jellyfin.Plugin.Shirarium
 
-Current plugin functionality:
-- Plugin metadata and config
-- Engine HTTP client for filename parsing
-- Post-library-scan dry-run task for unmatched candidates
-- Suggestion snapshot persistence (`dryrun-suggestions.json`)
-- Admin API:
-  - `POST /Shirarium/scan`
-  - `GET /Shirarium/suggestions`
+Plugin component for Shirarium's local-first metadata and file-organization planning workflow.
 
-This remains non-destructive and does not rename/move files.
+## Current Functionality
+
+- Plugin metadata and configuration surface.
+- Engine HTTP client for filename parsing.
+- Post-library-scan dry-run task that generates:
+  - metadata suggestions
+  - organization plan snapshot
+- Snapshot persistence:
+  - `dryrun-suggestions.json`
+  - `organization-plan.json`
+
+## Admin API
+
+- `POST /Shirarium/scan`
+- `GET /Shirarium/suggestions`
+- `POST /Shirarium/plan-organize`
+- `GET /Shirarium/organization-plan`
+
+## Notes
+
+- Planning follows Jellyfin naming best practices for movie/episode structures.
+- Behavior is non-destructive: no automatic file move/rename is performed.

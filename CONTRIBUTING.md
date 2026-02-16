@@ -101,6 +101,7 @@ Local stack smoke test:
 .\scripts\dev-up.ps1
 .\scripts\dev-reload.ps1
 .\scripts\run-dryrun-scan.ps1
+.\scripts\run-organization-plan.ps1
 ```
 
 ## Coding Expectations

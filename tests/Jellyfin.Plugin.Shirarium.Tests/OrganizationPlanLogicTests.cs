@@ -1,0 +1,297 @@
+using Jellyfin.Plugin.Shirarium.Configuration;
+using Jellyfin.Plugin.Shirarium.Models;
+using Jellyfin.Plugin.Shirarium.Services;
+using Xunit;
+
+namespace Jellyfin.Plugin.Shirarium.Tests;
+
+public sealed class OrganizationPlanLogicTests
+{
+    [Fact]
+    public void NormalizeSegment_RemovesReservedCharacters_AndCollapsesWhitespace()
+    {
+        var normalized = OrganizationPlanLogic.NormalizeSegment(" Noroi: The/Curse\\Cut   ");
+
+        Assert.Equal("Noroi The Curse Cut", normalized);
+    }
+
+    [Fact]
+    public void BuildEntry_ForMovie_UsesMovieFolderConvention()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var sourcePath = Path.Combine(root, "incoming", "noroi-source.mkv");
+            var suggestion = CreateSuggestion(
+                sourcePath,
+                suggestedTitle: "Noroi",
+                suggestedMediaType: "movie",
+                suggestedYear: 2005);
+
+            var entry = OrganizationPlanLogic.BuildEntry(
+                suggestion,
+                Path.Combine(root, "organized"),
+                normalizePathSegments: true);
+
+            Assert.Equal("movie", entry.Strategy);
+            Assert.Equal("move", entry.Action);
+            Assert.Equal("Planned", entry.Reason);
+            Assert.Equal(
+                Path.Combine(root, "organized", "Noroi (2005)", "Noroi (2005).mkv"),
+                entry.TargetPath);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void BuildEntry_ForEpisode_UsesShowSeasonEpisodeConvention()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var sourcePath = Path.Combine(root, "incoming", "file-01.mkv");
+            var suggestion = CreateSuggestion(
+                sourcePath,
+                suggestedTitle: "Kowasugi",
+                suggestedMediaType: "episode",
+                suggestedSeason: 1,
+                suggestedEpisode: 2);
+
+            var entry = OrganizationPlanLogic.BuildEntry(
+                suggestion,
+                Path.Combine(root, "organized"),
+                normalizePathSegments: true);
+
+            Assert.Equal("episode", entry.Strategy);
+            Assert.Equal("move", entry.Action);
+            Assert.Equal(
+                Path.Combine(root, "organized", "Kowasugi", "Season 01", "Kowasugi - S01E02.mkv"),
+                entry.TargetPath);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void BuildEntry_ForEpisodeWithoutSeasonOrEpisode_IsSkipped()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var sourcePath = Path.Combine(root, "incoming", "unknown-ep.mkv");
+            var suggestion = CreateSuggestion(
+                sourcePath,
+                suggestedTitle: "Kowasugi",
+                suggestedMediaType: "episode");
+
+            var entry = OrganizationPlanLogic.BuildEntry(
+                suggestion,
+                Path.Combine(root, "organized"),
+                normalizePathSegments: true);
+
+            Assert.Equal("skip", entry.Action);
+            Assert.Equal("MissingSeasonOrEpisode", entry.Reason);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void BuildEntry_WhenTargetAlreadyExists_IsConflict()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var organizationRoot = Path.Combine(root, "organized");
+            var expectedTarget = Path.Combine(organizationRoot, "Noroi (2005)", "Noroi (2005).mkv");
+            Directory.CreateDirectory(Path.GetDirectoryName(expectedTarget)!);
+            File.WriteAllText(expectedTarget, "existing");
+
+            var sourcePath = Path.Combine(root, "incoming", "noroi-source.mkv");
+            var suggestion = CreateSuggestion(
+                sourcePath,
+                suggestedTitle: "Noroi",
+                suggestedMediaType: "movie",
+                suggestedYear: 2005);
+
+            var entry = OrganizationPlanLogic.BuildEntry(
+                suggestion,
+                organizationRoot,
+                normalizePathSegments: true);
+
+            Assert.Equal("conflict", entry.Action);
+            Assert.Equal("TargetAlreadyExists", entry.Reason);
+            Assert.Equal(expectedTarget, entry.TargetPath);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void BuildEntry_WhenAlreadyOrganized_IsNoop()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var organizationRoot = Path.Combine(root, "organized");
+            var sourcePath = Path.Combine(organizationRoot, "Noroi (2005)", "Noroi (2005).mkv");
+            var suggestion = CreateSuggestion(
+                sourcePath,
+                suggestedTitle: "Noroi",
+                suggestedMediaType: "movie",
+                suggestedYear: 2005);
+
+            var entry = OrganizationPlanLogic.BuildEntry(
+                suggestion,
+                organizationRoot,
+                normalizePathSegments: true);
+
+            Assert.Equal("none", entry.Action);
+            Assert.Equal("AlreadyOrganized", entry.Reason);
+            Assert.Equal(sourcePath, entry.TargetPath);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void MarkDuplicateTargetConflicts_ConvertsMoveEntriesToConflict()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var organizationRoot = Path.Combine(root, "organized");
+            var suggestionA = CreateSuggestion(
+                Path.Combine(root, "incoming", "a.mkv"),
+                suggestedTitle: "Noroi",
+                suggestedMediaType: "movie",
+                suggestedYear: 2005);
+            var suggestionB = CreateSuggestion(
+                Path.Combine(root, "incoming", "b.mkv"),
+                suggestedTitle: "Noroi",
+                suggestedMediaType: "movie",
+                suggestedYear: 2005);
+
+            var entries = new List<OrganizationPlanEntry>
+            {
+                OrganizationPlanLogic.BuildEntry(suggestionA, organizationRoot, normalizePathSegments: true),
+                OrganizationPlanLogic.BuildEntry(suggestionB, organizationRoot, normalizePathSegments: true)
+            };
+
+            OrganizationPlanLogic.MarkDuplicateTargetConflicts(entries);
+
+            Assert.All(entries, entry =>
+            {
+                Assert.Equal("conflict", entry.Action);
+                Assert.Equal("DuplicateTargetInPlan", entry.Reason);
+            });
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void BuildPlan_ComputesActionCounters()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var config = new PluginConfiguration
+            {
+                DryRunMode = true,
+                OrganizationRootPath = Path.Combine(root, "organized"),
+                NormalizePathSegments = true
+            };
+
+            var snapshot = new ScanResultSnapshot
+            {
+                Suggestions =
+                [
+                    CreateSuggestion(
+                        Path.Combine(root, "incoming", "a.mkv"),
+                        suggestedTitle: "Noroi",
+                        suggestedMediaType: "movie",
+                        suggestedYear: 2005),
+                    CreateSuggestion(
+                        Path.Combine(root, "incoming", "b.mkv"),
+                        suggestedTitle: "Noroi",
+                        suggestedMediaType: "movie",
+                        suggestedYear: 2005),
+                    CreateSuggestion(
+                        Path.Combine(root, "incoming", "c.mkv"),
+                        suggestedTitle: "Unknown",
+                        suggestedMediaType: "episode")
+                ]
+            };
+
+            var plan = OrganizationPlanner.BuildPlan(snapshot, config);
+
+            Assert.Equal(3, plan.SourceSuggestionCount);
+            Assert.Equal(0, plan.PlannedCount);
+            Assert.Equal(0, plan.NoopCount);
+            Assert.Equal(1, plan.SkippedCount);
+            Assert.Equal(2, plan.ConflictCount);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    private static ScanSuggestion CreateSuggestion(
+        string sourcePath,
+        string suggestedTitle,
+        string suggestedMediaType,
+        int? suggestedYear = null,
+        int? suggestedSeason = null,
+        int? suggestedEpisode = null)
+    {
+        return new ScanSuggestion
+        {
+            ItemId = Guid.NewGuid().ToString("N"),
+            Name = Path.GetFileNameWithoutExtension(sourcePath),
+            Path = sourcePath,
+            SuggestedTitle = suggestedTitle,
+            SuggestedMediaType = suggestedMediaType,
+            SuggestedYear = suggestedYear,
+            SuggestedSeason = suggestedSeason,
+            SuggestedEpisode = suggestedEpisode,
+            Confidence = 0.9,
+            Source = "test"
+        };
+    }
+
+    private static string CreateTempRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "shirarium-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        return root;
+    }
+
+    private static void CleanupTempRoot(string root)
+    {
+        try
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+        catch
+        {
+        }
+    }
+}

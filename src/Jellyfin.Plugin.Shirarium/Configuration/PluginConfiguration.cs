@@ -52,4 +52,19 @@ public sealed class PluginConfiguration : BasePluginConfiguration
         ".m2ts",
         ".webm"
     ];
+
+    /// <summary>
+    /// Gets or sets a value indicating whether physical file organization planning is enabled.
+    /// </summary>
+    public bool EnableFileOrganizationPlanning { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the destination root path used when generating organization plans.
+    /// </summary>
+    public string OrganizationRootPath { get; set; } = "/media";
+
+    /// <summary>
+    /// Gets or sets a value indicating whether generated path segments should be sanitized.
+    /// </summary>
+    public bool NormalizePathSegments { get; set; } = true;
 }

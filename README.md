@@ -1,6 +1,6 @@
 # Shirarium
 
-Local-first Jellyfin metadata assistant for chaotic libraries.
+Local-first Jellyfin metadata and file-organization planner for chaotic libraries.
 
 ![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.10.3-00A4DC?logo=jellyfin&logoColor=white)
@@ -18,6 +18,8 @@ Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - Detects likely unmatched media candidates after library scans.
 - Parses filenames via heuristics (and optional Ollama path).
 - Stores dry-run suggestions without changing media files.
+- Builds dry-run physical organization plans using Jellyfin naming best practices.
+- Targets practical folder hygiene for shared storage/FTP workflows (for example Hetzner boxes).
 - Exposes scan/suggestion endpoints for admin workflows.
 
 ## Current Architecture
@@ -73,11 +75,12 @@ MEDIA_PATH=D:/Media
 http://localhost:8097
 ```
 
-## Dry-Run Pipeline
+## Dry-Run Pipelines
 
 ### Automatic path
 
 - Post-library-scan task (`ILibraryPostScanTask`) runs when enabled.
+- It generates both snapshots in order: `dryrun-suggestions.json` then `organization-plan.json`.
 
 ### Manual path
 
@@ -85,22 +88,32 @@ http://localhost:8097
 .\scripts\run-dryrun-scan.ps1
 ```
 
-### View last snapshot
+### Build organization plan (manual)
+
+```powershell
+.\scripts\run-organization-plan.ps1
+```
+
+### View latest snapshots
 
 ```powershell
 .\scripts\show-suggestions.ps1
+.\scripts\show-organization-plan.ps1
 ```
 
-Snapshot location:
+Snapshot locations:
 
 ```text
 data/jellyfin/config/data/plugins/Shirarium/dryrun-suggestions.json
+data/jellyfin/config/data/plugins/Shirarium/organization-plan.json
 ```
 
 ## API Endpoints
 
 - `POST /Shirarium/scan`
 - `GET /Shirarium/suggestions`
+- `POST /Shirarium/plan-organize`
+- `GET /Shirarium/organization-plan`
 - `POST /v1/parse-filename` (engine)
 - `GET /health` (engine)
 
@@ -130,6 +143,7 @@ Current test coverage:
 - API validation/contract behavior.
 - Ollama failure fallback behavior.
 - Plugin scan logic (candidate reasons, extension support, confidence gating).
+- Organization planning logic (path normalization, movie/episode path conventions, conflict/no-op handling, duplicate target detection).
 
 ## Configuration Notes
 
@@ -141,16 +155,19 @@ Plugin configuration includes:
 - `MaxItemsPerRun`
 - `MinConfidence`
 - `ScanFileExtensions`
+- `EnableFileOrganizationPlanning`
+- `OrganizationRootPath`
+- `NormalizePathSegments`
 
 ## Roadmap (Near-Term)
 
-1. Plugin unit tests for scan/candidate logic.
-2. Apply-gate workflow for approved metadata actions.
+1. Approval-based apply mode for selected file moves/renames.
+2. Rollback journal for any future apply operations.
 3. Better scan observability (counts by reason/source/confidence bucket).
 4. Optional queueing model for very large libraries.
 
 ## Safety
 
-- No file move/rename logic in the current pipeline.
-- Suggestions are persisted for review before any future apply phase.
+- No automatic file move/rename happens in the current pipeline.
+- Suggestions and organization plans are persisted for review and auditing before any future apply phase.
 - Core repo license: `GPL-3.0`.

@@ -6,10 +6,11 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.Shirarium.ScheduledTasks;
 
 /// <summary>
-/// Post-scan task that runs Shirarium candidate parsing after Jellyfin library scans.
+/// Post-scan task that runs Shirarium candidate parsing and organization planning after library scans.
 /// </summary>
 public sealed class ShirariumPostScanTask : ILibraryPostScanTask
 {
+    private readonly OrganizationPlanner _planner;
     private readonly ShirariumScanner _scanner;
 
     /// <summary>
@@ -24,6 +25,7 @@ public sealed class ShirariumPostScanTask : ILibraryPostScanTask
         ILogger<ShirariumPostScanTask> logger)
     {
         _scanner = new ShirariumScanner(libraryManager, applicationPaths, logger);
+        _planner = new OrganizationPlanner(applicationPaths, logger);
     }
 
     /// <summary>
@@ -41,7 +43,11 @@ public sealed class ShirariumPostScanTask : ILibraryPostScanTask
         }
 
         progress.Report(10);
-        await _scanner.RunAsync(cancellationToken);
+        var snapshot = await _scanner.RunAsync(cancellationToken);
+
+        progress.Report(70);
+        await _planner.RunAsync(snapshot, cancellationToken);
+
         progress.Report(100);
     }
 }

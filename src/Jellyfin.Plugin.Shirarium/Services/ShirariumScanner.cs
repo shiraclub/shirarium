@@ -107,6 +107,8 @@ public sealed class ShirariumScanner
                 continue;
             }
 
+            var sourcePath = path!;
+
             examinedCount++;
 
             var reasons = ScanLogic.GetCandidateReasons(item);
@@ -125,11 +127,11 @@ public sealed class ShirariumScanner
             ParseFilenameResponse? parsed;
             if (_parseFilenameAsync is not null)
             {
-                parsed = await _parseFilenameAsync(path, cancellationToken);
+                parsed = await _parseFilenameAsync(sourcePath, cancellationToken);
             }
             else
             {
-                parsed = await engineClient!.ParseFilenameAsync(path, cancellationToken);
+                parsed = await engineClient!.ParseFilenameAsync(sourcePath, cancellationToken);
             }
 
             if (parsed is null)
@@ -149,8 +151,8 @@ public sealed class ShirariumScanner
             var suggestion = new ScanSuggestion
             {
                 ItemId = GetPropertyAsString(item, "Id"),
-                Name = ScanLogic.GetStringProperty(item, "Name") ?? Path.GetFileNameWithoutExtension(path!),
-                Path = path!,
+                Name = ScanLogic.GetStringProperty(item, "Name") ?? Path.GetFileNameWithoutExtension(sourcePath),
+                Path = sourcePath,
                 SuggestedTitle = parsed.Title,
                 SuggestedMediaType = parsed.MediaType,
                 SuggestedYear = parsed.Year,
