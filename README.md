@@ -77,6 +77,28 @@ MEDIA_PATH=D:/Media
 http://localhost:8097
 ```
 
+## Current Dev Handoff (2026-02-16)
+
+What is verified working now:
+- Plugin loads on Jellyfin `10.11.6` in local Docker dev stack.
+- Shirarium endpoints are reachable and protected by Jellyfin admin auth.
+- Review UI auth bug is fixed: the Review Console now calls APIs through authenticated `ApiClient` requests (no more unauthenticated `fetch` 401s).
+- CI is green on current branch.
+
+Important gotchas to remember:
+- `An error occurred while getting the plugin details from the repository.` on the plugin detail page is expected for side-loaded local plugins that are not present in the configured plugin manifest.
+- In Docker dev, media paths inside Jellyfin are Linux-style (`/media/...`), not Windows paths (`D:\...`).
+- If no files exist under mounted media, Shirarium snapshots will correctly show zero examined/candidate/plan entries.
+- A stale plugin `meta.json` status (for example `Malfunctioned`) can cause Jellyfin to skip loading the plugin until corrected.
+- `scripts/dev-reload.ps1` currently builds to `artifacts/plugin/Shirarium`; if nested plugin layout causes load issues, build directly to `artifacts/plugin` and restart Jellyfin.
+
+Fast path to get first non-empty plan:
+1. Put sample files under `data/media/incoming` (or point `.env` `MEDIA_PATH` to a real folder with files).
+2. In Jellyfin, create/verify a library that points to `/media/incoming` (or `/media`).
+3. Trigger a library scan, then run Shirarium scan/plan (post-scan task or scripts below).
+4. In Review Console filters, use `/media/incoming` as `Path prefix`.
+5. Reload Review tab and confirm non-zero entries.
+
 ## Dry-Run Pipelines
 
 ### Automatic path
@@ -119,7 +141,7 @@ Execute filtered apply (non-preview):
 Open Jellyfin dashboard page:
 
 ```text
-Dashboard -> Plugins -> Shirarium -> Shirarium Review
+Dashboard -> Plugins -> Shirarium -> Shirarium Review Console
 ```
 
 UI tabs:
