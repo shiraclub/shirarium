@@ -6,7 +6,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$uri = "$($JellyfinBaseUrl.TrimEnd('/'))/Shirarium/scan"
+$uri = "$($JellyfinBaseUrl.TrimEnd('/'))/shirarium/scan"
 $headers = @{}
 
 if ($AccessToken) {

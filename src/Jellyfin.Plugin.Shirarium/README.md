@@ -16,13 +16,13 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 
 ## Admin API
 
-- `POST /Shirarium/scan`
-- `GET /Shirarium/suggestions`
-- `POST /Shirarium/plan-organize`
-- `GET /Shirarium/organization-plan`
-- `POST /Shirarium/apply-plan`
-- `POST /Shirarium/undo-apply`
-- `GET /Shirarium/ops-status`
+- `POST /shirarium/scan`
+- `GET /shirarium/suggestions`
+- `POST /shirarium/plan-organize`
+- `GET /shirarium/organization-plan`
+- `POST /shirarium/apply-plan`
+- `POST /shirarium/undo-apply`
+- `GET /shirarium/ops-status`
 
 ## Notes
 

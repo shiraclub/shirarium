@@ -11,7 +11,7 @@ namespace Jellyfin.Plugin.Shirarium.Api;
 /// Administrative endpoints for scanning, suggestion snapshots, and organization planning snapshots.
 /// </summary>
 [ApiController]
-[Route("Shirarium")]
+[Route("shirarium")]
 public sealed class ShirariumController : ControllerBase
 {
     private readonly IApplicationPaths _applicationPaths;

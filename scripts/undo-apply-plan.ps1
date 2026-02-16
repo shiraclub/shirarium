@@ -7,7 +7,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$uri = "$($JellyfinBaseUrl.TrimEnd('/'))/Shirarium/undo-apply"
+$uri = "$($JellyfinBaseUrl.TrimEnd('/'))/shirarium/undo-apply"
 $headers = @{}
 
 if ($AccessToken) {

@@ -9,7 +9,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$uri = "$($JellyfinBaseUrl.TrimEnd('/'))/Shirarium/apply-plan"
+$uri = "$($JellyfinBaseUrl.TrimEnd('/'))/shirarium/apply-plan"
 $headers = @{}
 
 if ($AccessToken) {
@@ -17,7 +17,7 @@ if ($AccessToken) {
 }
 
 if (-not $PlanFingerprint) {
-    $planUri = "$($JellyfinBaseUrl.TrimEnd('/'))/Shirarium/organization-plan"
+    $planUri = "$($JellyfinBaseUrl.TrimEnd('/'))/shirarium/organization-plan"
     $plan = Invoke-RestMethod -Method Get -Uri $planUri -Headers $headers
     $PlanFingerprint = $plan.planFingerprint
 }
