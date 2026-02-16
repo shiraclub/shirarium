@@ -15,6 +15,7 @@ namespace Jellyfin.Plugin.Shirarium.Api;
 public sealed class ShirariumController : ControllerBase
 {
     private readonly IApplicationPaths _applicationPaths;
+    private readonly OrganizationPlanApplier _applier;
     private readonly OrganizationPlanner _planner;
     private readonly ShirariumScanner _scanner;
 
@@ -32,6 +33,7 @@ public sealed class ShirariumController : ControllerBase
         _applicationPaths = applicationPaths;
         _scanner = new ShirariumScanner(libraryManager, applicationPaths, logger);
         _planner = new OrganizationPlanner(applicationPaths, logger);
+        _applier = new OrganizationPlanApplier(applicationPaths, logger);
     }
 
     /// <summary>
@@ -76,5 +78,25 @@ public sealed class ShirariumController : ControllerBase
     {
         var snapshot = await _planner.RunAsync(cancellationToken: cancellationToken);
         return Ok(snapshot);
+    }
+
+    /// <summary>
+    /// Applies explicitly selected move entries from the latest organization plan snapshot.
+    /// </summary>
+    /// <param name="request">Apply request containing source paths to apply.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Apply result for requested entries.</returns>
+    [HttpPost("apply-plan")]
+    public async Task<ActionResult<ApplyOrganizationPlanResult>> ApplyOrganizationPlan(
+        [FromBody] ApplyOrganizationPlanRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null || request.SourcePaths.Length == 0)
+        {
+            return BadRequest("At least one source path must be provided.");
+        }
+
+        var result = await _applier.RunAsync(request, cancellationToken);
+        return Ok(result);
     }
 }

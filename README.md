@@ -94,6 +94,12 @@ http://localhost:8097
 .\scripts\run-organization-plan.ps1
 ```
 
+### Apply selected plan entries (manual)
+
+```powershell
+.\scripts\apply-organization-plan.ps1 -SourcePath "D:\media\incoming\example.mkv"
+```
+
 ### View latest snapshots
 
 ```powershell
@@ -114,6 +120,7 @@ data/jellyfin/config/data/plugins/Shirarium/organization-plan.json
 - `GET /Shirarium/suggestions`
 - `POST /Shirarium/plan-organize`
 - `GET /Shirarium/organization-plan`
+- `POST /Shirarium/apply-plan`
 - `POST /v1/parse-filename` (engine)
 - `GET /health` (engine)
 
@@ -144,6 +151,7 @@ Current test coverage:
 - Ollama failure fallback behavior.
 - Plugin scan logic (candidate reasons, extension support, confidence gating).
 - Organization planning logic (path normalization, movie/episode path conventions, conflict/no-op handling, duplicate target detection).
+- Organization apply logic (selected-entry gating, move execution, skipped/failed reason handling).
 
 ## Configuration Notes
 
@@ -169,5 +177,6 @@ Plugin configuration includes:
 ## Safety
 
 - No automatic file move/rename happens in the current pipeline.
+- Apply operations require explicit source-path selection and only execute entries currently marked `move`.
 - Suggestions and organization plans are persisted for review and auditing before any future apply phase.
 - Core repo license: `GPL-3.0`.
