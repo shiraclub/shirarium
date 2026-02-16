@@ -113,6 +113,34 @@ Execute filtered apply (non-preview):
 .\scripts\apply-plan-by-filter.ps1 -Strategy movie -Apply
 ```
 
+### Reviewed apply workflow (recommended)
+
+List reviewed plan entries with server-side filtering/paging:
+
+```powershell
+.\scripts\show-organization-plan-view.ps1 -MovesOnly -PageSize 50
+```
+
+Patch an entry override (set action/target/remove):
+
+```powershell
+.\scripts\patch-organization-plan-overrides.ps1 -SourcePath "D:\media\incoming\example.mkv" -Action skip
+.\scripts\patch-organization-plan-overrides.ps1 -SourcePath "D:\media\incoming\example.mkv" -TargetPath "D:\media\organized\Movies\Example (2020)\Example (2020).mkv"
+.\scripts\patch-organization-plan-overrides.ps1 -SourcePath "D:\media\incoming\example.mkv" -Remove
+```
+
+Apply reviewed move entries (all effective `move` entries by default):
+
+```powershell
+.\scripts\apply-reviewed-plan.ps1
+```
+
+Apply only specific reviewed entries:
+
+```powershell
+.\scripts\apply-reviewed-plan.ps1 -SourcePath "D:\media\incoming\example.mkv"
+```
+
 ### Undo latest apply run (manual)
 
 ```powershell
