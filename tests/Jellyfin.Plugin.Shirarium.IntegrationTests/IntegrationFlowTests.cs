@@ -544,6 +544,132 @@ public sealed class IntegrationFlowTests
         }
     }
 
+    [Fact]
+    public async Task OverridesStore_PersistsAndScopesByPlanFingerprint()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var planFingerprint = "plan-v1";
+            var snapshot = new OrganizationPlanOverridesSnapshot
+            {
+                PlanFingerprint = planFingerprint,
+                Entries =
+                [
+                    new OrganizationPlanEntryOverride
+                    {
+                        SourcePath = @"D:\incoming\a.mkv",
+                        Action = "skip"
+                    }
+                ]
+            };
+
+            await OrganizationPlanOverridesStore.WriteAsync(applicationPaths, snapshot);
+
+            var matching = OrganizationPlanOverridesStore.ReadForFingerprint(applicationPaths, planFingerprint);
+            Assert.Single(matching.Entries);
+            Assert.Equal(@"D:\incoming\a.mkv", matching.Entries[0].SourcePath);
+
+            var mismatched = OrganizationPlanOverridesStore.ReadForFingerprint(applicationPaths, "plan-v2");
+            Assert.Empty(mismatched.Entries);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task ReviewedApply_UsesOverrides_AndRejectsStaleFingerprint()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var sourcePathA = Path.Combine(root, "incoming", "A.mkv");
+            var sourcePathB = Path.Combine(root, "incoming", "B.mkv");
+            var targetPathA = Path.Combine(root, "organized", "A", "A.mkv");
+            var targetPathB = Path.Combine(root, "organized", "B", "B.mkv");
+            var targetPathBOverride = Path.Combine(root, "organized", "B-custom", "B-custom.mkv");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePathA)!);
+            File.WriteAllText(sourcePathA, "a");
+            File.WriteAllText(sourcePathB, "b");
+
+            var plan = await WritePlanAsync(
+                applicationPaths,
+                CreatePlanEntry(sourcePathA, targetPathA, "A"),
+                CreatePlanEntry(sourcePathB, targetPathB, "B"));
+
+            var patchResult = OrganizationPlanOverridesLogic.ApplyPatches(
+                new OrganizationPlanOverridesSnapshot
+                {
+                    PlanFingerprint = plan.PlanFingerprint
+                },
+                new PatchOrganizationPlanEntryOverridesRequest
+                {
+                    ExpectedPlanFingerprint = plan.PlanFingerprint,
+                    Patches =
+                    [
+                        new OrganizationPlanEntryOverridePatch
+                        {
+                            SourcePath = sourcePathA,
+                            Action = "skip"
+                        },
+                        new OrganizationPlanEntryOverridePatch
+                        {
+                            SourcePath = sourcePathB,
+                            TargetPath = targetPathBOverride
+                        }
+                    ]
+                },
+                plan.PlanFingerprint);
+            await OrganizationPlanOverridesStore.WriteAsync(applicationPaths, patchResult.Snapshot);
+
+            var effectivePlan = OrganizationPlanReviewLogic.BuildEffectivePlan(
+                plan,
+                OrganizationPlanOverridesStore.ReadForFingerprint(applicationPaths, plan.PlanFingerprint));
+
+            var reviewedSelection = effectivePlan.Entries
+                .Where(entry => entry.Action.Equals("move", StringComparison.OrdinalIgnoreCase))
+                .Select(entry => entry.SourcePath)
+                .ToArray();
+            Assert.Single(reviewedSelection);
+            Assert.Equal(sourcePathB, reviewedSelection[0]);
+
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+
+            var staleEx = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                applier.RunAsync(
+                    new ApplyOrganizationPlanRequest
+                    {
+                        ExpectedPlanFingerprint = "stale-fingerprint",
+                        SourcePaths = reviewedSelection
+                    },
+                    effectivePlan));
+            Assert.Equal("PlanFingerprintMismatch", staleEx.Message);
+
+            var applyResult = await applier.RunAsync(
+                new ApplyOrganizationPlanRequest
+                {
+                    ExpectedPlanFingerprint = plan.PlanFingerprint,
+                    SourcePaths = reviewedSelection
+                },
+                effectivePlan);
+
+            Assert.Equal(1, applyResult.AppliedCount);
+            Assert.False(File.Exists(sourcePathB));
+            Assert.True(File.Exists(targetPathBOverride));
+            Assert.True(File.Exists(sourcePathA));
+            Assert.False(File.Exists(targetPathA));
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
     private static async Task<OrganizationPlanSnapshot> WritePlanAsync(
         TestApplicationPaths applicationPaths,
         string sourcePath,

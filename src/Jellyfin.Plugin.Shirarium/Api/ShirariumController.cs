@@ -71,6 +71,25 @@ public sealed class ShirariumController : ControllerBase
     }
 
     /// <summary>
+    /// Gets a filtered, sorted, and paged review view of the latest organization plan.
+    /// </summary>
+    /// <param name="request">View query options.</param>
+    /// <returns>Plan review view payload.</returns>
+    [HttpGet("organization-plan-view")]
+    public ActionResult<OrganizationPlanViewResponse> GetOrganizationPlanView([FromQuery] OrganizationPlanViewRequest request)
+    {
+        var validationError = OrganizationPlanViewLogic.ValidateRequest(request);
+        if (!string.IsNullOrWhiteSpace(validationError))
+        {
+            return BadRequest(validationError);
+        }
+
+        var plan = OrganizationPlanStore.Read(_applicationPaths);
+        var overridesSnapshot = OrganizationPlanOverridesStore.ReadForFingerprint(_applicationPaths, plan.PlanFingerprint);
+        return Ok(OrganizationPlanViewLogic.Build(plan, overridesSnapshot, request));
+    }
+
+    /// <summary>
     /// Gets a compact summary view of the latest organization plan snapshot.
     /// </summary>
     /// <returns>Aggregated organization plan summary.</returns>
@@ -210,6 +229,121 @@ public sealed class ShirariumController : ControllerBase
                 SelectedSourcePaths = selectedSourcePaths,
                 ApplyResult = applyResult
             });
+        }
+        catch (InvalidOperationException ex) when (
+            ex.Message.Equals("PlanFingerprintMismatch", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+        }
+        catch (InvalidOperationException ex) when (
+            ex.Message.Equals("OperationAlreadyInProgress", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict("Another apply or undo operation is already in progress.");
+        }
+    }
+
+    /// <summary>
+    /// Updates persisted per-entry review overrides for the latest organization plan.
+    /// </summary>
+    /// <param name="request">Override patch request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Override patch result.</returns>
+    [HttpPatch("organization-plan-entry-overrides")]
+    public async Task<ActionResult<PatchOrganizationPlanEntryOverridesResponse>> PatchOrganizationPlanEntryOverrides(
+        [FromBody] PatchOrganizationPlanEntryOverridesRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return BadRequest("Request body is required.");
+        }
+
+        var plan = OrganizationPlanStore.Read(_applicationPaths);
+        var validationError = OrganizationPlanOverridesLogic.ValidateRequest(request, plan);
+        if (!string.IsNullOrWhiteSpace(validationError))
+        {
+            if (validationError.Equals("PlanFingerprintMismatch", StringComparison.OrdinalIgnoreCase))
+            {
+                return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+            }
+
+            return BadRequest(validationError);
+        }
+
+        var currentSnapshot = OrganizationPlanOverridesStore.ReadForFingerprint(
+            _applicationPaths,
+            request.ExpectedPlanFingerprint);
+        var patchResult = OrganizationPlanOverridesLogic.ApplyPatches(
+            currentSnapshot,
+            request,
+            request.ExpectedPlanFingerprint);
+        await OrganizationPlanOverridesStore.WriteAsync(_applicationPaths, patchResult.Snapshot, cancellationToken);
+
+        return Ok(new PatchOrganizationPlanEntryOverridesResponse
+        {
+            PlanFingerprint = patchResult.Snapshot.PlanFingerprint,
+            UpdatedAtUtc = patchResult.Snapshot.UpdatedAtUtc,
+            StoredCount = patchResult.Snapshot.Entries.Length,
+            UpdatedCount = patchResult.UpdatedCount,
+            RemovedCount = patchResult.RemovedCount
+        });
+    }
+
+    /// <summary>
+    /// Applies the reviewed plan by combining persisted overrides with the latest plan snapshot.
+    /// </summary>
+    /// <param name="request">Reviewed apply request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Apply result for reviewed entries.</returns>
+    [HttpPost("apply-reviewed-plan")]
+    public async Task<ActionResult<ApplyOrganizationPlanResult>> ApplyReviewedPlan(
+        [FromBody] ApplyReviewedPlanRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return BadRequest("Request body is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ExpectedPlanFingerprint))
+        {
+            return BadRequest("ExpectedPlanFingerprint is required.");
+        }
+
+        var plan = OrganizationPlanStore.Read(_applicationPaths);
+        if (!request.ExpectedPlanFingerprint.Equals(plan.PlanFingerprint, StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+        }
+
+        var overridesSnapshot = OrganizationPlanOverridesStore.ReadForFingerprint(
+            _applicationPaths,
+            request.ExpectedPlanFingerprint);
+        var effectivePlan = OrganizationPlanReviewLogic.BuildEffectivePlan(plan, overridesSnapshot);
+
+        var selectedSourcePaths = request.SourcePaths.Length > 0
+            ? request.SourcePaths
+            : effectivePlan.Entries
+                .Where(entry => entry.Action.Equals("move", StringComparison.OrdinalIgnoreCase))
+                .Select(entry => entry.SourcePath)
+                .ToArray();
+
+        if (selectedSourcePaths.Length == 0)
+        {
+            return BadRequest("No reviewed move entries selected to apply.");
+        }
+
+        try
+        {
+            var result = await _applier.RunAsync(
+                new ApplyOrganizationPlanRequest
+                {
+                    ExpectedPlanFingerprint = request.ExpectedPlanFingerprint,
+                    SourcePaths = selectedSourcePaths
+                },
+                effectivePlan,
+                cancellationToken);
+            return Ok(result);
         }
         catch (InvalidOperationException ex) when (
             ex.Message.Equals("PlanFingerprintMismatch", StringComparison.OrdinalIgnoreCase))

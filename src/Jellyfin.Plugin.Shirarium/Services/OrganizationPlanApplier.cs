@@ -33,6 +33,29 @@ public sealed class OrganizationPlanApplier
         ApplyOrganizationPlanRequest request,
         CancellationToken cancellationToken = default)
     {
+        return await RunInternalAsync(request, null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Applies selected move entries from the provided effective plan snapshot.
+    /// </summary>
+    /// <param name="request">Apply request payload containing selected source paths.</param>
+    /// <param name="planOverride">Effective plan snapshot to apply against.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Apply result containing per-item outcomes.</returns>
+    public async Task<ApplyOrganizationPlanResult> RunAsync(
+        ApplyOrganizationPlanRequest request,
+        OrganizationPlanSnapshot planOverride,
+        CancellationToken cancellationToken = default)
+    {
+        return await RunInternalAsync(request, planOverride, cancellationToken);
+    }
+
+    private async Task<ApplyOrganizationPlanResult> RunInternalAsync(
+        ApplyOrganizationPlanRequest request,
+        OrganizationPlanSnapshot? planOverride,
+        CancellationToken cancellationToken)
+    {
         if (string.IsNullOrWhiteSpace(request.ExpectedPlanFingerprint))
         {
             throw new InvalidOperationException("MissingExpectedPlanFingerprint");
@@ -44,7 +67,7 @@ public sealed class OrganizationPlanApplier
             throw new InvalidOperationException("OperationAlreadyInProgress");
         }
 
-        var plan = OrganizationPlanStore.Read(_applicationPaths);
+        var plan = planOverride ?? OrganizationPlanStore.Read(_applicationPaths);
         if (!request.ExpectedPlanFingerprint.Equals(plan.PlanFingerprint, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("PlanFingerprintMismatch");
