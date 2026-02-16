@@ -1,4 +1,3 @@
-using System.Collections;
 using Jellyfin.Plugin.Shirarium.Configuration;
 using Jellyfin.Plugin.Shirarium.Contracts;
 using Jellyfin.Plugin.Shirarium.Models;
@@ -13,10 +12,10 @@ namespace Jellyfin.Plugin.Shirarium.Services;
 /// </summary>
 public sealed class ShirariumScanner
 {
-    private readonly ILibraryManager _libraryManager;
     private readonly IApplicationPaths _applicationPaths;
     private readonly ILogger _logger;
     private readonly PluginConfiguration? _configOverride;
+    private readonly ISourceCandidateProvider _sourceCandidateProvider;
     private readonly Func<string, CancellationToken, Task<ParseFilenameResponse?>>? _parseFilenameAsync;
 
     /// <summary>
@@ -33,12 +32,27 @@ public sealed class ShirariumScanner
         ILogger logger,
         PluginConfiguration? configOverride = null,
         Func<string, CancellationToken, Task<ParseFilenameResponse?>>? parseFilenameAsync = null)
+        : this(
+            applicationPaths,
+            logger,
+            new JellyfinLibraryCandidateProvider(libraryManager),
+            configOverride,
+            parseFilenameAsync)
     {
-        _libraryManager = libraryManager;
+    }
+
+    internal ShirariumScanner(
+        IApplicationPaths applicationPaths,
+        ILogger logger,
+        ISourceCandidateProvider sourceCandidateProvider,
+        PluginConfiguration? configOverride = null,
+        Func<string, CancellationToken, Task<ParseFilenameResponse?>>? parseFilenameAsync = null)
+    {
         _applicationPaths = applicationPaths;
         _logger = logger;
         _configOverride = configOverride;
         _parseFilenameAsync = parseFilenameAsync;
+        _sourceCandidateProvider = sourceCandidateProvider;
     }
 
     /// <summary>
@@ -88,7 +102,7 @@ public sealed class ShirariumScanner
         IEnumerable<object> items;
         try
         {
-            items = EnumerateLibraryItems(_libraryManager.RootFolder).ToArray();
+            items = _sourceCandidateProvider.GetCandidates(cancellationToken).ToArray();
         }
         catch (Exception ex)
         {
@@ -209,53 +223,6 @@ public sealed class ShirariumScanner
         httpClient?.Dispose();
 
         return snapshot;
-    }
-
-    private static IEnumerable<object> EnumerateLibraryItems(object? rootFolder)
-    {
-        if (rootFolder is null)
-        {
-            yield break;
-        }
-
-        var type = rootFolder.GetType();
-        var methods = type.GetMethods().Where(m => m.Name == "GetRecursiveChildren").ToArray();
-        if (methods.Length == 0)
-        {
-            yield break;
-        }
-
-        foreach (var method in methods.OrderBy(m => m.GetParameters().Length))
-        {
-            var parameters = method.GetParameters();
-            object? result;
-
-            try
-            {
-                result = parameters.Length == 0
-                    ? method.Invoke(rootFolder, null)
-                    : method.Invoke(rootFolder, new object?[] { null });
-            }
-            catch
-            {
-                continue;
-            }
-
-            if (result is not IEnumerable enumerable)
-            {
-                continue;
-            }
-
-            foreach (var item in enumerable)
-            {
-                if (item is not null)
-                {
-                    yield return item;
-                }
-            }
-
-            yield break;
-        }
     }
 
     private static string GetPropertyAsString(object item, string propertyName)
