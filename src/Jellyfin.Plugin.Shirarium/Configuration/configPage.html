@@ -485,17 +485,50 @@
             }
 
             async function apiJson(path, method, body) {
-                var response = await fetch(ApiClient.getUrl(path), {
-                    method: method || "GET",
-                    headers: body ? { "Content-Type": "application/json" } : undefined,
-                    body: body ? JSON.stringify(body) : undefined
-                });
+                var requestMethod = (method || "GET").toUpperCase();
+                var url = ApiClient.getUrl(path);
 
-                if (!response.ok) {
-                    var text = await response.text();
-                    var errorMessage = text || ("HTTP " + response.status);
+                try {
+                    if (requestMethod === "GET") {
+                        return await ApiClient.getJSON(url);
+                    }
+
+                    var request = {
+                        type: requestMethod,
+                        url: url
+                    };
+
+                    if (body !== undefined) {
+                        request.contentType = "application/json";
+                        request.data = JSON.stringify(body);
+                    }
+
+                    var payload = await ApiClient.ajax(request);
+                    return payload === undefined ? null : payload;
+                } catch (error) {
+                    var responseText = "";
+                    if (error && typeof error === "object") {
+                        responseText = error.responseText
+                            || (error.responseJSON ? JSON.stringify(error.responseJSON) : "")
+                            || (error.jqXHR && error.jqXHR.responseText)
+                            || "";
+                    }
+
+                    var errorMessage = responseText;
+                    if (!errorMessage && error && typeof error === "object" && error.status) {
+                        errorMessage = "HTTP " + String(error.status);
+                    }
+
+                    if (!errorMessage && error && error.message) {
+                        errorMessage = String(error.message);
+                    }
+
+                    if (!errorMessage) {
+                        errorMessage = "Request failed.";
+                    }
+
                     try {
-                        var parsed = JSON.parse(text);
+                        var parsed = JSON.parse(responseText);
                         if (parsed && typeof parsed === "object") {
                             var code = parsed.code ? ("[" + parsed.code + "] ") : "";
                             var message = parsed.message || errorMessage;
@@ -506,12 +539,6 @@
 
                     throw new Error(errorMessage);
                 }
-
-                if (response.status === 204) {
-                    return null;
-                }
-
-                return response.json();
             }
 
             function getActionFilterValues() {
