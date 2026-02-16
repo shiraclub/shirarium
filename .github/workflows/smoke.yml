@@ -51,22 +51,34 @@ jobs:
 
           docker compose up -d jellyfin-dev engine
 
-          for i in {1..90}; do
+          # Wait until the public endpoint returns real JSON payload (not startup/migration HTML).
+          for i in {1..180}; do
             code="$(curl -s -o /tmp/jellyfin-public.json -w "%{http_code}" "http://localhost:8097/System/Info/Public" || true)"
-            if [[ "${code}" == "200" ]]; then
+            if [[ "${code}" == "200" ]] && grep -q '"Version"' /tmp/jellyfin-public.json; then
               break
             fi
             sleep 2
           done
 
           code="$(curl -s -o /tmp/jellyfin-public.json -w "%{http_code}" "http://localhost:8097/System/Info/Public" || true)"
-          if [[ "${code}" != "200" ]]; then
+          if [[ "${code}" != "200" ]] || ! grep -q '"Version"' /tmp/jellyfin-public.json; then
             echo "Jellyfin did not become healthy in time (last status: ${code})."
+            echo "Last /System/Info/Public payload:"
+            cat /tmp/jellyfin-public.json || true
             docker logs shirarium-jellyfin-dev || true
             exit 1
           fi
 
-          endpoint_code="$(curl -s -o /tmp/shirarium-route.txt -w "%{http_code}" "http://localhost:8097/shirarium/organization-plan" || true)"
+          # Route may briefly return startup/transient statuses while plugins finalize.
+          endpoint_code=""
+          for i in {1..90}; do
+            endpoint_code="$(curl -s -o /tmp/shirarium-route.txt -w "%{http_code}" "http://localhost:8097/shirarium/organization-plan" || true)"
+            if [[ "${endpoint_code}" == "401" || "${endpoint_code}" == "403" ]]; then
+              break
+            fi
+            sleep 2
+          done
+
           if [[ "${endpoint_code}" != "401" && "${endpoint_code}" != "403" ]]; then
             echo "Expected /shirarium/organization-plan to require auth (401/403), got ${endpoint_code}."
             cat /tmp/shirarium-route.txt || true
