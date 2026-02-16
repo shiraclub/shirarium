@@ -1,4 +1,5 @@
 using Jellyfin.Plugin.Shirarium.Services;
+using Xunit;
 
 namespace Jellyfin.Plugin.Shirarium.Tests;
 
