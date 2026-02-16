@@ -1,1 +1,149 @@
-# shirarium
+# Shirarium
+
+Local-first Jellyfin metadata assistant for chaotic libraries.
+
+![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
+![Jellyfin](https://img.shields.io/badge/Jellyfin-10.10.3-00A4DC?logo=jellyfin&logoColor=white)
+![.NET](https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
+[![CI](https://github.com/shiraclub/shirarium/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/shiraclub/shirarium/actions/workflows/ci.yml?query=branch%3Amaster)
+![Mode](https://img.shields.io/badge/mode-dry--run-orange)
+
+Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+
+## What It Does
+
+- Runs a Jellyfin plugin (`.NET`) and an external parsing engine (`FastAPI`).
+- Detects likely unmatched media candidates after library scans.
+- Parses filenames via heuristics (and optional Ollama path).
+- Stores dry-run suggestions without changing media files.
+- Exposes scan/suggestion endpoints for admin workflows.
+
+## Current Architecture
+
+- Plugin: `src/Jellyfin.Plugin.Shirarium`
+- Engine: `engine/app`
+- Local stack: `docker-compose.yml`
+- Dev scripts: `scripts/`
+
+Design intent:
+- Keep plugin runtime lightweight.
+- Keep heavy parsing logic in `engine`.
+- Stay non-destructive by default.
+
+## Quick Start
+
+### Prerequisites
+
+- Docker Desktop
+- .NET SDK 8.0+
+- PowerShell 7+
+- Local media path for read-only mount
+
+### Setup
+
+1. Copy env file:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+2. Set media path in `.env`:
+
+```env
+MEDIA_PATH=D:/Media
+```
+
+3. Start stack:
+
+```powershell
+.\scripts\dev-up.ps1
+```
+
+4. Build/reload plugin:
+
+```powershell
+.\scripts\dev-reload.ps1
+```
+
+5. Open Jellyfin:
+
+```text
+http://localhost:8097
+```
+
+## Dry-Run Pipeline
+
+### Automatic path
+
+- Post-library-scan task (`ILibraryPostScanTask`) runs when enabled.
+
+### Manual path
+
+```powershell
+.\scripts\run-dryrun-scan.ps1
+```
+
+### View last snapshot
+
+```powershell
+.\scripts\show-suggestions.ps1
+```
+
+Snapshot location:
+
+```text
+data/jellyfin/config/data/plugins/Shirarium/dryrun-suggestions.json
+```
+
+## API Endpoints
+
+- `POST /Shirarium/scan`
+- `GET /Shirarium/suggestions`
+- `POST /v1/parse-filename` (engine)
+- `GET /health` (engine)
+
+## Testing
+
+### Engine tests (local)
+
+```powershell
+cd .\engine
+python -m unittest discover -s tests -v
+```
+
+### Engine tests (Docker)
+
+```powershell
+.\scripts\test-engine.ps1
+```
+
+Current test coverage:
+- Heuristic filename parsing behavior.
+- API validation/contract behavior.
+- Ollama failure fallback behavior.
+
+## Configuration Notes
+
+Plugin configuration includes:
+- `EngineBaseUrl`
+- `EnableAiParsing`
+- `DryRunMode`
+- `EnablePostScanTask`
+- `MaxItemsPerRun`
+- `MinConfidence`
+- `ScanFileExtensions`
+
+## Roadmap (Near-Term)
+
+1. Plugin unit tests for scan/candidate logic.
+2. Apply-gate workflow for approved metadata actions.
+3. Better scan observability (counts by reason/source/confidence bucket).
+4. Optional queueing model for very large libraries.
+
+## Safety
+
+- No file move/rename logic in the current pipeline.
+- Suggestions are persisted for review before any future apply phase.
+- Core repo license: `GPL-3.0`.

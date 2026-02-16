@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engine-tests:
+    name: Engine Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: engine
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run engine unit tests
+        run: python -m unittest discover -s tests -v
+
+  plugin-build:
+    name: Plugin Build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: src/Jellyfin.Plugin.Shirarium
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore plugin dependencies
+        run: dotnet restore Jellyfin.Plugin.Shirarium.csproj
+
+      - name: Build plugin
+        run: dotnet build Jellyfin.Plugin.Shirarium.csproj -c Release --no-restore
+
+      - name: Upload plugin build artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jellyfin-plugin-shirarium-release
+          path: src/Jellyfin.Plugin.Shirarium/bin/Release/
