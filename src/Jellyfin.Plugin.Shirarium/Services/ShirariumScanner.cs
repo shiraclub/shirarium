@@ -8,6 +8,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Shirarium.Services;
 
+/// <summary>
+/// Performs candidate discovery and dry-run parsing for Jellyfin library items.
+/// </summary>
 public sealed class ShirariumScanner
 {
     private readonly ILibraryManager _libraryManager;
@@ -16,6 +19,14 @@ public sealed class ShirariumScanner
     private readonly PluginConfiguration? _configOverride;
     private readonly Func<string, CancellationToken, Task<ParseFilenameResponse?>>? _parseFilenameAsync;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ShirariumScanner"/> class.
+    /// </summary>
+    /// <param name="libraryManager">Jellyfin library manager.</param>
+    /// <param name="applicationPaths">Jellyfin application paths.</param>
+    /// <param name="logger">Logger instance.</param>
+    /// <param name="configOverride">Optional configuration override used mainly for tests.</param>
+    /// <param name="parseFilenameAsync">Optional parser delegate used mainly for tests.</param>
     public ShirariumScanner(
         ILibraryManager libraryManager,
         IApplicationPaths applicationPaths,
@@ -30,6 +41,11 @@ public sealed class ShirariumScanner
         _parseFilenameAsync = parseFilenameAsync;
     }
 
+    /// <summary>
+    /// Executes a full dry-run scan and stores the resulting suggestion snapshot.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The generated scan snapshot.</returns>
     public async Task<ScanResultSnapshot> RunAsync(CancellationToken cancellationToken = default)
     {
         var plugin = Plugin.Instance;

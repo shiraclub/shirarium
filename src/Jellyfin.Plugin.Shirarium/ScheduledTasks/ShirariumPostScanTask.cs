@@ -5,10 +5,19 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Shirarium.ScheduledTasks;
 
+/// <summary>
+/// Post-scan task that runs Shirarium candidate parsing after Jellyfin library scans.
+/// </summary>
 public sealed class ShirariumPostScanTask : ILibraryPostScanTask
 {
     private readonly ShirariumScanner _scanner;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ShirariumPostScanTask"/> class.
+    /// </summary>
+    /// <param name="libraryManager">Jellyfin library manager.</param>
+    /// <param name="applicationPaths">Jellyfin application paths.</param>
+    /// <param name="logger">Logger instance.</param>
     public ShirariumPostScanTask(
         ILibraryManager libraryManager,
         IApplicationPaths applicationPaths,
@@ -17,6 +26,11 @@ public sealed class ShirariumPostScanTask : ILibraryPostScanTask
         _scanner = new ShirariumScanner(libraryManager, applicationPaths, logger);
     }
 
+    /// <summary>
+    /// Executes the post-scan task.
+    /// </summary>
+    /// <param name="progress">Progress reporter.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task Run(IProgress<double> progress, CancellationToken cancellationToken)
     {
         var plugin = Plugin.Instance;

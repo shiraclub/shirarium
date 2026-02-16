@@ -4,15 +4,28 @@ using Jellyfin.Plugin.Shirarium.Contracts;
 
 namespace Jellyfin.Plugin.Shirarium.Services;
 
+/// <summary>
+/// HTTP client wrapper for communicating with the Shirarium engine service.
+/// </summary>
 public sealed class EngineClient
 {
     private readonly HttpClient _httpClient;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="EngineClient"/> class.
+    /// </summary>
+    /// <param name="httpClient">HTTP client instance.</param>
     public EngineClient(HttpClient httpClient)
     {
         _httpClient = httpClient;
     }
 
+    /// <summary>
+    /// Parses a media filename/path using the configured engine endpoint.
+    /// </summary>
+    /// <param name="path">Media path or filename to parse.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Parse result or <c>null</c> if parsing is disabled or fails.</returns>
     public async Task<ParseFilenameResponse?> ParseFilenameAsync(string path, CancellationToken cancellationToken = default)
     {
         var plugin = Plugin.Instance;

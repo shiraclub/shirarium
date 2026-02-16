@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Jellyfin.Plugin.Shirarium.Services;
 
@@ -14,7 +15,7 @@ internal static class ScanLogic
             StringComparer.OrdinalIgnoreCase);
     }
 
-    internal static bool IsSupportedPath(string? path, HashSet<string> extensions)
+    internal static bool IsSupportedPath([NotNullWhen(true)] string? path, HashSet<string> extensions)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
