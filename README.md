@@ -160,6 +160,13 @@ python -m unittest discover -s tests -v
 .\scripts\test-plugin.ps1
 ```
 
+Direct commands:
+
+```powershell
+dotnet test .\tests\Jellyfin.Plugin.Shirarium.Tests\Jellyfin.Plugin.Shirarium.Tests.csproj -c Release
+dotnet test .\tests\Jellyfin.Plugin.Shirarium.IntegrationTests\Jellyfin.Plugin.Shirarium.IntegrationTests.csproj -c Release
+```
+
 Current test coverage:
 - Heuristic filename parsing behavior.
 - API validation/contract behavior.
@@ -169,6 +176,7 @@ Current test coverage:
 - Organization apply logic (selected-entry gating, preflight safety checks, move execution, rollback operation journaling).
 - Plan fingerprint determinism.
 - Undo logic for journaled apply runs.
+- Integration flow coverage (`plan -> apply -> journal -> undo`) with lock/fingerprint safety checks.
 
 ## Configuration Notes
 

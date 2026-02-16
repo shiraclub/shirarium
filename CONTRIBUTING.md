@@ -95,6 +95,13 @@ Plugin tests:
 .\scripts\test-plugin.ps1
 ```
 
+Direct plugin test commands:
+
+```powershell
+dotnet test .\tests\Jellyfin.Plugin.Shirarium.Tests\Jellyfin.Plugin.Shirarium.Tests.csproj -c Release
+dotnet test .\tests\Jellyfin.Plugin.Shirarium.IntegrationTests\Jellyfin.Plugin.Shirarium.IntegrationTests.csproj -c Release
+```
+
 Local stack smoke test:
 
 ```powershell

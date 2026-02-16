@@ -1,0 +1,211 @@
+using Jellyfin.Plugin.Shirarium.Models;
+using Jellyfin.Plugin.Shirarium.Services;
+using Microsoft.Extensions.Logging.Abstractions;
+using Xunit;
+
+namespace Jellyfin.Plugin.Shirarium.IntegrationTests;
+
+public sealed class IntegrationFlowTests
+{
+    [Fact]
+    public async Task ApplyAndUndo_RoundTripFile_AndPersistJournalState()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var sourcePath = Path.Combine(root, "incoming", "Noroi 2005.mkv");
+            var targetPath = Path.Combine(root, "organized", "Noroi (2005)", "Noroi (2005).mkv");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(sourcePath, "content");
+
+            var plan = await WritePlanAsync(applicationPaths, sourcePath, targetPath);
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+
+            var applyResult = await applier.RunAsync(
+                new ApplyOrganizationPlanRequest
+                {
+                    ExpectedPlanFingerprint = plan.PlanFingerprint,
+                    SourcePaths = [sourcePath]
+                });
+
+            Assert.Equal(1, applyResult.AppliedCount);
+            Assert.True(File.Exists(targetPath));
+            Assert.False(File.Exists(sourcePath));
+
+            var afterApplyJournal = ApplyJournalStore.Read(applicationPaths);
+            Assert.Single(afterApplyJournal.Runs);
+            Assert.Empty(afterApplyJournal.UndoRuns);
+            Assert.Single(afterApplyJournal.Runs[0].UndoOperations);
+            Assert.Null(afterApplyJournal.Runs[0].UndoneByRunId);
+
+            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance);
+            var undoResult = await undoer.RunAsync(
+                new UndoApplyRequest
+                {
+                    RunId = applyResult.RunId
+                });
+
+            Assert.Equal(1, undoResult.AppliedCount);
+            Assert.True(File.Exists(sourcePath));
+            Assert.False(File.Exists(targetPath));
+
+            var afterUndoJournal = ApplyJournalStore.Read(applicationPaths);
+            Assert.Single(afterUndoJournal.Runs);
+            Assert.Single(afterUndoJournal.UndoRuns);
+            Assert.Equal(applyResult.RunId, afterUndoJournal.UndoRuns[0].SourceApplyRunId);
+            Assert.Equal(undoResult.UndoRunId, afterUndoJournal.Runs[0].UndoneByRunId);
+            Assert.NotNull(afterUndoJournal.Runs[0].UndoneAtUtc);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task Apply_RejectsStalePlanFingerprint()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var sourcePath = Path.Combine(root, "incoming", "Noroi 2005.mkv");
+            var targetPath = Path.Combine(root, "organized", "Noroi (2005)", "Noroi (2005).mkv");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(sourcePath, "content");
+            await WritePlanAsync(applicationPaths, sourcePath, targetPath);
+
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                applier.RunAsync(
+                    new ApplyOrganizationPlanRequest
+                    {
+                        ExpectedPlanFingerprint = "stale-fingerprint",
+                        SourcePaths = [sourcePath]
+                    }));
+
+            Assert.Equal("PlanFingerprintMismatch", ex.Message);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyAndUndo_AreBlocked_WhenOperationLockIsHeld()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var sourcePath = Path.Combine(root, "incoming", "Noroi 2005.mkv");
+            var targetPath = Path.Combine(root, "organized", "Noroi (2005)", "Noroi (2005).mkv");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(sourcePath, "content");
+
+            var plan = await WritePlanAsync(applicationPaths, sourcePath, targetPath);
+            using var lockHandle = OperationLock.TryAcquire(applicationPaths);
+            Assert.NotNull(lockHandle);
+
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+            var applyEx = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                applier.RunAsync(
+                    new ApplyOrganizationPlanRequest
+                    {
+                        ExpectedPlanFingerprint = plan.PlanFingerprint,
+                        SourcePaths = [sourcePath]
+                    }));
+            Assert.Equal("OperationAlreadyInProgress", applyEx.Message);
+
+            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance);
+            var undoEx = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                undoer.RunAsync(new UndoApplyRequest()));
+            Assert.Equal("OperationAlreadyInProgress", undoEx.Message);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    private static async Task<OrganizationPlanSnapshot> WritePlanAsync(
+        TestApplicationPaths applicationPaths,
+        string sourcePath,
+        string targetPath)
+    {
+        var plan = new OrganizationPlanSnapshot
+        {
+            RootPath = Path.GetDirectoryName(Path.GetDirectoryName(targetPath)!)!,
+            DryRunMode = false,
+            SourceSuggestionCount = 1,
+            PlannedCount = 1,
+            Entries =
+            [
+                new OrganizationPlanEntry
+                {
+                    ItemId = Guid.NewGuid().ToString("N"),
+                    SourcePath = sourcePath,
+                    TargetPath = targetPath,
+                    Strategy = "movie",
+                    Action = "move",
+                    Reason = "Planned",
+                    Confidence = 0.95,
+                    SuggestedTitle = "Noroi",
+                    SuggestedMediaType = "movie"
+                }
+            ]
+        };
+
+        await OrganizationPlanStore.WriteAsync(applicationPaths, plan);
+        return OrganizationPlanStore.Read(applicationPaths);
+    }
+
+    private static TestApplicationPaths CreateApplicationPaths(string root)
+    {
+        var dataPath = Path.Combine(root, "jellyfin-data");
+        Directory.CreateDirectory(dataPath);
+
+        return new TestApplicationPaths
+        {
+            DataPath = dataPath,
+            ProgramDataPath = dataPath,
+            ProgramSystemPath = dataPath,
+            CachePath = Path.Combine(root, "cache"),
+            TempDirectory = Path.Combine(root, "tmp"),
+            PluginsPath = Path.Combine(dataPath, "plugins"),
+            VirtualDataPath = dataPath,
+            LogDirectoryPath = Path.Combine(root, "logs"),
+            ConfigurationDirectoryPath = Path.Combine(dataPath, "config"),
+            SystemConfigurationFilePath = Path.Combine(dataPath, "system.xml"),
+            WebPath = Path.Combine(root, "web"),
+            PluginConfigurationsPath = Path.Combine(dataPath, "plugin-configs"),
+            ImageCachePath = Path.Combine(root, "image-cache")
+        };
+    }
+
+    private static string CreateTempRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "shirarium-integration-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        return root;
+    }
+
+    private static void CleanupTempRoot(string root)
+    {
+        try
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+        catch
+        {
+        }
+    }
+}

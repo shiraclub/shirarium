@@ -54,11 +54,17 @@ jobs:
       - name: Restore plugin test dependencies
         run: dotnet restore tests/Jellyfin.Plugin.Shirarium.Tests/Jellyfin.Plugin.Shirarium.Tests.csproj
 
+      - name: Restore plugin integration test dependencies
+        run: dotnet restore tests/Jellyfin.Plugin.Shirarium.IntegrationTests/Jellyfin.Plugin.Shirarium.IntegrationTests.csproj
+
       - name: Build plugin
         run: dotnet build src/Jellyfin.Plugin.Shirarium/Jellyfin.Plugin.Shirarium.csproj -c Release --no-restore
 
-      - name: Run plugin tests
+      - name: Run plugin unit tests
         run: dotnet test tests/Jellyfin.Plugin.Shirarium.Tests/Jellyfin.Plugin.Shirarium.Tests.csproj -c Release --no-restore --verbosity normal
+
+      - name: Run plugin integration tests
+        run: dotnet test tests/Jellyfin.Plugin.Shirarium.IntegrationTests/Jellyfin.Plugin.Shirarium.IntegrationTests.csproj -c Release --no-restore --verbosity normal
 
       - name: Upload plugin build artifacts
         if: success()
