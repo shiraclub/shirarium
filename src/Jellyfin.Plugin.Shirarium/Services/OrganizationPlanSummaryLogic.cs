@@ -62,39 +62,42 @@ internal static class OrganizationPlanSummaryLogic
 
     private static string GetTopTargetFolder(string targetPath, string rootPath)
     {
-        try
+        var normalizedTarget = NormalizeLogicalPath(targetPath);
+        if (string.IsNullOrWhiteSpace(normalizedTarget))
         {
-            var fullTarget = Path.GetFullPath(targetPath);
-            var fullRoot = string.IsNullOrWhiteSpace(rootPath) ? string.Empty : Path.GetFullPath(rootPath);
-
-            if (!string.IsNullOrWhiteSpace(fullRoot))
-            {
-                var relative = Path.GetRelativePath(fullRoot, fullTarget);
-                if (!relative.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relative))
-                {
-                    var segments = SplitPath(relative);
-                    if (segments.Length > 0)
-                    {
-                        return segments[0];
-                    }
-                }
-            }
-
-            var targetDirectory = Path.GetDirectoryName(fullTarget);
-            if (!string.IsNullOrWhiteSpace(targetDirectory))
-            {
-                var leaf = Path.GetFileName(targetDirectory);
-                if (!string.IsNullOrWhiteSpace(leaf))
-                {
-                    return leaf;
-                }
-            }
-        }
-        catch
-        {
+            return "(unknown)";
         }
 
-        return "(unknown)";
+        var normalizedRoot = NormalizeLogicalPath(rootPath);
+        if (!string.IsNullOrWhiteSpace(normalizedRoot)
+            && TryGetRelativePath(normalizedTarget, normalizedRoot, out var relativePath))
+        {
+            var relativeSegments = SplitPath(relativePath);
+            if (relativeSegments.Length > 0)
+            {
+                return relativeSegments[0];
+            }
+        }
+
+        var segments = SplitPath(normalizedTarget);
+        if (segments.Length == 0)
+        {
+            return "(unknown)";
+        }
+
+        var startIndex = LooksLikeDrivePrefix(segments[0]) ? 1 : 0;
+        if (startIndex >= segments.Length)
+        {
+            return "(unknown)";
+        }
+
+        var fileSegmentIndex = segments.Length - 1;
+        if (Path.HasExtension(segments[fileSegmentIndex]) && fileSegmentIndex > startIndex)
+        {
+            return segments[fileSegmentIndex - 1];
+        }
+
+        return segments[fileSegmentIndex];
     }
 
     private static string[] SplitPath(string path)
@@ -103,5 +106,63 @@ internal static class OrganizationPlanSummaryLogic
             .Split(
                 [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
                 StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    private static bool TryGetRelativePath(string targetPath, string rootPath, out string relativePath)
+    {
+        relativePath = string.Empty;
+
+        if (string.Equals(targetPath, rootPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var normalizedRoot = rootPath.EndsWith("/", StringComparison.Ordinal)
+            ? rootPath
+            : rootPath + "/";
+
+        if (!targetPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        relativePath = targetPath[normalizedRoot.Length..];
+        return true;
+    }
+
+    private static bool LooksLikeDrivePrefix(string segment)
+    {
+        return segment.Length == 2
+            && char.IsLetter(segment[0])
+            && segment[1] == ':';
+    }
+
+    private static string NormalizeLogicalPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        var normalized = path
+            .Trim()
+            .Replace('\\', '/');
+
+        while (normalized.Contains("//", StringComparison.Ordinal))
+        {
+            normalized = normalized.Replace("//", "/", StringComparison.Ordinal);
+        }
+
+        if (normalized.Length > 1)
+        {
+            normalized = normalized.TrimEnd('/');
+        }
+
+        if (normalized.Length >= 2 && char.IsLetter(normalized[0]) && normalized[1] == ':')
+        {
+            normalized = char.ToUpperInvariant(normalized[0]) + normalized[1..];
+        }
+
+        return normalized;
     }
 }
