@@ -265,13 +265,15 @@ public sealed class IntegrationFlowTests
             CachePath = Path.Combine(root, "cache"),
             TempDirectory = Path.Combine(root, "tmp"),
             PluginsPath = Path.Combine(dataPath, "plugins"),
+            BackupPath = Path.Combine(root, "backup"),
             VirtualDataPath = dataPath,
             LogDirectoryPath = Path.Combine(root, "logs"),
             ConfigurationDirectoryPath = Path.Combine(dataPath, "config"),
             SystemConfigurationFilePath = Path.Combine(dataPath, "system.xml"),
             WebPath = Path.Combine(root, "web"),
             PluginConfigurationsPath = Path.Combine(dataPath, "plugin-configs"),
-            ImageCachePath = Path.Combine(root, "image-cache")
+            ImageCachePath = Path.Combine(root, "image-cache"),
+            TrickplayPath = Path.Combine(root, "trickplay")
         };
     }
 

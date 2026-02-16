@@ -14,6 +14,8 @@ internal sealed class TestApplicationPaths : IApplicationPaths
 
     public string PluginsPath { get; init; } = string.Empty;
 
+    public string BackupPath { get; init; } = string.Empty;
+
     public string VirtualDataPath { get; init; } = string.Empty;
 
     public string DataPath { get; init; } = string.Empty;
@@ -29,4 +31,14 @@ internal sealed class TestApplicationPaths : IApplicationPaths
     public string PluginConfigurationsPath { get; init; } = string.Empty;
 
     public string ImageCachePath { get; init; } = string.Empty;
+
+    public string TrickplayPath { get; init; } = string.Empty;
+
+    public void MakeSanityCheckOrThrow()
+    {
+    }
+
+    public void CreateAndCheckMarker(string path, string markerName, bool recursive)
+    {
+    }
 }

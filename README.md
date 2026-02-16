@@ -3,8 +3,8 @@
 Local-first Jellyfin metadata and file-organization planner for chaotic libraries.
 
 ![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
-![Jellyfin](https://img.shields.io/badge/Jellyfin-10.10.3-00A4DC?logo=jellyfin&logoColor=white)
-![.NET](https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&logoColor=white)
+![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11.6-00A4DC?logo=jellyfin&logoColor=white)
+![.NET](https://img.shields.io/badge/.NET-9-512BD4?logo=dotnet&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
 [![CI](https://github.com/shiraclub/shirarium/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/shiraclub/shirarium/actions/workflows/ci.yml?query=branch%3Amaster)
@@ -39,7 +39,7 @@ Design intent:
 ### Prerequisites
 
 - Docker Desktop
-- .NET SDK 8.0+
+- .NET SDK 9.0+
 - PowerShell 7+
 - Local media path for read-only mount
 
