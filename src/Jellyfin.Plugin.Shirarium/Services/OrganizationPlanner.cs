@@ -76,7 +76,9 @@ public sealed class OrganizationPlanner
             .Select(suggestion => OrganizationPlanLogic.BuildEntry(
                 suggestion,
                 config.OrganizationRootPath,
-                config.NormalizePathSegments))
+                config.NormalizePathSegments,
+                config.MoviePathTemplate,
+                config.EpisodePathTemplate))
             .ToList();
 
         OrganizationPlanLogic.MarkDuplicateTargetConflicts(entries);

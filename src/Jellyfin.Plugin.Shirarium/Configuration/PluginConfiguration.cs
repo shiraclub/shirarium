@@ -67,4 +67,20 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets a value indicating whether generated path segments should be sanitized.
     /// </summary>
     public bool NormalizePathSegments { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the relative movie path template under <see cref="OrganizationRootPath"/>.
+    /// </summary>
+    /// <remarks>
+    /// Available tokens: {Title}, {TitleWithYear}, {Year}.
+    /// </remarks>
+    public string MoviePathTemplate { get; set; } = "{TitleWithYear}/{TitleWithYear}";
+
+    /// <summary>
+    /// Gets or sets the relative episode path template under <see cref="OrganizationRootPath"/>.
+    /// </summary>
+    /// <remarks>
+    /// Available tokens: {Title}, {Season}, {Season2}, {Episode}, {Episode2}.
+    /// </remarks>
+    public string EpisodePathTemplate { get; set; } = "{Title}/Season {Season2}/{Title} - S{Season2}E{Episode2}";
 }

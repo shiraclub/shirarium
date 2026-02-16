@@ -78,6 +78,102 @@ public sealed class OrganizationPlanLogicTests
     }
 
     [Fact]
+    public void BuildEntry_ForMovie_UsesConfiguredTemplate()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var sourcePath = Path.Combine(root, "incoming", "noroi-source.mkv");
+            var suggestion = CreateSuggestion(
+                sourcePath,
+                suggestedTitle: "Noroi",
+                suggestedMediaType: "movie",
+                suggestedYear: 2005);
+
+            var entry = OrganizationPlanLogic.BuildEntry(
+                suggestion,
+                Path.Combine(root, "organized"),
+                normalizePathSegments: true,
+                moviePathTemplate: "{Title}/Release {Year}/{TitleWithYear}",
+                episodePathTemplate: OrganizationPlanLogic.DefaultEpisodePathTemplate);
+
+            Assert.Equal("movie", entry.Strategy);
+            Assert.Equal("move", entry.Action);
+            Assert.Equal(
+                Path.Combine(root, "organized", "Noroi", "Release 2005", "Noroi (2005).mkv"),
+                entry.TargetPath);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void BuildEntry_ForEpisode_UsesConfiguredTemplate()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var sourcePath = Path.Combine(root, "incoming", "file-01.mkv");
+            var suggestion = CreateSuggestion(
+                sourcePath,
+                suggestedTitle: "Kowasugi",
+                suggestedMediaType: "episode",
+                suggestedSeason: 1,
+                suggestedEpisode: 2);
+
+            var entry = OrganizationPlanLogic.BuildEntry(
+                suggestion,
+                Path.Combine(root, "organized"),
+                normalizePathSegments: true,
+                moviePathTemplate: OrganizationPlanLogic.DefaultMoviePathTemplate,
+                episodePathTemplate: "{Title}/S{Season2}/{Title} - {Episode2}");
+
+            Assert.Equal("episode", entry.Strategy);
+            Assert.Equal("move", entry.Action);
+            Assert.Equal(
+                Path.Combine(root, "organized", "Kowasugi", "S01", "Kowasugi - 02.mkv"),
+                entry.TargetPath);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void BuildEntry_WhenMovieTemplateHasUnknownToken_IsSkipped()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var sourcePath = Path.Combine(root, "incoming", "noroi-source.mkv");
+            var suggestion = CreateSuggestion(
+                sourcePath,
+                suggestedTitle: "Noroi",
+                suggestedMediaType: "movie",
+                suggestedYear: 2005);
+
+            var entry = OrganizationPlanLogic.BuildEntry(
+                suggestion,
+                Path.Combine(root, "organized"),
+                normalizePathSegments: true,
+                moviePathTemplate: "{Title}/{UnknownToken}",
+                episodePathTemplate: OrganizationPlanLogic.DefaultEpisodePathTemplate);
+
+            Assert.Equal("movie", entry.Strategy);
+            Assert.Equal("skip", entry.Action);
+            Assert.Equal("InvalidMovieTemplate", entry.Reason);
+            Assert.Null(entry.TargetPath);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
     public void BuildEntry_ForEpisodeWithoutSeasonOrEpisode_IsSkipped()
     {
         var root = CreateTempRoot();
@@ -213,7 +309,9 @@ public sealed class OrganizationPlanLogicTests
             {
                 DryRunMode = true,
                 OrganizationRootPath = Path.Combine(root, "organized"),
-                NormalizePathSegments = true
+                NormalizePathSegments = true,
+                MoviePathTemplate = OrganizationPlanLogic.DefaultMoviePathTemplate,
+                EpisodePathTemplate = OrganizationPlanLogic.DefaultEpisodePathTemplate
             };
 
             var snapshot = new ScanResultSnapshot
@@ -244,6 +342,52 @@ public sealed class OrganizationPlanLogicTests
             Assert.Equal(0, plan.NoopCount);
             Assert.Equal(1, plan.SkippedCount);
             Assert.Equal(2, plan.ConflictCount);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void BuildPlan_UsesConfiguredTemplates()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var config = new PluginConfiguration
+            {
+                DryRunMode = true,
+                OrganizationRootPath = Path.Combine(root, "organized"),
+                NormalizePathSegments = true,
+                MoviePathTemplate = "{Title}/Films/{TitleWithYear}",
+                EpisodePathTemplate = "{Title}/S{Season2}/{Title} - {Episode2}"
+            };
+
+            var snapshot = new ScanResultSnapshot
+            {
+                Suggestions =
+                [
+                    CreateSuggestion(
+                        Path.Combine(root, "incoming", "a.mkv"),
+                        suggestedTitle: "Noroi",
+                        suggestedMediaType: "movie",
+                        suggestedYear: 2005),
+                    CreateSuggestion(
+                        Path.Combine(root, "incoming", "b.mkv"),
+                        suggestedTitle: "Kowasugi",
+                        suggestedMediaType: "episode",
+                        suggestedSeason: 1,
+                        suggestedEpisode: 2)
+                ]
+            };
+
+            var plan = OrganizationPlanner.BuildPlan(snapshot, config);
+            var movieEntry = Assert.Single(plan.Entries, entry => entry.Strategy == "movie");
+            var episodeEntry = Assert.Single(plan.Entries, entry => entry.Strategy == "episode");
+
+            Assert.Equal(Path.Combine(root, "organized", "Noroi", "Films", "Noroi (2005).mkv"), movieEntry.TargetPath);
+            Assert.Equal(Path.Combine(root, "organized", "Kowasugi", "S01", "Kowasugi - 02.mkv"), episodeEntry.TargetPath);
         }
         finally
         {

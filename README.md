@@ -194,6 +194,12 @@ Plugin configuration includes:
 - `EnableFileOrganizationPlanning`
 - `OrganizationRootPath`
 - `NormalizePathSegments`
+- `MoviePathTemplate`
+- `EpisodePathTemplate`
+
+Template tokens:
+- Movie: `{Title}`, `{TitleWithYear}`, `{Year}`
+- Episode: `{Title}`, `{Season}`, `{Season2}`, `{Episode}`, `{Episode2}`
 
 ## Roadmap (Near-Term)
 

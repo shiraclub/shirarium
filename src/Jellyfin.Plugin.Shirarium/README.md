@@ -27,6 +27,8 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 ## Notes
 
 - Planning follows Jellyfin naming best practices for movie/episode structures.
+- Planning templates are configurable via `MoviePathTemplate` and `EpisodePathTemplate`.
+- Template tokens: movie `{Title}`, `{TitleWithYear}`, `{Year}`; episode `{Title}`, `{Season}`, `{Season2}`, `{Episode}`, `{Episode2}`.
 - Behavior is non-destructive by default: no automatic file move/rename is performed.
 - Apply is explicit and selection-based: only source paths chosen by admin and marked `move` in plan are executed.
 - Apply requires `expectedPlanFingerprint` and rejects stale plan submissions.
