@@ -133,36 +133,123 @@ public sealed class IntegrationFlowTests
         }
     }
 
+    [Fact]
+    public async Task UndoApply_PartialCollision_AppliesWhatItCan_AndPersistsJournal()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+
+            var sourcePathA = Path.Combine(root, "incoming", "A.mkv");
+            var sourcePathB = Path.Combine(root, "incoming", "B.mkv");
+            var targetPathA = Path.Combine(root, "organized", "A", "A.mkv");
+            var targetPathB = Path.Combine(root, "organized", "B", "B.mkv");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePathA)!);
+            File.WriteAllText(sourcePathA, "content-a");
+            File.WriteAllText(sourcePathB, "content-b");
+
+            var plan = await WritePlanAsync(
+                applicationPaths,
+                CreatePlanEntry(sourcePathA, targetPathA, "A"),
+                CreatePlanEntry(sourcePathB, targetPathB, "B"));
+
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+            var applyResult = await applier.RunAsync(
+                new ApplyOrganizationPlanRequest
+                {
+                    ExpectedPlanFingerprint = plan.PlanFingerprint,
+                    SourcePaths = [sourcePathA, sourcePathB]
+                });
+
+            Assert.Equal(2, applyResult.AppliedCount);
+            Assert.False(File.Exists(sourcePathA));
+            Assert.False(File.Exists(sourcePathB));
+            Assert.True(File.Exists(targetPathA));
+            Assert.True(File.Exists(targetPathB));
+
+            File.WriteAllText(sourcePathB, "collision");
+
+            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance);
+            var undoResult = await undoer.RunAsync(
+                new UndoApplyRequest
+                {
+                    RunId = applyResult.RunId
+                });
+
+            Assert.Equal(2, undoResult.RequestedCount);
+            Assert.Equal(1, undoResult.AppliedCount);
+            Assert.Equal(1, undoResult.FailedCount);
+            Assert.Contains(undoResult.Results, result => result.Reason == "UndoTargetAlreadyExists");
+
+            Assert.True(File.Exists(sourcePathA));
+            Assert.False(File.Exists(targetPathA));
+            Assert.True(File.Exists(sourcePathB));
+            Assert.True(File.Exists(targetPathB));
+
+            Assert.Equal("collision", File.ReadAllText(sourcePathB));
+            Assert.Equal("content-b", File.ReadAllText(targetPathB));
+
+            var journal = ApplyJournalStore.Read(applicationPaths);
+            Assert.Single(journal.Runs);
+            Assert.Single(journal.UndoRuns);
+            Assert.Equal(applyResult.RunId, journal.UndoRuns[0].SourceApplyRunId);
+            Assert.Equal(undoResult.UndoRunId, journal.Runs[0].UndoneByRunId);
+            Assert.Equal(1, journal.UndoRuns[0].AppliedCount);
+            Assert.Equal(1, journal.UndoRuns[0].FailedCount);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
     private static async Task<OrganizationPlanSnapshot> WritePlanAsync(
         TestApplicationPaths applicationPaths,
         string sourcePath,
         string targetPath)
     {
+        return await WritePlanAsync(
+            applicationPaths,
+            CreatePlanEntry(sourcePath, targetPath, "Noroi"));
+    }
+
+    private static async Task<OrganizationPlanSnapshot> WritePlanAsync(
+        TestApplicationPaths applicationPaths,
+        params OrganizationPlanEntry[] entries)
+    {
+        var firstTargetPath = entries[0].TargetPath ?? string.Empty;
         var plan = new OrganizationPlanSnapshot
         {
-            RootPath = Path.GetDirectoryName(Path.GetDirectoryName(targetPath)!)!,
+            RootPath = Path.GetDirectoryName(Path.GetDirectoryName(firstTargetPath)!)!,
             DryRunMode = false,
-            SourceSuggestionCount = 1,
-            PlannedCount = 1,
-            Entries =
-            [
-                new OrganizationPlanEntry
-                {
-                    ItemId = Guid.NewGuid().ToString("N"),
-                    SourcePath = sourcePath,
-                    TargetPath = targetPath,
-                    Strategy = "movie",
-                    Action = "move",
-                    Reason = "Planned",
-                    Confidence = 0.95,
-                    SuggestedTitle = "Noroi",
-                    SuggestedMediaType = "movie"
-                }
-            ]
+            SourceSuggestionCount = entries.Length,
+            PlannedCount = entries.Length,
+            Entries = entries
         };
 
         await OrganizationPlanStore.WriteAsync(applicationPaths, plan);
         return OrganizationPlanStore.Read(applicationPaths);
+    }
+
+    private static OrganizationPlanEntry CreatePlanEntry(
+        string sourcePath,
+        string targetPath,
+        string title)
+    {
+        return new OrganizationPlanEntry
+        {
+            ItemId = Guid.NewGuid().ToString("N"),
+            SourcePath = sourcePath,
+            TargetPath = targetPath,
+            Strategy = "movie",
+            Action = "move",
+            Reason = "Planned",
+            Confidence = 0.95,
+            SuggestedTitle = title,
+            SuggestedMediaType = "movie"
+        };
     }
 
     private static TestApplicationPaths CreateApplicationPaths(string root)
