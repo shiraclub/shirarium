@@ -11,6 +11,11 @@ public sealed class OrganizationPlanSnapshot
     public DateTimeOffset GeneratedAtUtc { get; init; } = DateTimeOffset.UtcNow;
 
     /// <summary>
+    /// Gets a deterministic fingerprint for this plan payload.
+    /// </summary>
+    public string PlanFingerprint { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets the root path used when generating planned target paths.
     /// </summary>
     public string RootPath { get; init; } = string.Empty;

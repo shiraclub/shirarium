@@ -9,4 +9,9 @@ public sealed class ApplyJournalSnapshot
     /// Gets all recorded apply runs in chronological order.
     /// </summary>
     public ApplyOrganizationPlanResult[] Runs { get; init; } = [];
+
+    /// <summary>
+    /// Gets all recorded undo runs in chronological order.
+    /// </summary>
+    public UndoApplyResult[] UndoRuns { get; init; } = [];
 }

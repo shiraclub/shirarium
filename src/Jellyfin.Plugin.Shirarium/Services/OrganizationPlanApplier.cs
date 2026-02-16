@@ -33,17 +33,34 @@ public sealed class OrganizationPlanApplier
         ApplyOrganizationPlanRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(request.ExpectedPlanFingerprint))
+        {
+            throw new InvalidOperationException("MissingExpectedPlanFingerprint");
+        }
+
+        using var operationLock = OperationLock.TryAcquire(_applicationPaths);
+        if (operationLock is null)
+        {
+            throw new InvalidOperationException("OperationAlreadyInProgress");
+        }
+
         var plan = OrganizationPlanStore.Read(_applicationPaths);
+        if (!request.ExpectedPlanFingerprint.Equals(plan.PlanFingerprint, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("PlanFingerprintMismatch");
+        }
+
         var result = OrganizationApplyLogic.ApplySelected(
             plan,
             request.SourcePaths,
             cancellationToken);
 
-        await ApplyJournalStore.AppendAsync(_applicationPaths, result, cancellationToken);
+        await ApplyJournalStore.AppendApplyAsync(_applicationPaths, result, cancellationToken);
 
         _logger.LogInformation(
-            "Shirarium apply plan complete. RunId={RunId} Requested={Requested} Applied={Applied} Skipped={Skipped} Failed={Failed}",
+            "Shirarium apply plan complete. RunId={RunId} Fingerprint={PlanFingerprint} Requested={Requested} Applied={Applied} Skipped={Skipped} Failed={Failed}",
             result.RunId,
+            result.PlanFingerprint,
             result.RequestedCount,
             result.AppliedCount,
             result.SkippedCount,

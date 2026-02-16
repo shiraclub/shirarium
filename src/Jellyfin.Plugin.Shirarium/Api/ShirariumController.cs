@@ -18,6 +18,7 @@ public sealed class ShirariumController : ControllerBase
     private readonly OrganizationPlanApplier _applier;
     private readonly OrganizationPlanner _planner;
     private readonly ShirariumScanner _scanner;
+    private readonly OrganizationPlanUndoer _undoer;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ShirariumController"/> class.
@@ -34,6 +35,7 @@ public sealed class ShirariumController : ControllerBase
         _scanner = new ShirariumScanner(libraryManager, applicationPaths, logger);
         _planner = new OrganizationPlanner(applicationPaths, logger);
         _applier = new OrganizationPlanApplier(applicationPaths, logger);
+        _undoer = new OrganizationPlanUndoer(applicationPaths, logger);
     }
 
     /// <summary>
@@ -96,7 +98,56 @@ public sealed class ShirariumController : ControllerBase
             return BadRequest("At least one source path must be provided.");
         }
 
-        var result = await _applier.RunAsync(request, cancellationToken);
-        return Ok(result);
+        if (string.IsNullOrWhiteSpace(request.ExpectedPlanFingerprint))
+        {
+            return BadRequest("ExpectedPlanFingerprint is required.");
+        }
+
+        try
+        {
+            var result = await _applier.RunAsync(request, cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex) when (
+            ex.Message.Equals("PlanFingerprintMismatch", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict("Plan fingerprint mismatch. Refresh the organization plan and retry.");
+        }
+        catch (InvalidOperationException ex) when (
+            ex.Message.Equals("OperationAlreadyInProgress", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict("Another apply or undo operation is already in progress.");
+        }
+    }
+
+    /// <summary>
+    /// Undoes one previously applied run from the apply journal.
+    /// </summary>
+    /// <param name="request">Undo request; when run id is omitted the latest run is selected.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Undo result for the selected apply run.</returns>
+    [HttpPost("undo-apply")]
+    public async Task<ActionResult<UndoApplyResult>> UndoApply(
+        [FromBody] UndoApplyRequest? request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _undoer.RunAsync(request ?? new UndoApplyRequest(), cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex) when (
+            ex.Message.Equals("OperationAlreadyInProgress", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict("Another apply or undo operation is already in progress.");
+        }
+        catch (InvalidOperationException ex) when (
+            ex.Message.Equals("NoApplyRunsInJournal", StringComparison.OrdinalIgnoreCase)
+            || ex.Message.Equals("ApplyRunNotFound", StringComparison.OrdinalIgnoreCase)
+            || ex.Message.Equals("ApplyRunAlreadyUndone", StringComparison.OrdinalIgnoreCase)
+            || ex.Message.Equals("ApplyRunHasNoUndoOperations", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(ex.Message);
+        }
     }
 }

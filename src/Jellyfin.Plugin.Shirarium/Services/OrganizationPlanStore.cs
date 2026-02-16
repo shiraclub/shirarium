@@ -42,8 +42,10 @@ public static class OrganizationPlanStore
         try
         {
             var json = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<OrganizationPlanSnapshot>(json, JsonOptions)
+            var snapshot = JsonSerializer.Deserialize<OrganizationPlanSnapshot>(json, JsonOptions)
                 ?? new OrganizationPlanSnapshot();
+            snapshot.PlanFingerprint = PlanFingerprint.Compute(snapshot);
+            return snapshot;
         }
         catch
         {
@@ -62,6 +64,7 @@ public static class OrganizationPlanStore
         OrganizationPlanSnapshot snapshot,
         CancellationToken cancellationToken = default)
     {
+        snapshot.PlanFingerprint = PlanFingerprint.Compute(snapshot);
         var filePath = GetFilePath(applicationPaths);
         var json = JsonSerializer.Serialize(snapshot, JsonOptions);
         await File.WriteAllTextAsync(filePath, json, cancellationToken);

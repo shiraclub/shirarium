@@ -33,6 +33,7 @@ internal static class OrganizationApplyLogic
             StringComparer.OrdinalIgnoreCase);
 
         var itemResults = new List<ApplyOrganizationPlanItemResult>(normalizedSelections.Count);
+        var undoOperations = new List<ApplyUndoMoveOperation>(normalizedSelections.Count);
         var appliedCount = 0;
         var skippedCount = 0;
         var failedCount = 0;
@@ -198,6 +199,11 @@ internal static class OrganizationApplyLogic
                     Status = "applied",
                     Reason = "Moved"
                 });
+                undoOperations.Add(new ApplyUndoMoveOperation
+                {
+                    FromPath = targetPath,
+                    ToPath = sourcePath
+                });
             }
             catch (Exception ex)
             {
@@ -216,11 +222,13 @@ internal static class OrganizationApplyLogic
         {
             AppliedAtUtc = DateTimeOffset.UtcNow,
             PlanRootPath = plan.RootPath,
+            PlanFingerprint = plan.PlanFingerprint,
             RequestedCount = normalizedSelections.Count,
             AppliedCount = appliedCount,
             SkippedCount = skippedCount,
             FailedCount = failedCount,
-            Results = itemResults.ToArray()
+            Results = itemResults.ToArray(),
+            UndoOperations = undoOperations.ToArray()
         };
     }
 

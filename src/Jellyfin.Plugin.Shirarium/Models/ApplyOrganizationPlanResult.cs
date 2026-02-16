@@ -21,6 +21,11 @@ public sealed class ApplyOrganizationPlanResult
     public string PlanRootPath { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets the plan fingerprint validated for this apply run.
+    /// </summary>
+    public string PlanFingerprint { get; init; } = string.Empty;
+
+    /// <summary>
     /// Gets the number of unique selected paths requested.
     /// </summary>
     public int RequestedCount { get; init; }
@@ -44,4 +49,19 @@ public sealed class ApplyOrganizationPlanResult
     /// Gets per-item apply results.
     /// </summary>
     public ApplyOrganizationPlanItemResult[] Results { get; init; } = [];
+
+    /// <summary>
+    /// Gets inverse move operations that can restore this run.
+    /// </summary>
+    public ApplyUndoMoveOperation[] UndoOperations { get; init; } = [];
+
+    /// <summary>
+    /// Gets the undo run id that restored this apply run, when available.
+    /// </summary>
+    public string? UndoneByRunId { get; set; }
+
+    /// <summary>
+    /// Gets the UTC timestamp when this apply run was restored, when available.
+    /// </summary>
+    public DateTimeOffset? UndoneAtUtc { get; set; }
 }

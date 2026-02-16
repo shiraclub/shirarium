@@ -2,6 +2,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string[]]$SourcePath,
     [string]$JellyfinBaseUrl = "http://localhost:8097",
+    [string]$PlanFingerprint,
     [string]$AccessToken
 )
 
@@ -15,7 +16,18 @@ if ($AccessToken) {
     $headers["X-Emby-Token"] = $AccessToken
 }
 
+if (-not $PlanFingerprint) {
+    $planUri = "$($JellyfinBaseUrl.TrimEnd('/'))/Shirarium/organization-plan"
+    $plan = Invoke-RestMethod -Method Get -Uri $planUri -Headers $headers
+    $PlanFingerprint = $plan.planFingerprint
+}
+
+if (-not $PlanFingerprint) {
+    throw "Unable to resolve plan fingerprint. Generate organization plan first."
+}
+
 $payload = @{
+    expectedPlanFingerprint = $PlanFingerprint
     sourcePaths = $SourcePath
 } | ConvertTo-Json -Depth 5
 

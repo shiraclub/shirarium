@@ -52,12 +52,28 @@ public static class ApplyJournalStore
     }
 
     /// <summary>
+    /// Writes a full apply journal snapshot to disk.
+    /// </summary>
+    /// <param name="applicationPaths">Jellyfin application paths.</param>
+    /// <param name="snapshot">Snapshot to persist.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static async Task WriteAsync(
+        IApplicationPaths applicationPaths,
+        ApplyJournalSnapshot snapshot,
+        CancellationToken cancellationToken = default)
+    {
+        var filePath = GetFilePath(applicationPaths);
+        var json = JsonSerializer.Serialize(snapshot, JsonOptions);
+        await File.WriteAllTextAsync(filePath, json, cancellationToken);
+    }
+
+    /// <summary>
     /// Appends one apply result to the audit journal.
     /// </summary>
     /// <param name="applicationPaths">Jellyfin application paths.</param>
     /// <param name="result">Apply result to append.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public static async Task AppendAsync(
+    public static async Task AppendApplyAsync(
         IApplicationPaths applicationPaths,
         ApplyOrganizationPlanResult result,
         CancellationToken cancellationToken = default)
@@ -68,11 +84,42 @@ public static class ApplyJournalStore
 
         var updated = new ApplyJournalSnapshot
         {
-            Runs = runs.ToArray()
+            Runs = runs.ToArray(),
+            UndoRuns = snapshot.UndoRuns
         };
 
-        var filePath = GetFilePath(applicationPaths);
-        var json = JsonSerializer.Serialize(updated, JsonOptions);
-        await File.WriteAllTextAsync(filePath, json, cancellationToken);
+        await WriteAsync(applicationPaths, updated, cancellationToken);
+    }
+
+    /// <summary>
+    /// Appends one undo result to the audit journal and marks the source apply run as restored.
+    /// </summary>
+    /// <param name="applicationPaths">Jellyfin application paths.</param>
+    /// <param name="result">Undo result to append.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static async Task AppendUndoAsync(
+        IApplicationPaths applicationPaths,
+        UndoApplyResult result,
+        CancellationToken cancellationToken = default)
+    {
+        var snapshot = Read(applicationPaths);
+        var runs = snapshot.Runs.ToArray();
+        var runIndex = Array.FindIndex(runs, run => run.RunId.Equals(result.SourceApplyRunId, StringComparison.OrdinalIgnoreCase));
+        if (runIndex >= 0)
+        {
+            runs[runIndex].UndoneByRunId = result.UndoRunId;
+            runs[runIndex].UndoneAtUtc = result.UndoneAtUtc;
+        }
+
+        var undoRuns = snapshot.UndoRuns.ToList();
+        undoRuns.Add(result);
+
+        var updated = new ApplyJournalSnapshot
+        {
+            Runs = runs,
+            UndoRuns = undoRuns.ToArray()
+        };
+
+        await WriteAsync(applicationPaths, updated, cancellationToken);
     }
 }

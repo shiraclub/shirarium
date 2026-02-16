@@ -81,7 +81,7 @@ public sealed class OrganizationPlanner
 
         OrganizationPlanLogic.MarkDuplicateTargetConflicts(entries);
 
-        return new OrganizationPlanSnapshot
+        var snapshot = new OrganizationPlanSnapshot
         {
             GeneratedAtUtc = DateTimeOffset.UtcNow,
             RootPath = config.OrganizationRootPath,
@@ -93,5 +93,8 @@ public sealed class OrganizationPlanner
             ConflictCount = entries.Count(entry => entry.Action.Equals("conflict", StringComparison.OrdinalIgnoreCase)),
             Entries = entries.ToArray()
         };
+
+        snapshot.PlanFingerprint = PlanFingerprint.Compute(snapshot);
+        return snapshot;
     }
 }

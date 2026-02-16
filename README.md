@@ -100,6 +100,18 @@ http://localhost:8097
 .\scripts\apply-organization-plan.ps1 -SourcePath "D:\media\incoming\example.mkv"
 ```
 
+### Undo latest apply run (manual)
+
+```powershell
+.\scripts\undo-apply-plan.ps1
+```
+
+Undo a specific run:
+
+```powershell
+.\scripts\undo-apply-plan.ps1 -RunId "<apply-run-id>"
+```
+
 ### View latest snapshots
 
 ```powershell
@@ -123,6 +135,7 @@ data/jellyfin/config/data/plugins/Shirarium/apply-journal.json
 - `POST /Shirarium/plan-organize`
 - `GET /Shirarium/organization-plan`
 - `POST /Shirarium/apply-plan`
+- `POST /Shirarium/undo-apply`
 - `POST /v1/parse-filename` (engine)
 - `GET /health` (engine)
 
@@ -153,7 +166,9 @@ Current test coverage:
 - Ollama failure fallback behavior.
 - Plugin scan logic (candidate reasons, extension support, confidence gating).
 - Organization planning logic (path normalization, movie/episode path conventions, conflict/no-op handling, duplicate target detection).
-- Organization apply logic (selected-entry gating, preflight safety checks, move execution, skipped/failed reason handling).
+- Organization apply logic (selected-entry gating, preflight safety checks, move execution, rollback operation journaling).
+- Plan fingerprint determinism.
+- Undo logic for journaled apply runs.
 
 ## Configuration Notes
 
@@ -171,16 +186,18 @@ Plugin configuration includes:
 
 ## Roadmap (Near-Term)
 
-1. Approval-based apply mode for selected file moves/renames.
-2. Rollback journal for any future apply operations.
-3. Better scan observability (counts by reason/source/confidence bucket).
-4. Optional queueing model for very large libraries.
+1. Better scan observability (counts by reason/source/confidence bucket).
+2. Optional queueing model for very large libraries.
+3. Admin UX for plan review and selection before apply.
+4. Undo conflict resolver for partially blocked rollbacks.
 
 ## Safety
 
 - No automatic file move/rename happens in the current pipeline.
 - Apply operations require explicit source-path selection and only execute entries currently marked `move`.
+- Apply is guarded by plan fingerprint matching to ensure operations run only against the exact reviewed plan.
+- Apply and undo are serialized with a filesystem lock to prevent concurrent operations.
 - Apply preflight blocks unsafe operations: invalid paths, target outside root, cross-volume moves, and existing targets.
 - Suggestions and organization plans are persisted for review and auditing before any future apply phase.
-- Apply runs are written to `apply-journal.json` for auditability.
+- Apply runs are written to `apply-journal.json` with inverse move operations for rollback auditability.
 - Core repo license: `GPL-3.0`.

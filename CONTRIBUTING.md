@@ -104,6 +104,7 @@ Local stack smoke test:
 .\scripts\run-organization-plan.ps1
 .\scripts\apply-organization-plan.ps1 -SourcePath "D:\media\incoming\example.mkv"
 .\scripts\show-apply-journal.ps1
+.\scripts\undo-apply-plan.ps1
 ```
 
 ## Coding Expectations
