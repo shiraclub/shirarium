@@ -20,7 +20,9 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 - `GET /shirarium/suggestions`
 - `POST /shirarium/plan-organize`
 - `GET /shirarium/organization-plan`
+- `GET /shirarium/organization-plan-summary`
 - `POST /shirarium/apply-plan`
+- `POST /shirarium/apply-plan-by-filter`
 - `POST /shirarium/undo-apply`
 - `GET /shirarium/ops-status`
 
@@ -32,6 +34,7 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 - Target conflicts are configurable via `TargetConflictPolicy`: `fail`, `skip`, or `suffix`.
 - Behavior is non-destructive by default: no automatic file move/rename is performed.
 - Apply is explicit and selection-based: only source paths chosen by admin and marked `move` in plan are executed.
+- Filtered apply supports deterministic selection by strategy/reason/path prefix/confidence/limit with preview mode.
 - Apply requires `expectedPlanFingerprint` and rejects stale plan submissions.
 - Apply and undo are serialized by a filesystem lock (`apply.lock`) to prevent concurrent file mutation runs.
 - Apply performs preflight safety checks before moving: canonical path validation, root-bound target validation, same-volume requirement, and target collision checks.

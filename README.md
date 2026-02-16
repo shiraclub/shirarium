@@ -100,6 +100,18 @@ http://localhost:8097
 .\scripts\apply-organization-plan.ps1 -SourcePath "D:\media\incoming\example.mkv"
 ```
 
+### Apply plan by filters (preview by default)
+
+```powershell
+.\scripts\apply-plan-by-filter.ps1 -Strategy movie -Reason PlannedWithSuffix -Limit 50
+```
+
+Execute filtered apply (non-preview):
+
+```powershell
+.\scripts\apply-plan-by-filter.ps1 -Strategy movie -Apply
+```
+
 ### Undo latest apply run (manual)
 
 ```powershell
@@ -135,7 +147,9 @@ data/jellyfin/config/data/plugins/Shirarium/apply-journal.json
 - `GET /shirarium/suggestions`
 - `POST /shirarium/plan-organize`
 - `GET /shirarium/organization-plan`
+- `GET /shirarium/organization-plan-summary`
 - `POST /shirarium/apply-plan`
+- `POST /shirarium/apply-plan-by-filter`
 - `POST /shirarium/undo-apply`
 - `GET /shirarium/ops-status`
 - `POST /v1/parse-filename` (engine)
