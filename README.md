@@ -180,6 +180,7 @@ Current test coverage:
 - Undo logic for journaled apply runs.
 - Integration flow coverage (`plan -> apply -> journal -> undo`) with lock/fingerprint safety checks.
 - Ops status aggregation coverage from persisted plan/apply/undo snapshots.
+- Filesystem integration matrix for conflict policies (`fail`/`skip`/`suffix`) on mixed movie/episode planning and suffix-based round trips.
 
 ## Configuration Notes
 
