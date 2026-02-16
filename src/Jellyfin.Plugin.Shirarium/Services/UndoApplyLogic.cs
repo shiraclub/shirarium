@@ -4,12 +4,26 @@ namespace Jellyfin.Plugin.Shirarium.Services;
 
 internal static class UndoApplyLogic
 {
+    private const string TargetConflictPolicyFail = "fail";
+    private const string TargetConflictPolicySkip = "skip";
+    private const string TargetConflictPolicySuffix = "suffix";
+
+    internal static bool IsSupportedTargetConflictPolicy(string? policy)
+    {
+        var normalized = NormalizeTargetConflictPolicy(policy);
+        return normalized.Equals(TargetConflictPolicyFail, StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals(TargetConflictPolicySkip, StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals(TargetConflictPolicySuffix, StringComparison.OrdinalIgnoreCase);
+    }
+
     internal static UndoApplyResult UndoRun(
         ApplyOrganizationPlanResult sourceRun,
+        string? targetConflictPolicy,
         CancellationToken cancellationToken = default)
     {
         return UndoRun(
             sourceRun,
+            targetConflictPolicy,
             File.Exists,
             path => _ = Directory.CreateDirectory(path),
             File.Move,
@@ -18,11 +32,13 @@ internal static class UndoApplyLogic
 
     internal static UndoApplyResult UndoRun(
         ApplyOrganizationPlanResult sourceRun,
+        string? targetConflictPolicy,
         Func<string, bool> fileExists,
         Action<string> ensureDirectory,
         Action<string, string> moveFile,
         CancellationToken cancellationToken = default)
     {
+        var normalizedConflictPolicy = NormalizeTargetConflictPolicy(targetConflictPolicy);
         var operations = sourceRun.UndoOperations
             .Where(operation =>
                 !string.IsNullOrWhiteSpace(operation.FromPath)
@@ -34,6 +50,7 @@ internal static class UndoApplyLogic
         var appliedCount = 0;
         var skippedCount = 0;
         var failedCount = 0;
+        var conflictResolvedCount = 0;
 
         foreach (var operation in operations)
         {
@@ -65,17 +82,71 @@ internal static class UndoApplyLogic
                 continue;
             }
 
+            string? conflictMovedToPath = null;
+            var conflictResolvedForOperation = false;
             if (fileExists(operation.ToPath))
             {
-                failedCount++;
-                itemResults.Add(new UndoApplyItemResult
+                if (normalizedConflictPolicy.Equals(TargetConflictPolicySkip, StringComparison.OrdinalIgnoreCase))
                 {
-                    FromPath = operation.FromPath,
-                    ToPath = operation.ToPath,
-                    Status = "failed",
-                    Reason = "UndoTargetAlreadyExists"
-                });
-                continue;
+                    skippedCount++;
+                    itemResults.Add(new UndoApplyItemResult
+                    {
+                        FromPath = operation.FromPath,
+                        ToPath = operation.ToPath,
+                        Status = "skipped",
+                        Reason = "UndoTargetAlreadyExists"
+                    });
+                    continue;
+                }
+
+                if (normalizedConflictPolicy.Equals(TargetConflictPolicySuffix, StringComparison.OrdinalIgnoreCase))
+                {
+                    var suffixTargetPath = ResolveSuffixTargetPath(operation.ToPath, fileExists);
+                    if (suffixTargetPath is null)
+                    {
+                        failedCount++;
+                        itemResults.Add(new UndoApplyItemResult
+                        {
+                            FromPath = operation.FromPath,
+                            ToPath = operation.ToPath,
+                            Status = "failed",
+                            Reason = "UndoUnableToResolveTargetSuffix"
+                        });
+                        continue;
+                    }
+
+                    try
+                    {
+                        moveFile(operation.ToPath, suffixTargetPath);
+                        conflictMovedToPath = suffixTargetPath;
+                        conflictResolvedForOperation = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        failedCount++;
+                        itemResults.Add(new UndoApplyItemResult
+                        {
+                            FromPath = operation.FromPath,
+                            ToPath = operation.ToPath,
+                            Status = "failed",
+                            Reason = $"UndoConflictMoveAsideFailed:{ex.GetType().Name}",
+                            ConflictMovedToPath = suffixTargetPath
+                        });
+                        continue;
+                    }
+                }
+                else
+                {
+                    failedCount++;
+                    itemResults.Add(new UndoApplyItemResult
+                    {
+                        FromPath = operation.FromPath,
+                        ToPath = operation.ToPath,
+                        Status = "failed",
+                        Reason = "UndoTargetAlreadyExists"
+                    });
+                    continue;
+                }
             }
 
             var targetDirectory = Path.GetDirectoryName(operation.ToPath);
@@ -87,7 +158,8 @@ internal static class UndoApplyLogic
                     FromPath = operation.FromPath,
                     ToPath = operation.ToPath,
                     Status = "failed",
-                    Reason = "UndoMissingTargetDirectory"
+                    Reason = "UndoMissingTargetDirectory",
+                    ConflictMovedToPath = conflictMovedToPath
                 });
                 continue;
             }
@@ -102,18 +174,37 @@ internal static class UndoApplyLogic
                     FromPath = operation.FromPath,
                     ToPath = operation.ToPath,
                     Status = "applied",
-                    Reason = "Moved"
+                    Reason = conflictMovedToPath is null ? "Moved" : "MovedAfterConflictSuffix",
+                    ConflictMovedToPath = conflictMovedToPath
                 });
+                if (conflictResolvedForOperation)
+                {
+                    conflictResolvedCount++;
+                }
             }
             catch (Exception ex)
             {
+                if (!string.IsNullOrWhiteSpace(conflictMovedToPath)
+                    && fileExists(conflictMovedToPath)
+                    && !fileExists(operation.ToPath))
+                {
+                    try
+                    {
+                        moveFile(conflictMovedToPath, operation.ToPath);
+                    }
+                    catch
+                    {
+                    }
+                }
+
                 failedCount++;
                 itemResults.Add(new UndoApplyItemResult
                 {
                     FromPath = operation.FromPath,
                     ToPath = operation.ToPath,
                     Status = "failed",
-                    Reason = $"UndoMoveFailed:{ex.GetType().Name}"
+                    Reason = $"UndoMoveFailed:{ex.GetType().Name}",
+                    ConflictMovedToPath = conflictMovedToPath
                 });
             }
         }
@@ -126,8 +217,47 @@ internal static class UndoApplyLogic
             AppliedCount = appliedCount,
             SkippedCount = skippedCount,
             FailedCount = failedCount,
+            ConflictResolvedCount = conflictResolvedCount,
             Results = itemResults.ToArray()
         };
+    }
+
+    private static string NormalizeTargetConflictPolicy(string? targetConflictPolicy)
+    {
+        return string.IsNullOrWhiteSpace(targetConflictPolicy)
+            ? TargetConflictPolicyFail
+            : targetConflictPolicy.Trim().ToLowerInvariant();
+    }
+
+    private static string? ResolveSuffixTargetPath(
+        string targetPath,
+        Func<string, bool> fileExists)
+    {
+        var directory = Path.GetDirectoryName(targetPath);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return null;
+        }
+
+        var extension = Path.GetExtension(targetPath);
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(targetPath);
+        if (string.IsNullOrWhiteSpace(fileNameWithoutExtension))
+        {
+            return null;
+        }
+
+        for (var index = 2; index <= 999; index++)
+        {
+            var candidate = Path.Combine(
+                directory,
+                $"{fileNameWithoutExtension} (undo-conflict {index}){extension}");
+            if (!fileExists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     private static bool PathEquals(string left, string right)

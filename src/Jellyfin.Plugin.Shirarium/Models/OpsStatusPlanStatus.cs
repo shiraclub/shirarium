@@ -49,4 +49,19 @@ public sealed class OpsStatusPlanStatus
     /// Gets the conflict count.
     /// </summary>
     public int ConflictCount { get; init; }
+
+    /// <summary>
+    /// Gets plan entry action counts.
+    /// </summary>
+    public OpsStatusCountBucket[] ActionCounts { get; init; } = [];
+
+    /// <summary>
+    /// Gets plan entry strategy counts.
+    /// </summary>
+    public OpsStatusCountBucket[] StrategyCounts { get; init; } = [];
+
+    /// <summary>
+    /// Gets plan entry reason counts.
+    /// </summary>
+    public OpsStatusCountBucket[] ReasonCounts { get; init; } = [];
 }

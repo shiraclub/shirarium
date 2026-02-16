@@ -207,6 +207,79 @@ public sealed class IntegrationFlowTests
     }
 
     [Fact]
+    public async Task UndoApply_WithSuffixPolicy_ResolvesTargetCollisions_AndRestoresAllMoves()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+
+            var sourcePathA = Path.Combine(root, "incoming", "A.mkv");
+            var sourcePathB = Path.Combine(root, "incoming", "B.mkv");
+            var targetPathA = Path.Combine(root, "organized", "A", "A.mkv");
+            var targetPathB = Path.Combine(root, "organized", "B", "B.mkv");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePathA)!);
+            File.WriteAllText(sourcePathA, "content-a");
+            File.WriteAllText(sourcePathB, "content-b");
+
+            var plan = await WritePlanAsync(
+                applicationPaths,
+                CreatePlanEntry(sourcePathA, targetPathA, "A"),
+                CreatePlanEntry(sourcePathB, targetPathB, "B"));
+
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+            var applyResult = await applier.RunAsync(
+                new ApplyOrganizationPlanRequest
+                {
+                    ExpectedPlanFingerprint = plan.PlanFingerprint,
+                    SourcePaths = [sourcePathA, sourcePathB]
+                });
+
+            Assert.Equal(2, applyResult.AppliedCount);
+            Assert.False(File.Exists(sourcePathA));
+            Assert.False(File.Exists(sourcePathB));
+            Assert.True(File.Exists(targetPathA));
+            Assert.True(File.Exists(targetPathB));
+
+            File.WriteAllText(sourcePathB, "collision");
+
+            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance);
+            var undoResult = await undoer.RunAsync(
+                new UndoApplyRequest
+                {
+                    RunId = applyResult.RunId,
+                    TargetConflictPolicy = "suffix"
+                });
+
+            Assert.Equal(2, undoResult.RequestedCount);
+            Assert.Equal(2, undoResult.AppliedCount);
+            Assert.Equal(0, undoResult.FailedCount);
+            Assert.Equal(1, undoResult.ConflictResolvedCount);
+            Assert.Contains(undoResult.Results, result => result.Reason == "MovedAfterConflictSuffix");
+
+            Assert.True(File.Exists(sourcePathA));
+            Assert.True(File.Exists(sourcePathB));
+            Assert.False(File.Exists(targetPathA));
+            Assert.False(File.Exists(targetPathB));
+            Assert.Equal("content-a", File.ReadAllText(sourcePathA));
+            Assert.Equal("content-b", File.ReadAllText(sourcePathB));
+
+            var movedAside = undoResult.Results
+                .Where(result => !string.IsNullOrWhiteSpace(result.ConflictMovedToPath))
+                .Select(result => result.ConflictMovedToPath!)
+                .ToArray();
+            Assert.Single(movedAside);
+            Assert.True(File.Exists(movedAside[0]));
+            Assert.Equal("collision", File.ReadAllText(movedAside[0]));
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
     public async Task OpsStatus_ReturnsLatestPlanApplyAndUndoState()
     {
         var root = CreateTempRoot();

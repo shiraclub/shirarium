@@ -49,4 +49,19 @@ public sealed class ScanResultSnapshot
     /// Gets accepted suggestion entries for this run.
     /// </summary>
     public ScanSuggestion[] Suggestions { get; init; } = [];
+
+    /// <summary>
+    /// Gets candidate reason counts across all candidate items considered in this run.
+    /// </summary>
+    public ScanCountBucket[] CandidateReasonCounts { get; init; } = [];
+
+    /// <summary>
+    /// Gets parser source counts observed from parse responses.
+    /// </summary>
+    public ScanCountBucket[] ParserSourceCounts { get; init; } = [];
+
+    /// <summary>
+    /// Gets confidence bucket counts observed from parse responses.
+    /// </summary>
+    public ScanCountBucket[] ConfidenceBucketCounts { get; init; } = [];
 }

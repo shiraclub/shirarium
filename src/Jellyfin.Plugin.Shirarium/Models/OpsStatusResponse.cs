@@ -11,6 +11,11 @@ public sealed class OpsStatusResponse
     public DateTimeOffset GeneratedAtUtc { get; init; } = DateTimeOffset.UtcNow;
 
     /// <summary>
+    /// Gets latest scan status details.
+    /// </summary>
+    public OpsStatusScanStatus Scan { get; init; } = new();
+
+    /// <summary>
     /// Gets latest plan status details.
     /// </summary>
     public OpsStatusPlanStatus Plan { get; init; } = new();

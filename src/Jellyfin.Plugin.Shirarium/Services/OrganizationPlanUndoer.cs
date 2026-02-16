@@ -39,6 +39,11 @@ public sealed class OrganizationPlanUndoer
             throw new InvalidOperationException("OperationAlreadyInProgress");
         }
 
+        if (!UndoApplyLogic.IsSupportedTargetConflictPolicy(request.TargetConflictPolicy))
+        {
+            throw new InvalidOperationException("InvalidUndoTargetConflictPolicy");
+        }
+
         var journal = ApplyJournalStore.Read(_applicationPaths);
         if (journal.Runs.Length == 0)
         {
@@ -61,17 +66,21 @@ public sealed class OrganizationPlanUndoer
             throw new InvalidOperationException("ApplyRunHasNoUndoOperations");
         }
 
-        var result = UndoApplyLogic.UndoRun(selectedRun, cancellationToken);
+        var result = UndoApplyLogic.UndoRun(
+            selectedRun,
+            request.TargetConflictPolicy,
+            cancellationToken);
         await ApplyJournalStore.AppendUndoAsync(_applicationPaths, result, cancellationToken);
 
         _logger.LogInformation(
-            "Shirarium undo apply complete. UndoRunId={UndoRunId} SourceApplyRunId={SourceApplyRunId} Requested={Requested} Applied={Applied} Skipped={Skipped} Failed={Failed}",
+            "Shirarium undo apply complete. UndoRunId={UndoRunId} SourceApplyRunId={SourceApplyRunId} Requested={Requested} Applied={Applied} Skipped={Skipped} Failed={Failed} ConflictsResolved={ConflictsResolved}",
             result.UndoRunId,
             result.SourceApplyRunId,
             result.RequestedCount,
             result.AppliedCount,
             result.SkippedCount,
-            result.FailedCount);
+            result.FailedCount,
+            result.ConflictResolvedCount);
 
         return result;
     }

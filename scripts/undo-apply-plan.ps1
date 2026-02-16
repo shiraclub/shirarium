@@ -1,5 +1,7 @@
 param(
     [string]$RunId,
+    [ValidateSet("fail", "skip", "suffix")]
+    [string]$TargetConflictPolicy = "fail",
     [string]$JellyfinBaseUrl = "http://localhost:8097",
     [string]$AccessToken
 )
@@ -18,6 +20,7 @@ $payload = @{}
 if ($RunId) {
     $payload.runId = $RunId
 }
+$payload.targetConflictPolicy = $TargetConflictPolicy
 
 $jsonBody = $payload | ConvertTo-Json -Depth 5
 $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -ContentType "application/json" -Body $jsonBody

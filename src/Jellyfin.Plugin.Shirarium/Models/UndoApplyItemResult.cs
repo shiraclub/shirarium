@@ -24,4 +24,9 @@ public sealed class UndoApplyItemResult
     /// Gets the machine-readable reason for this item result.
     /// </summary>
     public string Reason { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the conflict path used when an existing undo target was moved aside.
+    /// </summary>
+    public string? ConflictMovedToPath { get; init; }
 }

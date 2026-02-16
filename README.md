@@ -19,6 +19,7 @@ Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - Parses filenames via heuristics (and optional Ollama path).
 - Stores dry-run suggestions without changing media files.
 - Builds dry-run physical organization plans using Jellyfin naming best practices.
+- Exposes richer scan observability buckets (candidate reasons, parser sources, confidence buckets).
 - Targets practical folder hygiene for shared storage/FTP workflows (for example Hetzner boxes).
 - Exposes scan/suggestion endpoints for admin workflows.
 
@@ -124,6 +125,12 @@ Undo a specific run:
 .\scripts\undo-apply-plan.ps1 -RunId "<apply-run-id>"
 ```
 
+Resolve undo target collisions by moving existing files aside:
+
+```powershell
+.\scripts\undo-apply-plan.ps1 -RunId "<apply-run-id>" -TargetConflictPolicy suffix
+```
+
 ### View latest snapshots
 
 ```powershell
@@ -192,8 +199,10 @@ Current test coverage:
 - Organization apply logic (selected-entry gating, preflight safety checks, move execution, rollback operation journaling).
 - Plan fingerprint determinism.
 - Undo logic for journaled apply runs.
+- Undo conflict resolution policies (`fail`/`skip`/`suffix`) with collision-safe rollback behavior.
 - Integration flow coverage (`plan -> apply -> journal -> undo`) with lock/fingerprint safety checks.
 - Ops status aggregation coverage from persisted plan/apply/undo snapshots.
+- Ops status scan observability coverage (candidate reason/source/confidence buckets).
 - Filesystem integration matrix for conflict policies (`fail`/`skip`/`suffix`) on mixed movie/episode planning and suffix-based round trips.
 
 ## Configuration Notes
@@ -219,10 +228,9 @@ Template tokens:
 
 ## Roadmap (Near-Term)
 
-1. Better scan observability (counts by reason/source/confidence bucket).
-2. Optional queueing model for very large libraries.
-3. Admin UX for plan review and selection before apply.
-4. Undo conflict resolver for partially blocked rollbacks.
+1. Optional queueing model for very large libraries.
+2. Admin UX for plan review and selection before apply.
+3. Dry-run/apply throughput benchmarking for large remote libraries.
 
 ## Safety
 
@@ -233,4 +241,5 @@ Template tokens:
 - Apply preflight blocks unsafe operations: invalid paths, target outside root, cross-volume moves, and existing targets.
 - Suggestions and organization plans are persisted for review and auditing before any future apply phase.
 - Apply runs are written to `apply-journal.json` with inverse move operations for rollback auditability.
+- Undo target conflict handling is explicit and operator-controlled (`fail` default, optional `skip`/`suffix`).
 - Core repo license: `GPL-3.0`.

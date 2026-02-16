@@ -41,6 +41,11 @@ public sealed class OpsStatusUndoRunStatus
     public int FailedCount { get; init; }
 
     /// <summary>
+    /// Gets the number of undo operations that resolved target conflicts by moving existing files aside.
+    /// </summary>
+    public int ConflictResolvedCount { get; init; }
+
+    /// <summary>
     /// Gets failed reason buckets.
     /// </summary>
     public OpsStatusReasonCount[] FailedReasons { get; init; } = [];

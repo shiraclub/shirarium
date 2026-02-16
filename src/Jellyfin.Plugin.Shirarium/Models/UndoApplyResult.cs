@@ -41,6 +41,11 @@ public sealed class UndoApplyResult
     public int FailedCount { get; init; }
 
     /// <summary>
+    /// Gets the number of inverse moves where an existing target was moved aside.
+    /// </summary>
+    public int ConflictResolvedCount { get; init; }
+
+    /// <summary>
     /// Gets per-item undo results.
     /// </summary>
     public UndoApplyItemResult[] Results { get; init; } = [];

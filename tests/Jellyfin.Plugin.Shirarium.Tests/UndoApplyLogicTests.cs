@@ -35,6 +35,7 @@ public sealed class UndoApplyLogicTests
             var callOrder = new List<string>();
             var result = UndoApplyLogic.UndoRun(
                 run,
+                "fail",
                 File.Exists,
                 path => _ = Directory.CreateDirectory(path),
                 (source, target) =>
@@ -77,6 +78,7 @@ public sealed class UndoApplyLogicTests
 
         var result = UndoApplyLogic.UndoRun(
             run,
+            "fail",
             _ => false,
             _ => { },
             (_, _) => { });
@@ -106,6 +108,7 @@ public sealed class UndoApplyLogicTests
 
         var result = UndoApplyLogic.UndoRun(
             run,
+            "fail",
             path => path.Equals(@"D:\from\file.mkv", StringComparison.OrdinalIgnoreCase)
                 || path.Equals(@"D:\to\file.mkv", StringComparison.OrdinalIgnoreCase),
             _ => { },
@@ -116,6 +119,88 @@ public sealed class UndoApplyLogicTests
         Assert.Equal(0, result.SkippedCount);
         Assert.Equal(1, result.FailedCount);
         Assert.Equal("UndoTargetAlreadyExists", result.Results[0].Reason);
+    }
+
+    [Fact]
+    public void UndoRun_Skips_WhenUndoTargetExists_AndPolicyIsSkip()
+    {
+        var run = new ApplyOrganizationPlanResult
+        {
+            RunId = "run-4",
+            UndoOperations =
+            [
+                new ApplyUndoMoveOperation
+                {
+                    FromPath = @"D:\from\file.mkv",
+                    ToPath = @"D:\to\file.mkv"
+                }
+            ]
+        };
+
+        var result = UndoApplyLogic.UndoRun(
+            run,
+            "skip",
+            path => path.Equals(@"D:\from\file.mkv", StringComparison.OrdinalIgnoreCase)
+                || path.Equals(@"D:\to\file.mkv", StringComparison.OrdinalIgnoreCase),
+            _ => { },
+            (_, _) => { });
+
+        Assert.Equal(1, result.RequestedCount);
+        Assert.Equal(0, result.AppliedCount);
+        Assert.Equal(1, result.SkippedCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Equal("UndoTargetAlreadyExists", result.Results[0].Reason);
+    }
+
+    [Fact]
+    public void UndoRun_MovesExistingTargetAside_WhenPolicyIsSuffix()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var fromPath = Path.Combine(root, "organized", "A.mkv");
+            var toPath = Path.Combine(root, "incoming", "A.mkv");
+            Directory.CreateDirectory(Path.GetDirectoryName(fromPath)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(toPath)!);
+            File.WriteAllText(fromPath, "restored");
+            File.WriteAllText(toPath, "existing");
+
+            var run = new ApplyOrganizationPlanResult
+            {
+                RunId = "run-5",
+                UndoOperations =
+                [
+                    new ApplyUndoMoveOperation
+                    {
+                        FromPath = fromPath,
+                        ToPath = toPath
+                    }
+                ]
+            };
+
+            var result = UndoApplyLogic.UndoRun(
+                run,
+                "suffix",
+                File.Exists,
+                path => _ = Directory.CreateDirectory(path),
+                File.Move);
+
+            Assert.Equal(1, result.RequestedCount);
+            Assert.Equal(1, result.AppliedCount);
+            Assert.Equal(0, result.SkippedCount);
+            Assert.Equal(0, result.FailedCount);
+            Assert.Equal(1, result.ConflictResolvedCount);
+            Assert.Equal("MovedAfterConflictSuffix", result.Results[0].Reason);
+            Assert.True(File.Exists(toPath));
+            Assert.Equal("restored", File.ReadAllText(toPath));
+            Assert.NotNull(result.Results[0].ConflictMovedToPath);
+            Assert.True(File.Exists(result.Results[0].ConflictMovedToPath!));
+            Assert.Equal("existing", File.ReadAllText(result.Results[0].ConflictMovedToPath!));
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
     }
 
     private static string CreateTempRoot()

@@ -88,9 +88,10 @@ public sealed class ShirariumController : ControllerBase
     [HttpGet("ops-status")]
     public ActionResult<OpsStatusResponse> GetOpsStatus()
     {
+        var scanSnapshot = SuggestionStore.Read(_applicationPaths);
         var planSnapshot = OrganizationPlanStore.Read(_applicationPaths);
         var journalSnapshot = ApplyJournalStore.Read(_applicationPaths);
-        return Ok(OpsStatusLogic.Build(planSnapshot, journalSnapshot));
+        return Ok(OpsStatusLogic.Build(scanSnapshot, planSnapshot, journalSnapshot));
     }
 
     /// <summary>
@@ -247,7 +248,8 @@ public sealed class ShirariumController : ControllerBase
             ex.Message.Equals("NoApplyRunsInJournal", StringComparison.OrdinalIgnoreCase)
             || ex.Message.Equals("ApplyRunNotFound", StringComparison.OrdinalIgnoreCase)
             || ex.Message.Equals("ApplyRunAlreadyUndone", StringComparison.OrdinalIgnoreCase)
-            || ex.Message.Equals("ApplyRunHasNoUndoOperations", StringComparison.OrdinalIgnoreCase))
+            || ex.Message.Equals("ApplyRunHasNoUndoOperations", StringComparison.OrdinalIgnoreCase)
+            || ex.Message.Equals("InvalidUndoTargetConflictPolicy", StringComparison.OrdinalIgnoreCase))
         {
             return BadRequest(ex.Message);
         }

@@ -70,6 +70,9 @@ public sealed class ShirariumScanner
         var skippedByLimitCount = 0;
         var skippedByConfidenceCount = 0;
         var engineFailureCount = 0;
+        var candidateReasonCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var parserSourceCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var confidenceBucketCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         HttpClient? httpClient = null;
         EngineClient? engineClient = null;
@@ -118,6 +121,7 @@ public sealed class ShirariumScanner
             }
 
             candidateCount++;
+            IncrementBuckets(candidateReasonCounts, reasons);
             if (parsedCount >= maxItems)
             {
                 skippedByLimitCount++;
@@ -139,6 +143,13 @@ public sealed class ShirariumScanner
                 engineFailureCount++;
                 continue;
             }
+
+            if (!string.IsNullOrWhiteSpace(parsed.Source))
+            {
+                IncrementBucket(parserSourceCounts, parsed.Source);
+            }
+
+            IncrementBucket(confidenceBucketCounts, GetConfidenceBucketKey(parsed.Confidence));
 
             if (!ScanLogic.PassesConfidenceThreshold(parsed.Confidence, minConfidence))
             {
@@ -178,7 +189,10 @@ public sealed class ShirariumScanner
             SkippedByLimitCount = skippedByLimitCount,
             SkippedByConfidenceCount = skippedByConfidenceCount,
             EngineFailureCount = engineFailureCount,
-            Suggestions = suggestions.ToArray()
+            Suggestions = suggestions.ToArray(),
+            CandidateReasonCounts = BuildBuckets(candidateReasonCounts),
+            ParserSourceCounts = BuildBuckets(parserSourceCounts),
+            ConfidenceBucketCounts = BuildBuckets(confidenceBucketCounts)
         };
 
         await SuggestionStore.WriteAsync(_applicationPaths, snapshot, cancellationToken);
@@ -247,5 +261,55 @@ public sealed class ShirariumScanner
     private static string GetPropertyAsString(object item, string propertyName)
     {
         return ScanLogic.GetPropertyAsString(item, propertyName);
+    }
+
+    private static void IncrementBuckets(
+        Dictionary<string, int> buckets,
+        IEnumerable<string> keys)
+    {
+        foreach (var key in keys)
+        {
+            IncrementBucket(buckets, key);
+        }
+    }
+
+    private static void IncrementBucket(
+        Dictionary<string, int> buckets,
+        string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return;
+        }
+
+        var normalizedKey = key.Trim();
+        buckets.TryGetValue(normalizedKey, out var existingCount);
+        buckets[normalizedKey] = existingCount + 1;
+    }
+
+    private static ScanCountBucket[] BuildBuckets(Dictionary<string, int> buckets)
+    {
+        return buckets
+            .Select(pair => new ScanCountBucket
+            {
+                Key = pair.Key,
+                Count = pair.Value
+            })
+            .OrderByDescending(bucket => bucket.Count)
+            .ThenBy(bucket => bucket.Key, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string GetConfidenceBucketKey(double confidence)
+    {
+        var clamped = Math.Clamp(confidence, 0.0, 1.0);
+        if (clamped >= 1.0)
+        {
+            return "1.0";
+        }
+
+        var lower = Math.Floor(clamped * 10) / 10.0;
+        var upper = lower + 0.1;
+        return $"{lower:0.0}-{upper:0.0}";
     }
 }

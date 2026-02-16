@@ -21,6 +21,38 @@ public sealed class OpsStatusLogicTests
     [Fact]
     public void Build_SelectsLatestRuns_AndAggregatesReasons()
     {
+        var scan = new ScanResultSnapshot
+        {
+            GeneratedAtUtc = DateTimeOffset.Parse("2026-02-16T21:59:00Z"),
+            DryRunMode = true,
+            ExaminedCount = 20,
+            CandidateCount = 8,
+            ParsedCount = 5,
+            SkippedByLimitCount = 1,
+            SkippedByConfidenceCount = 1,
+            EngineFailureCount = 1,
+            Suggestions =
+            [
+                new ScanSuggestion { ItemId = "scan-1", Path = @"D:\in\scan-a.mkv" },
+                new ScanSuggestion { ItemId = "scan-2", Path = @"D:\in\scan-b.mkv" }
+            ],
+            CandidateReasonCounts =
+            [
+                new ScanCountBucket { Key = "MissingProviderIds", Count = 3 },
+                new ScanCountBucket { Key = "NonStandardName", Count = 2 }
+            ],
+            ParserSourceCounts =
+            [
+                new ScanCountBucket { Key = "rule", Count = 4 },
+                new ScanCountBucket { Key = "llm", Count = 1 }
+            ],
+            ConfidenceBucketCounts =
+            [
+                new ScanCountBucket { Key = "0.9-1.0", Count = 3 },
+                new ScanCountBucket { Key = "0.8-0.9", Count = 2 }
+            ]
+        };
+
         var plan = new OrganizationPlanSnapshot
         {
             GeneratedAtUtc = DateTimeOffset.Parse("2026-02-16T22:00:00Z"),
@@ -85,6 +117,7 @@ public sealed class OpsStatusLogicTests
             RequestedCount = 2,
             AppliedCount = 1,
             FailedCount = 1,
+            ConflictResolvedCount = 1,
             Results =
             [
                 new UndoApplyItemResult { Status = "failed", Reason = "UndoTargetAlreadyExists" },
@@ -93,6 +126,7 @@ public sealed class OpsStatusLogicTests
         };
 
         var status = OpsStatusLogic.Build(
+            scan,
             plan,
             new ApplyJournalSnapshot
             {
@@ -100,9 +134,18 @@ public sealed class OpsStatusLogicTests
                 UndoRuns = [oldUndo, latestUndo]
             });
 
+        Assert.True(status.Scan.HasScan);
+        Assert.Equal(20, status.Scan.ExaminedCount);
+        Assert.Equal(2, status.Scan.SuggestionCount);
+        Assert.Equal(2, status.Scan.CandidateReasonCounts.Length);
+        Assert.Equal("MissingProviderIds", status.Scan.CandidateReasonCounts[0].Key);
+
         Assert.True(status.Plan.HasPlan);
         Assert.Equal("plan-v2", status.Plan.PlanFingerprint);
         Assert.Equal(6, status.Plan.PlannedCount);
+        Assert.NotEmpty(status.Plan.ActionCounts);
+        Assert.NotEmpty(status.Plan.StrategyCounts);
+        Assert.NotEmpty(status.Plan.ReasonCounts);
 
         Assert.NotNull(status.LastApplyRun);
         Assert.Equal("apply-new", status.LastApplyRun!.RunId);
@@ -117,6 +160,7 @@ public sealed class OpsStatusLogicTests
         Assert.NotNull(status.LastUndoRun);
         Assert.Equal("undo-new", status.LastUndoRun!.UndoRunId);
         Assert.Equal("apply-new", status.LastUndoRun.SourceApplyRunId);
+        Assert.Equal(1, status.LastUndoRun.ConflictResolvedCount);
         Assert.Single(status.LastUndoRun.FailedReasons);
         Assert.Equal("UndoTargetAlreadyExists", status.LastUndoRun.FailedReasons[0].Reason);
         Assert.Single(status.LastUndoRun.SkippedReasons);

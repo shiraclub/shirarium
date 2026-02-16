@@ -32,6 +32,10 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 - Planning templates are configurable via `MoviePathTemplate` and `EpisodePathTemplate`.
 - Template tokens: movie `{Title}`, `{TitleWithYear}`, `{Year}`; episode `{Title}`, `{Season}`, `{Season2}`, `{Episode}`, `{Episode2}`.
 - Target conflicts are configurable via `TargetConflictPolicy`: `fail`, `skip`, or `suffix`.
+- Undo target conflicts are configurable per request via `UndoApplyRequest.TargetConflictPolicy`: `fail` (default), `skip`, or `suffix`.
+  - `fail`: keep current behavior and report `UndoTargetAlreadyExists`.
+  - `skip`: skip conflicting undo item.
+  - `suffix`: move existing target aside using `(... undo-conflict N)` and then restore source.
 - Behavior is non-destructive by default: no automatic file move/rename is performed.
 - Apply is explicit and selection-based: only source paths chosen by admin and marked `move` in plan are executed.
 - Filtered apply supports deterministic selection by strategy/reason/path prefix/confidence/limit with preview mode.
@@ -39,4 +43,5 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 - Apply and undo are serialized by a filesystem lock (`apply.lock`) to prevent concurrent file mutation runs.
 - Apply performs preflight safety checks before moving: canonical path validation, root-bound target validation, same-volume requirement, and target collision checks.
 - Successful apply runs store inverse move operations so `undo-apply` can restore files.
-- `ops-status` provides a compact operational summary of latest plan/apply/undo runs for ops visibility.
+- `ops-status` provides a compact operational summary of latest scan/plan/apply/undo runs for ops visibility.
+- Scan snapshots now include observability buckets for candidate reasons, parser sources, and confidence ranges.
