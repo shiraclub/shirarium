@@ -89,6 +89,12 @@ Plugin build:
 dotnet build .\src\Jellyfin.Plugin.Shirarium\Jellyfin.Plugin.Shirarium.csproj -c Release
 ```
 
+Plugin tests:
+
+```powershell
+.\scripts\test-plugin.ps1
+```
+
 Local stack smoke test:
 
 ```powershell

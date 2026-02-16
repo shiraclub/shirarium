@@ -43,7 +43,7 @@ public sealed class ShirariumScanner
             };
         }
 
-        var extensions = BuildExtensionSet(config.ScanFileExtensions);
+        var extensions = ScanLogic.BuildExtensionSet(config.ScanFileExtensions);
         var maxItems = Math.Max(1, config.MaxItemsPerRun);
         var minConfidence = Math.Clamp(config.MinConfidence, 0.0, 1.0);
 
@@ -85,15 +85,15 @@ public sealed class ShirariumScanner
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var path = GetStringProperty(item, "Path");
-            if (string.IsNullOrWhiteSpace(path) || !extensions.Contains(Path.GetExtension(path)))
+            var path = ScanLogic.GetStringProperty(item, "Path");
+            if (!ScanLogic.IsSupportedPath(path, extensions))
             {
                 continue;
             }
 
             examinedCount++;
 
-            var reasons = GetCandidateReasons(item);
+            var reasons = ScanLogic.GetCandidateReasons(item);
             if (reasons.Length == 0)
             {
                 continue;
@@ -122,7 +122,7 @@ public sealed class ShirariumScanner
                 continue;
             }
 
-            if (parsed.Confidence < minConfidence)
+            if (!ScanLogic.PassesConfidenceThreshold(parsed.Confidence, minConfidence))
             {
                 skippedByConfidenceCount++;
                 continue;
@@ -133,8 +133,8 @@ public sealed class ShirariumScanner
             var suggestion = new ScanSuggestion
             {
                 ItemId = GetPropertyAsString(item, "Id"),
-                Name = GetStringProperty(item, "Name") ?? Path.GetFileNameWithoutExtension(path),
-                Path = path,
+                Name = ScanLogic.GetStringProperty(item, "Name") ?? Path.GetFileNameWithoutExtension(path!),
+                Path = path!,
                 SuggestedTitle = parsed.Title,
                 SuggestedMediaType = parsed.MediaType,
                 SuggestedYear = parsed.Year,
@@ -177,16 +177,6 @@ public sealed class ShirariumScanner
         httpClient?.Dispose();
 
         return snapshot;
-    }
-
-    private static HashSet<string> BuildExtensionSet(IEnumerable<string> extensions)
-    {
-        return new HashSet<string>(
-            extensions
-                .Where(ext => !string.IsNullOrWhiteSpace(ext))
-                .Select(ext => ext.StartsWith('.') ? ext : $".{ext}")
-                .Select(ext => ext.ToLowerInvariant()),
-            StringComparer.OrdinalIgnoreCase);
     }
 
     private static IEnumerable<object> EnumerateLibraryItems(object? rootFolder)
@@ -236,72 +226,8 @@ public sealed class ShirariumScanner
         }
     }
 
-    private static string[] GetCandidateReasons(object item)
-    {
-        var reasons = new List<string>();
-
-        if (!HasAnyProviderIds(item))
-        {
-            reasons.Add("MissingProviderIds");
-        }
-
-        if (string.IsNullOrWhiteSpace(GetStringProperty(item, "Overview")))
-        {
-            reasons.Add("MissingOverview");
-        }
-
-        if (!HasValue(item, "ProductionYear"))
-        {
-            reasons.Add("MissingProductionYear");
-        }
-
-        return reasons.ToArray();
-    }
-
-    private static bool HasAnyProviderIds(object item)
-    {
-        var providerIds = item.GetType().GetProperty("ProviderIds")?.GetValue(item);
-        if (providerIds is null)
-        {
-            return false;
-        }
-
-        if (providerIds is ICollection collection)
-        {
-            return collection.Count > 0;
-        }
-
-        if (providerIds is IEnumerable enumerable)
-        {
-            var enumerator = enumerable.GetEnumerator();
-            return enumerator.MoveNext();
-        }
-
-        return false;
-    }
-
-    private static bool HasValue(object item, string propertyName)
-    {
-        var property = item.GetType().GetProperty(propertyName);
-        if (property is null)
-        {
-            return false;
-        }
-
-        var value = property.GetValue(item);
-        return value is not null;
-    }
-
     private static string GetPropertyAsString(object item, string propertyName)
     {
-        var property = item.GetType().GetProperty(propertyName);
-        var value = property?.GetValue(item);
-        return value?.ToString() ?? string.Empty;
-    }
-
-    private static string? GetStringProperty(object item, string propertyName)
-    {
-        var property = item.GetType().GetProperty(propertyName);
-        return property?.GetValue(item) as string;
+        return ScanLogic.GetPropertyAsString(item, propertyName);
     }
 }

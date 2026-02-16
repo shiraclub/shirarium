@@ -119,10 +119,17 @@ python -m unittest discover -s tests -v
 .\scripts\test-engine.ps1
 ```
 
+### Plugin tests (.NET)
+
+```powershell
+.\scripts\test-plugin.ps1
+```
+
 Current test coverage:
 - Heuristic filename parsing behavior.
 - API validation/contract behavior.
 - Ollama failure fallback behavior.
+- Plugin scan logic (candidate reasons, extension support, confidence gating).
 
 ## Configuration Notes
 

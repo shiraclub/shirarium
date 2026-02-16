@@ -16,5 +16,6 @@ __pycache__/
 
 data/
 artifacts/
+TestResults/
 
 .env
