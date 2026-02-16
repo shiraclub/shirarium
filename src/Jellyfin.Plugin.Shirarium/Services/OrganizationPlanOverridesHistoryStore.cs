@@ -43,8 +43,11 @@ public static class OrganizationPlanOverridesHistoryStore
         try
         {
             var json = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<OrganizationPlanOverridesSnapshot[]>(json, JsonOptions)
+            var entries = JsonSerializer.Deserialize<OrganizationPlanOverridesSnapshot[]>(json, JsonOptions)
                 ?? [];
+            return entries
+                .Where(snapshot => snapshot.SchemaVersion == SnapshotSchemaVersions.OrganizationPlanOverrides)
+                .ToArray();
         }
         catch
         {
@@ -63,6 +66,13 @@ public static class OrganizationPlanOverridesHistoryStore
         OrganizationPlanOverridesSnapshot snapshot,
         CancellationToken cancellationToken = default)
     {
+        snapshot = new OrganizationPlanOverridesSnapshot
+        {
+            SchemaVersion = SnapshotSchemaVersions.OrganizationPlanOverrides,
+            PlanFingerprint = snapshot.PlanFingerprint,
+            UpdatedAtUtc = snapshot.UpdatedAtUtc,
+            Entries = snapshot.Entries
+        };
         var entries = Read(applicationPaths).ToList();
         entries.Add(snapshot);
 

@@ -55,9 +55,12 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 - Reviewed apply combines latest plan + persisted overrides under the same fingerprint safety guard.
 - Immutable review locks freeze reviewed selection + effective plan for deterministic apply-by-id execution.
 - Plan and override revision histories are persisted and queryable for operator auditability.
+- Jellyfin dashboard page (`Shirarium Review`) provides in-app tabs for Review, Preflight, Locks, and History.
+- Controller endpoints require Jellyfin elevation policy (`Policies.RequiresElevation`).
 - Apply requires `expectedPlanFingerprint` and rejects stale plan submissions.
 - Apply and undo are serialized by a filesystem lock (`apply.lock`) to prevent concurrent file mutation runs.
 - Apply performs preflight safety checks before moving: canonical path validation, root-bound target validation, same-volume requirement, and target collision checks.
 - Successful apply runs store inverse move operations so `undo-apply` can restore files.
 - `ops-status` provides a compact operational summary of latest scan/plan/apply/undo runs for ops visibility.
 - Scan snapshots now include observability buckets for candidate reasons, parser sources, and confidence ranges.
+- Snapshot storage is strict in-dev: unsupported or missing `schemaVersion` values are ignored (no legacy migration path).

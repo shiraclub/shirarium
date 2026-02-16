@@ -1,7 +1,9 @@
 using Jellyfin.Plugin.Shirarium.Models;
 using Jellyfin.Plugin.Shirarium.Services;
+using MediaBrowser.Common.Api;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Library;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
@@ -12,6 +14,7 @@ namespace Jellyfin.Plugin.Shirarium.Api;
 /// </summary>
 [ApiController]
 [Route("shirarium")]
+[Authorize(Policy = Policies.RequiresElevation)]
 public sealed class ShirariumController : ControllerBase
 {
     private readonly IApplicationPaths _applicationPaths;
@@ -541,6 +544,13 @@ public sealed class ShirariumController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(lockSnapshot.AppliedRunId))
         {
+            var existingRun = ApplyJournalStore.Read(_applicationPaths).Runs
+                .FirstOrDefault(run => run.RunId.Equals(lockSnapshot.AppliedRunId, StringComparison.OrdinalIgnoreCase));
+            if (existingRun is not null)
+            {
+                return Ok(existingRun);
+            }
+
             return Conflict("Review lock already applied.");
         }
 

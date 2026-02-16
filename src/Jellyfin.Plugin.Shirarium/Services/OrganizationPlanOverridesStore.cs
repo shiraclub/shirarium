@@ -42,8 +42,14 @@ public static class OrganizationPlanOverridesStore
         try
         {
             var json = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<OrganizationPlanOverridesSnapshot>(json, JsonOptions)
+            var snapshot = JsonSerializer.Deserialize<OrganizationPlanOverridesSnapshot>(json, JsonOptions)
                 ?? new OrganizationPlanOverridesSnapshot();
+            if (snapshot.SchemaVersion != SnapshotSchemaVersions.OrganizationPlanOverrides)
+            {
+                return new OrganizationPlanOverridesSnapshot();
+            }
+
+            return snapshot;
         }
         catch
         {
@@ -87,6 +93,7 @@ public static class OrganizationPlanOverridesStore
     {
         var normalized = new OrganizationPlanOverridesSnapshot
         {
+            SchemaVersion = SnapshotSchemaVersions.OrganizationPlanOverrides,
             PlanFingerprint = snapshot.PlanFingerprint,
             UpdatedAtUtc = snapshot.UpdatedAtUtc,
             Entries = snapshot.Entries

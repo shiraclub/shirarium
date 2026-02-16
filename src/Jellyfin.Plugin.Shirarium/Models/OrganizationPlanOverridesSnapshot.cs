@@ -6,6 +6,11 @@ namespace Jellyfin.Plugin.Shirarium.Models;
 public sealed class OrganizationPlanOverridesSnapshot
 {
     /// <summary>
+    /// Gets snapshot schema version for storage compatibility.
+    /// </summary>
+    public int SchemaVersion { get; init; } = SnapshotSchemaVersions.OrganizationPlanOverrides;
+
+    /// <summary>
     /// Gets the plan fingerprint these overrides target.
     /// </summary>
     public string PlanFingerprint { get; init; } = string.Empty;
@@ -20,4 +25,3 @@ public sealed class OrganizationPlanOverridesSnapshot
     /// </summary>
     public OrganizationPlanEntryOverride[] Entries { get; init; } = [];
 }
-

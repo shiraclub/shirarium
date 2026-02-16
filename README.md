@@ -22,6 +22,7 @@ Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - Exposes richer scan observability buckets (candidate reasons, parser sources, confidence buckets).
 - Targets practical folder hygiene for shared storage/FTP workflows (for example Hetzner boxes).
 - Exposes scan/suggestion endpoints for admin workflows.
+- Adds a Jellyfin plugin dashboard page for review, override patching, preflight, lock, history, and apply flows.
 
 ## Current Architecture
 
@@ -115,6 +116,18 @@ Execute filtered apply (non-preview):
 
 ### Reviewed apply workflow (recommended)
 
+Open Jellyfin dashboard page:
+
+```text
+Dashboard -> Plugins -> Shirarium -> Shirarium Review
+```
+
+UI tabs:
+- `Review`: server-side paged plan browsing, row override patching, and selection.
+- `Preflight`: exact reviewed move simulation (`WouldMove`, skips, failures) before mutation.
+- `Locks`: immutable review lock create/list/get/apply.
+- `History`: plan and override revision snapshots.
+
 List reviewed plan entries with server-side filtering/paging:
 
 ```powershell
@@ -202,6 +215,16 @@ data/jellyfin/config/data/plugins/Shirarium/organization-plan.json
 data/jellyfin/config/data/plugins/Shirarium/apply-journal.json
 ```
 
+## Snapshot Schema (In-Dev)
+
+- Snapshot payloads include explicit `schemaVersion` fields for:
+  - `organization-plan`
+  - `organization-plan-overrides`
+  - `review-lock`
+- Current behavior is intentionally strict during in-dev:
+  - unsupported/missing schema versions are ignored instead of migrated.
+  - no legacy/backward-compat snapshot upgrade path is applied.
+
 ## API Endpoints
 
 - `POST /shirarium/scan`
@@ -225,6 +248,10 @@ data/jellyfin/config/data/plugins/Shirarium/apply-journal.json
 - `GET /shirarium/ops-status`
 - `POST /v1/parse-filename` (engine)
 - `GET /health` (engine)
+
+## Screenshots
+
+- UI screenshot guidance and target filenames are documented in `docs/screenshots/README.md`.
 
 ## Testing
 
@@ -297,7 +324,7 @@ Template tokens:
 
 1. Optional queueing model for very large libraries.
 2. Dry-run/apply throughput benchmarking for large remote libraries.
-3. Web UI for reviewed plan override editing and paged browsing.
+3. Bulk override presets and saved filter sets.
 
 ## Safety
 

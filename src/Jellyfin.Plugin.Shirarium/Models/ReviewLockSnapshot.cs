@@ -6,6 +6,11 @@ namespace Jellyfin.Plugin.Shirarium.Models;
 public sealed class ReviewLockSnapshot
 {
     /// <summary>
+    /// Gets snapshot schema version for storage compatibility.
+    /// </summary>
+    public int SchemaVersion { get; init; } = SnapshotSchemaVersions.ReviewLock;
+
+    /// <summary>
     /// Gets the immutable review lock id.
     /// </summary>
     public string ReviewId { get; init; } = Guid.NewGuid().ToString("N");

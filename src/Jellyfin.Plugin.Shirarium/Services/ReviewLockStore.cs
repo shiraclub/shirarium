@@ -43,8 +43,11 @@ public static class ReviewLockStore
         try
         {
             var json = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<ReviewLockSnapshot[]>(json, JsonOptions)
+            var entries = JsonSerializer.Deserialize<ReviewLockSnapshot[]>(json, JsonOptions)
                 ?? [];
+            return entries
+                .Where(IsSupportedSchema)
+                .ToArray();
         }
         catch
         {
@@ -80,6 +83,7 @@ public static class ReviewLockStore
         ReviewLockSnapshot snapshot,
         CancellationToken cancellationToken = default)
     {
+        snapshot = EnsureSupportedSchema(snapshot);
         var entries = Read(applicationPaths).ToList();
         if (entries.Any(existing => existing.ReviewId.Equals(snapshot.ReviewId, StringComparison.OrdinalIgnoreCase)))
         {
@@ -130,5 +134,53 @@ public static class ReviewLockStore
         var filePath = GetFilePath(applicationPaths);
         var json = JsonSerializer.Serialize(entries.ToArray(), JsonOptions);
         await File.WriteAllTextAsync(filePath, json, cancellationToken);
+    }
+
+    private static bool IsSupportedSchema(ReviewLockSnapshot snapshot)
+    {
+        return snapshot.SchemaVersion == SnapshotSchemaVersions.ReviewLock
+            && snapshot.EffectivePlan.SchemaVersion == SnapshotSchemaVersions.OrganizationPlan
+            && snapshot.OverridesSnapshot.SchemaVersion == SnapshotSchemaVersions.OrganizationPlanOverrides;
+    }
+
+    private static ReviewLockSnapshot EnsureSupportedSchema(ReviewLockSnapshot snapshot)
+    {
+        var effectivePlan = new OrganizationPlanSnapshot
+        {
+            SchemaVersion = SnapshotSchemaVersions.OrganizationPlan,
+            GeneratedAtUtc = snapshot.EffectivePlan.GeneratedAtUtc,
+            PlanFingerprint = snapshot.EffectivePlan.PlanFingerprint,
+            RootPath = snapshot.EffectivePlan.RootPath,
+            DryRunMode = snapshot.EffectivePlan.DryRunMode,
+            SourceSuggestionCount = snapshot.EffectivePlan.SourceSuggestionCount,
+            PlannedCount = snapshot.EffectivePlan.PlannedCount,
+            NoopCount = snapshot.EffectivePlan.NoopCount,
+            SkippedCount = snapshot.EffectivePlan.SkippedCount,
+            ConflictCount = snapshot.EffectivePlan.ConflictCount,
+            Entries = snapshot.EffectivePlan.Entries
+        };
+        effectivePlan.PlanFingerprint = PlanFingerprint.Compute(effectivePlan);
+
+        var overridesSnapshot = new OrganizationPlanOverridesSnapshot
+        {
+            SchemaVersion = SnapshotSchemaVersions.OrganizationPlanOverrides,
+            PlanFingerprint = snapshot.OverridesSnapshot.PlanFingerprint,
+            UpdatedAtUtc = snapshot.OverridesSnapshot.UpdatedAtUtc,
+            Entries = snapshot.OverridesSnapshot.Entries
+        };
+
+        return new ReviewLockSnapshot
+        {
+            SchemaVersion = SnapshotSchemaVersions.ReviewLock,
+            ReviewId = snapshot.ReviewId,
+            CreatedAtUtc = snapshot.CreatedAtUtc,
+            PlanFingerprint = snapshot.PlanFingerprint,
+            PlanRootPath = snapshot.PlanRootPath,
+            SelectedSourcePaths = snapshot.SelectedSourcePaths,
+            EffectivePlan = effectivePlan,
+            OverridesSnapshot = overridesSnapshot,
+            AppliedRunId = snapshot.AppliedRunId,
+            AppliedAtUtc = snapshot.AppliedAtUtc
+        };
     }
 }

@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using Jellyfin.Plugin.Shirarium.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
+using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 
 namespace Jellyfin.Plugin.Shirarium;
@@ -10,6 +13,7 @@ namespace Jellyfin.Plugin.Shirarium;
 /// Main Jellyfin plugin entrypoint for Shirarium.
 /// </summary>
 public sealed class Plugin : BasePlugin<PluginConfiguration>
+    , IHasWebPages
 {
     /// <summary>
     /// Gets the singleton plugin instance.
@@ -37,5 +41,19 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>
     {
         AppPaths = applicationPaths;
         Instance = this;
+    }
+
+    /// <inheritdoc />
+    public IEnumerable<PluginPageInfo> GetPages()
+    {
+        return
+        [
+            new PluginPageInfo
+            {
+                Name = Name,
+                DisplayName = "Shirarium Review",
+                EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", GetType().Namespace)
+            }
+        ];
     }
 }

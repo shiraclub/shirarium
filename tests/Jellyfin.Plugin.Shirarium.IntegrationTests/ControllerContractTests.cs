@@ -1,14 +1,29 @@
 using Jellyfin.Plugin.Shirarium.Api;
 using Jellyfin.Plugin.Shirarium.Models;
 using Jellyfin.Plugin.Shirarium.Services;
+using MediaBrowser.Common.Api;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text.Json;
 using Xunit;
 
 namespace Jellyfin.Plugin.Shirarium.IntegrationTests;
 
 public sealed class ControllerContractTests
 {
+    [Fact]
+    public void ShirariumController_HasRequiresElevationPolicy()
+    {
+        var authorizeAttributes = typeof(ShirariumController)
+            .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: true)
+            .Cast<AuthorizeAttribute>()
+            .ToArray();
+
+        Assert.NotEmpty(authorizeAttributes);
+        Assert.Contains(authorizeAttributes, attribute => string.Equals(attribute.Policy, Policies.RequiresElevation, StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task PatchOrganizationPlanEntryOverrides_ReturnsConflict_WhenPlanFingerprintIsStale()
     {
@@ -304,6 +319,49 @@ public sealed class ControllerContractTests
     }
 
     [Fact]
+    public async Task ReviewLock_ApplyById_WhenAlreadyApplied_ReturnsExistingRun()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var sourcePath = Path.Combine(root, "incoming", "A.mkv");
+            var targetPath = Path.Combine(root, "organized", "A", "A.mkv");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(sourcePath, "content-a");
+            var plan = await WritePlanAsync(applicationPaths, sourcePath, targetPath);
+            var controller = CreateController(applicationPaths);
+
+            var createLockResponse = await controller.CreateReviewLock(
+                new CreateReviewLockRequest
+                {
+                    ExpectedPlanFingerprint = plan.PlanFingerprint
+                },
+                CancellationToken.None);
+            var createdLock = Assert.IsType<OkObjectResult>(createLockResponse.Result);
+            var lockPayload = Assert.IsType<CreateReviewLockResponse>(createdLock.Value);
+
+            var applyFirstResponse = await controller.ApplyReviewLock(lockPayload.ReviewId, CancellationToken.None);
+            var applyFirstOk = Assert.IsType<OkObjectResult>(applyFirstResponse.Result);
+            var firstRun = Assert.IsType<ApplyOrganizationPlanResult>(applyFirstOk.Value);
+            Assert.Equal(1, firstRun.AppliedCount);
+
+            var applySecondResponse = await controller.ApplyReviewLock(lockPayload.ReviewId, CancellationToken.None);
+            var applySecondOk = Assert.IsType<OkObjectResult>(applySecondResponse.Result);
+            var secondRun = Assert.IsType<ApplyOrganizationPlanResult>(applySecondOk.Value);
+
+            Assert.Equal(firstRun.RunId, secondRun.RunId);
+            var journal = ApplyJournalStore.Read(applicationPaths);
+            Assert.Single(journal.Runs);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
     public async Task ReviewLock_ListAndGet_ReturnCreatedLock()
     {
         var root = CreateTempRoot();
@@ -409,6 +467,101 @@ public sealed class ControllerContractTests
             Assert.True(overrideHistoryPayload.TotalCount >= 2);
             Assert.True(overrideHistoryPayload.Items.Length >= 2);
             Assert.All(overrideHistoryPayload.Items, item => Assert.Equal(planB.PlanFingerprint, item.PlanFingerprint));
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void OrganizationPlanStore_Read_IgnoresUnsupportedSchemaVersion()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var filePath = OrganizationPlanStore.GetFilePath(applicationPaths);
+            var sourcePath = Path.Combine(root, "incoming", "A.mkv");
+            var targetPath = Path.Combine(root, "organized", "A", "A.mkv");
+
+            var payload = new
+            {
+                SchemaVersion = 999,
+                GeneratedAtUtc = DateTimeOffset.UtcNow,
+                PlanFingerprint = "legacy",
+                RootPath = Path.Combine(root, "organized"),
+                Entries = new[]
+                {
+                    new
+                    {
+                        ItemId = "item-1",
+                        SourcePath = sourcePath,
+                        TargetPath = targetPath,
+                        Strategy = "movie",
+                        Action = "move",
+                        Reason = "Planned",
+                        Confidence = 0.9,
+                        SuggestedTitle = "A",
+                        SuggestedMediaType = "movie"
+                    }
+                }
+            };
+            File.WriteAllText(filePath, JsonSerializer.Serialize(payload));
+
+            var snapshot = OrganizationPlanStore.Read(applicationPaths);
+
+            Assert.Equal(SnapshotSchemaVersions.OrganizationPlan, snapshot.SchemaVersion);
+            Assert.Empty(snapshot.Entries);
+            Assert.Equal(string.Empty, snapshot.PlanFingerprint);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void ReviewLockStore_ReadById_IgnoresUnsupportedSchemaVersion()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var filePath = ReviewLockStore.GetFilePath(applicationPaths);
+
+            var payload = new[]
+            {
+                new
+                {
+                    SchemaVersion = 999,
+                    ReviewId = "review-1",
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                    PlanFingerprint = "fingerprint-1",
+                    PlanRootPath = Path.Combine(root, "organized"),
+                    SelectedSourcePaths = new[] { Path.Combine(root, "incoming", "A.mkv") },
+                    EffectivePlan = new
+                    {
+                        SchemaVersion = SnapshotSchemaVersions.OrganizationPlan,
+                        GeneratedAtUtc = DateTimeOffset.UtcNow,
+                        PlanFingerprint = "fingerprint-1",
+                        RootPath = Path.Combine(root, "organized"),
+                        Entries = Array.Empty<object>()
+                    },
+                    OverridesSnapshot = new
+                    {
+                        SchemaVersion = SnapshotSchemaVersions.OrganizationPlanOverrides,
+                        PlanFingerprint = "fingerprint-1",
+                        UpdatedAtUtc = DateTimeOffset.UtcNow,
+                        Entries = Array.Empty<object>()
+                    }
+                }
+            };
+            File.WriteAllText(filePath, JsonSerializer.Serialize(payload));
+
+            var snapshot = ReviewLockStore.ReadById(applicationPaths, "review-1");
+
+            Assert.Null(snapshot);
         }
         finally
         {

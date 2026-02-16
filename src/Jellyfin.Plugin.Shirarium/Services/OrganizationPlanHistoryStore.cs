@@ -43,8 +43,11 @@ public static class OrganizationPlanHistoryStore
         try
         {
             var json = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<OrganizationPlanSnapshot[]>(json, JsonOptions)
+            var entries = JsonSerializer.Deserialize<OrganizationPlanSnapshot[]>(json, JsonOptions)
                 ?? [];
+            return entries
+                .Where(snapshot => snapshot.SchemaVersion == SnapshotSchemaVersions.OrganizationPlan)
+                .ToArray();
         }
         catch
         {
@@ -63,6 +66,21 @@ public static class OrganizationPlanHistoryStore
         OrganizationPlanSnapshot snapshot,
         CancellationToken cancellationToken = default)
     {
+        snapshot = new OrganizationPlanSnapshot
+        {
+            SchemaVersion = SnapshotSchemaVersions.OrganizationPlan,
+            GeneratedAtUtc = snapshot.GeneratedAtUtc,
+            PlanFingerprint = snapshot.PlanFingerprint,
+            RootPath = snapshot.RootPath,
+            DryRunMode = snapshot.DryRunMode,
+            SourceSuggestionCount = snapshot.SourceSuggestionCount,
+            PlannedCount = snapshot.PlannedCount,
+            NoopCount = snapshot.NoopCount,
+            SkippedCount = snapshot.SkippedCount,
+            ConflictCount = snapshot.ConflictCount,
+            Entries = snapshot.Entries
+        };
+        snapshot.PlanFingerprint = PlanFingerprint.Compute(snapshot);
         var entries = Read(applicationPaths).ToList();
         entries.Add(snapshot);
 

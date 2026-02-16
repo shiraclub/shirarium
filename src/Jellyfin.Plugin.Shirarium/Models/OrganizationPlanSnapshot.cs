@@ -6,6 +6,11 @@ namespace Jellyfin.Plugin.Shirarium.Models;
 public sealed class OrganizationPlanSnapshot
 {
     /// <summary>
+    /// Gets snapshot schema version for storage compatibility.
+    /// </summary>
+    public int SchemaVersion { get; init; } = SnapshotSchemaVersions.OrganizationPlan;
+
+    /// <summary>
     /// Gets the UTC timestamp when this plan was generated.
     /// </summary>
     public DateTimeOffset GeneratedAtUtc { get; init; } = DateTimeOffset.UtcNow;
