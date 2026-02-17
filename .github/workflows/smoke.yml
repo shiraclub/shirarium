@@ -43,6 +43,12 @@ jobs:
 
           export MEDIA_PATH="${GITHUB_WORKSPACE}/data/media"
           export JELLYFIN_PORT=8097
+          export JELLYFIN_BASE_URL="http://localhost:${JELLYFIN_PORT}"
+
+          pwsh -File ./scripts/seed-dev-media.ps1 \
+            -CleanIncoming \
+            -MediaRoot "${MEDIA_PATH}" > /tmp/shirarium-seed-summary.json
+          cat /tmp/shirarium-seed-summary.json
 
           cleanup() {
             docker compose down -v || true
@@ -82,6 +88,217 @@ jobs:
           if [[ "${endpoint_code}" != "401" && "${endpoint_code}" != "403" ]]; then
             echo "Expected /shirarium/organization-plan to require auth (401/403), got ${endpoint_code}."
             cat /tmp/shirarium-route.txt || true
+            docker logs shirarium-jellyfin-dev || true
+            exit 1
+          fi
+
+          startup_completed="$(python - <<'PY'
+import json
+from pathlib import Path
+payload = json.loads(Path("/tmp/jellyfin-public.json").read_text(encoding="utf-8"))
+print(str(payload.get("StartupWizardCompleted", False)).lower())
+PY
+)"
+
+          if [[ "${startup_completed}" != "true" ]]; then
+            cat >/tmp/jellyfin-startup-user.json <<'JSON'
+{"Name":"root","Password":"Passw0rd!","PasswordConfirm":"Passw0rd!"}
+JSON
+
+            startup_user_ready_code=""
+            for i in {1..120}; do
+              startup_user_ready_code="$(curl -s -o /tmp/jellyfin-startup-user-get.json -w "%{http_code}" "${JELLYFIN_BASE_URL}/Startup/User" || true)"
+              if [[ "${startup_user_ready_code}" == "200" ]]; then
+                break
+              fi
+              sleep 1
+            done
+
+            if [[ "${startup_user_ready_code}" != "200" ]]; then
+              echo "Startup user endpoint did not become ready. Last status: ${startup_user_ready_code}"
+              cat /tmp/jellyfin-startup-user-get.json || true
+              docker logs shirarium-jellyfin-dev || true
+              exit 1
+            fi
+
+            startup_user_post_code="$(curl -s -o /tmp/jellyfin-startup-user-post.json -w "%{http_code}" \
+              -X POST "${JELLYFIN_BASE_URL}/Startup/User" \
+              -H "Content-Type: application/json" \
+              --data-binary @/tmp/jellyfin-startup-user.json || true)"
+
+            if [[ "${startup_user_post_code}" != "204" && "${startup_user_post_code}" != "200" ]]; then
+              echo "Failed to configure startup user. Status: ${startup_user_post_code}"
+              cat /tmp/jellyfin-startup-user-post.json || true
+              docker logs shirarium-jellyfin-dev || true
+              exit 1
+            fi
+
+            startup_complete_code="$(curl -s -o /tmp/jellyfin-startup-complete.out -w "%{http_code}" \
+              -X POST "${JELLYFIN_BASE_URL}/Startup/Complete" || true)"
+
+            if [[ "${startup_complete_code}" != "204" ]]; then
+              echo "Failed to complete startup wizard. Status: ${startup_complete_code}"
+              cat /tmp/jellyfin-startup-complete.out || true
+              docker logs shirarium-jellyfin-dev || true
+              exit 1
+            fi
+          fi
+
+          cat >/tmp/jellyfin-auth.json <<'JSON'
+{"Username":"root","Pw":"Passw0rd!"}
+JSON
+
+          auth_code=""
+          for i in {1..120}; do
+            auth_code="$(curl -s -o /tmp/jellyfin-auth-response.json -w "%{http_code}" \
+              -X POST "${JELLYFIN_BASE_URL}/Users/AuthenticateByName" \
+              -H "Content-Type: application/json" \
+              -H "X-Emby-Authorization: MediaBrowser Client=Smoke, Device=CI, DeviceId=smoke-device, Version=1.0.0" \
+              --data-binary @/tmp/jellyfin-auth.json || true)"
+            if [[ "${auth_code}" == "200" ]]; then
+              break
+            fi
+            sleep 1
+          done
+
+          if [[ "${auth_code}" != "200" ]]; then
+            echo "Failed to authenticate bootstrap user. Last status: ${auth_code}"
+            cat /tmp/jellyfin-auth-response.json || true
+            docker logs shirarium-jellyfin-dev || true
+            exit 1
+          fi
+
+          ACCESS_TOKEN="$(python - <<'PY'
+import json
+from pathlib import Path
+payload = json.loads(Path("/tmp/jellyfin-auth-response.json").read_text(encoding="utf-8"))
+print(payload.get("AccessToken", ""))
+PY
+)"
+
+          if [[ -z "${ACCESS_TOKEN}" ]]; then
+            echo "Authentication response did not contain an access token."
+            cat /tmp/jellyfin-auth-response.json || true
+            docker logs shirarium-jellyfin-dev || true
+            exit 1
+          fi
+
+          add_library_code="$(curl -s -o /tmp/jellyfin-add-library.out -w "%{http_code}" \
+            -X POST "${JELLYFIN_BASE_URL}/Library/VirtualFolders?name=Incoming&collectionType=movies&paths=%2Fmedia%2Fincoming&refreshLibrary=true" \
+            -H "X-Emby-Token: ${ACCESS_TOKEN}" || true)"
+
+          if [[ "${add_library_code}" != "204" && "${add_library_code}" != "200" ]]; then
+            echo "Failed to add Incoming media library. Status: ${add_library_code}"
+            cat /tmp/jellyfin-add-library.out || true
+            docker logs shirarium-jellyfin-dev || true
+            exit 1
+          fi
+
+          library_visible="false"
+          for i in {1..120}; do
+            curl -s -o /tmp/jellyfin-virtual-folders.json -w "%{http_code}" \
+              "${JELLYFIN_BASE_URL}/Library/VirtualFolders" \
+              -H "X-Emby-Token: ${ACCESS_TOKEN}" > /tmp/jellyfin-virtual-folders-code.txt || true
+
+            if [[ "$(cat /tmp/jellyfin-virtual-folders-code.txt)" == "200" ]]; then
+              library_visible="$(python - <<'PY'
+import json
+from pathlib import Path
+folders = json.loads(Path("/tmp/jellyfin-virtual-folders.json").read_text(encoding="utf-8"))
+found = False
+for folder in folders:
+    for location in folder.get("Locations", []):
+        if location == "/media/incoming":
+            found = True
+            break
+    if found:
+        break
+print("true" if found else "false")
+PY
+)"
+              if [[ "${library_visible}" == "true" ]]; then
+                break
+              fi
+            fi
+            sleep 1
+          done
+
+          if [[ "${library_visible}" != "true" ]]; then
+            echo "Incoming media library was not visible after creation."
+            cat /tmp/jellyfin-virtual-folders.json || true
+            docker logs shirarium-jellyfin-dev || true
+            exit 1
+          fi
+
+          # Give the immediate library refresh a brief window before explicit scan polling.
+          sleep 3
+
+          non_empty_scan="false"
+          for i in {1..60}; do
+            scan_code="$(curl -s -o /tmp/shirarium-scan.json -w "%{http_code}" \
+              -X POST "${JELLYFIN_BASE_URL}/shirarium/scan" \
+              -H "X-Emby-Token: ${ACCESS_TOKEN}" || true)"
+            if [[ "${scan_code}" == "200" ]]; then
+              non_empty_scan="$(python - <<'PY'
+import json
+from pathlib import Path
+scan = json.loads(Path("/tmp/shirarium-scan.json").read_text(encoding="utf-8"))
+candidate_count = int(scan.get("CandidateCount", 0))
+suggestions = scan.get("Suggestions", [])
+parsed_count = int(scan.get("ParsedCount", 0))
+ok = candidate_count > 0 and parsed_count > 0 and len(suggestions) > 0
+print("true" if ok else "false")
+PY
+)"
+              if [[ "${non_empty_scan}" == "true" ]]; then
+                break
+              fi
+            fi
+            sleep 2
+          done
+
+          if [[ "${non_empty_scan}" != "true" ]]; then
+            echo "Shirarium scan did not produce non-empty candidate/parsed/suggestion output."
+            cat /tmp/shirarium-scan.json || true
+            docker logs shirarium-jellyfin-dev || true
+            exit 1
+          fi
+
+          plan_code="$(curl -s -o /tmp/shirarium-plan-organize.json -w "%{http_code}" \
+            -X POST "${JELLYFIN_BASE_URL}/shirarium/plan-organize" \
+            -H "X-Emby-Token: ${ACCESS_TOKEN}" || true)"
+
+          if [[ "${plan_code}" != "200" ]]; then
+            echo "Shirarium organization plan generation failed with status ${plan_code}."
+            cat /tmp/shirarium-plan-organize.json || true
+            docker logs shirarium-jellyfin-dev || true
+            exit 1
+          fi
+
+          plan_snapshot_code="$(curl -s -o /tmp/shirarium-organization-plan.json -w "%{http_code}" \
+            "${JELLYFIN_BASE_URL}/shirarium/organization-plan" \
+            -H "X-Emby-Token: ${ACCESS_TOKEN}" || true)"
+
+          if [[ "${plan_snapshot_code}" != "200" ]]; then
+            echo "Failed to fetch organization plan snapshot. Status: ${plan_snapshot_code}"
+            cat /tmp/shirarium-organization-plan.json || true
+            docker logs shirarium-jellyfin-dev || true
+            exit 1
+          fi
+
+          non_empty_plan="$(python - <<'PY'
+import json
+from pathlib import Path
+plan = json.loads(Path("/tmp/shirarium-organization-plan.json").read_text(encoding="utf-8"))
+entries = plan.get("Entries", [])
+planned_count = int(plan.get("PlannedCount", 0))
+print("true" if planned_count > 0 and len(entries) > 0 else "false")
+PY
+)"
+
+          if [[ "${non_empty_plan}" != "true" ]]; then
+            echo "Organization plan is empty after successful scan."
+            cat /tmp/shirarium-organization-plan.json || true
             docker logs shirarium-jellyfin-dev || true
             exit 1
           fi

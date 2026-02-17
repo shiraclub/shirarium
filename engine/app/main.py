@@ -46,7 +46,9 @@ COMMON_JUNK = {
     "repack",
 }
 
-SEASON_EPISODE_RE = re.compile(r"(?:^|[\W_])[sS](\d{1,2})[eE](\d{1,3})(?:$|[\W_])")
+SEASON_EPISODE_RE = re.compile(
+    r"(?:^|[\W_])[sS](\d{1,2})[eE](\d{1,4})(?:[eE]\d{1,4})?(?:$|[\W_])"
+)
 YEAR_RE = re.compile(r"(?:^|[\W_])((?:19|20)\d{2})(?:$|[\W_])")
 SPLIT_RE = re.compile(r"[.\-_()\[\]\s]+")
 
