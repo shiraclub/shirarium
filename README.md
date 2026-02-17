@@ -93,11 +93,42 @@ Important gotchas to remember:
 - `scripts/dev-reload.ps1` currently builds to `artifacts/plugin/Shirarium`; if nested plugin layout causes load issues, build directly to `artifacts/plugin` and restart Jellyfin.
 
 Fast path to get first non-empty plan:
-1. Put sample files under `data/media/incoming` (or point `.env` `MEDIA_PATH` to a real folder with files).
-2. In Jellyfin, create/verify a library that points to `/media/incoming` (or `/media`).
-3. Trigger a library scan, then run Shirarium scan/plan (post-scan task or scripts below).
-4. In Review Console filters, use `/media/incoming` as `Path prefix`.
-5. Reload Review tab and confirm non-zero entries.
+1. Seed synthetic files:
+
+```powershell
+.\scripts\seed-dev-media.ps1 -CleanIncoming
+```
+
+2. Put additional sample files under `data/media/incoming` if needed (or point `.env` `MEDIA_PATH` to a real folder with files).
+3. If `.env` `MEDIA_PATH` points outside the repo, seed there explicitly:
+
+```powershell
+.\scripts\seed-dev-media.ps1 -CleanIncoming -MediaRoot "D:\Media"
+```
+
+4. In Jellyfin, create/verify a library that points to `/media/incoming` (or `/media`).
+5. Trigger a library scan, then run Shirarium scan/plan (post-scan task or scripts below).
+6. In Review Console filters, use `/media/incoming` as `Path prefix`.
+7. Reload Review tab and confirm non-zero entries.
+
+## Synthetic Dataset Seeding
+
+Seed script:
+
+```powershell
+.\scripts\seed-dev-media.ps1
+```
+
+Common options:
+- `-CleanIncoming`: remove `${MEDIA_PATH}/incoming` before seeding.
+- `-Force`: overwrite existing files that match manifest entries.
+- `-MediaRoot "<path>"`: override target root instead of reading `.env` `MEDIA_PATH`.
+- `-DatasetPath "<path>"`: load a custom dataset manifest file.
+- `-Preset "<name>"`: load `datasets/jellyfin-dev/<name>.json` (default `synthetic-community-v1`).
+
+Current built-in manifest:
+- `datasets/jellyfin-dev/synthetic-community-v1.json`
+- Mixes movies, TV, anime-style releases, duplicates, and ignored non-media extensions.
 
 ## Dry-Run Pipelines
 

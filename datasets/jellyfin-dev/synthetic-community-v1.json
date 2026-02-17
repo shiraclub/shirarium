@@ -1,0 +1,237 @@
+{
+  "schemaVersion": "1.0",
+  "name": "synthetic-community-v1",
+  "description": "Synthetic filename dataset for local Jellyfin + Shirarium dev runs.",
+  "entries": [
+    {
+      "relativePath": "incoming/movies/Alien.1979.Directors.Cut.1080p.BluRay.x265-GRP.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Alien",
+        "year": 1979
+      }
+    },
+    {
+      "relativePath": "incoming/movies/The.Matrix.1999.1080p.BluRay.x264-DON.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "The Matrix",
+        "year": 1999
+      }
+    },
+    {
+      "relativePath": "incoming/movies/Blade.Runner.1982.Final.Cut.1080p.BluRay.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Blade Runner",
+        "year": 1982
+      }
+    },
+    {
+      "relativePath": "incoming/movies/Blade.Runner.1982.720p.WEBRip.x264.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Blade Runner",
+        "year": 1982
+      }
+    },
+    {
+      "relativePath": "incoming/movies/City.of.God.2002.1080p.WEB-DL.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "City of God",
+        "year": 2002
+      }
+    },
+    {
+      "relativePath": "incoming/movies/Dune.Part.Two.2024.2160p.WEB-DL.DDP5.1.Atmos.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Dune Part Two",
+        "year": 2024
+      }
+    },
+    {
+      "relativePath": "incoming/movies/Spider-Man.No.Way.Home.2021.REPACK.1080p.BluRay.x264.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Spider Man No Way Home",
+        "year": 2021
+      }
+    },
+    {
+      "relativePath": "incoming/movies/Parasite.2019.KOREAN.1080p.BluRay.x265-VXT.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Parasite",
+        "year": 2019
+      }
+    },
+    {
+      "relativePath": "incoming/movies/Spirited.Away.2001.JPN.1080p.BluRay.x264.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Spirited Away",
+        "year": 2001
+      }
+    },
+    {
+      "relativePath": "incoming/movies/Old.Movie.No.Year.DVDRip.XviD.avi",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Old Movie No Year"
+      }
+    },
+    {
+      "relativePath": "incoming/movies/Unknown.Title.1080p.WEBRip.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Unknown Title"
+      }
+    },
+    {
+      "relativePath": "incoming/tv/Breaking.Bad.S01E01.1080p.BluRay.x265.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Breaking Bad",
+        "season": 1,
+        "episode": 1
+      }
+    },
+    {
+      "relativePath": "incoming/tv/Breaking.Bad.S01E02.1080p.BluRay.x265.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Breaking Bad",
+        "season": 1,
+        "episode": 2
+      }
+    },
+    {
+      "relativePath": "incoming/tv/The.Office.US.S02E12.720p.WEB-DL.x264.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "The Office US",
+        "season": 2,
+        "episode": 12
+      }
+    },
+    {
+      "relativePath": "incoming/tv/The.Office.US.S02E13.720p.WEB-DL.x264.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "The Office US",
+        "season": 2,
+        "episode": 13
+      }
+    },
+    {
+      "relativePath": "incoming/tv/Arcane.S01E01E02.1080p.NF.WEB-DL.DDP5.1.Atmos.x264.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Arcane",
+        "season": 1,
+        "episode": 1
+      }
+    },
+    {
+      "relativePath": "incoming/tv/Doctor.Who.2005.S14E01.1080p.WEB.h264.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Doctor Who",
+        "season": 14,
+        "episode": 1
+      }
+    },
+    {
+      "relativePath": "incoming/tv/Fargo.S05E01.2160p.WEB-DL.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Fargo",
+        "season": 5,
+        "episode": 1
+      }
+    },
+    {
+      "relativePath": "incoming/tv/One.Piece.S01E1071.1080p.WEB.h265.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "One Piece",
+        "season": 1,
+        "episode": 1071
+      }
+    },
+    {
+      "relativePath": "incoming/tv/Show.With.No.SeasonTag.Episode.12.1080p.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Show With No SeasonTag"
+      }
+    },
+    {
+      "relativePath": "incoming/anime/[Erai-raws] Sousou.no.Frieren - 01 [1080p][Multiple Subtitle].mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Sousou no Frieren",
+        "season": 1,
+        "episode": 1
+      }
+    },
+    {
+      "relativePath": "incoming/anime/[SubsPlease] Kimetsu.no.Yaiba - 08 (1080p) [A1B2C3D4].mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Kimetsu no Yaiba",
+        "season": 1,
+        "episode": 8
+      }
+    },
+    {
+      "relativePath": "incoming/anime/[HorribleSubs] Boku.no.Hero.Academia.S4 - 02 [720p].mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Boku no Hero Academia",
+        "season": 4,
+        "episode": 2
+      }
+    },
+    {
+      "relativePath": "incoming/anime/[SomeGroup] Steins;Gate - 01-02 [BD 1080p FLAC].mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Steins Gate",
+        "season": 1,
+        "episode": 1
+      }
+    },
+    {
+      "relativePath": "incoming/anime/[Judas] Mob.Psycho.100.S03E01.1080p.x265.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Mob Psycho 100",
+        "season": 3,
+        "episode": 1
+      }
+    },
+    {
+      "relativePath": "incoming/anime/[VCB-Studio] EVA.3.0+1.11.Thrice.Upon.a.Time.2021.1080p.BDRip.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "EVA 3.0+1.11 Thrice Upon a Time",
+        "year": 2021
+      }
+    },
+    {
+      "relativePath": "incoming/misc/readme.nfo",
+      "expected": {
+        "mediaType": "ignored"
+      }
+    },
+    {
+      "relativePath": "incoming/misc/random.txt",
+      "expected": {
+        "mediaType": "ignored"
+      }
+    }
+  ]
+}
