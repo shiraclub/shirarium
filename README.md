@@ -24,6 +24,19 @@ Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - Keeps it safe: dry-run by default, plus override, preflight, apply, and undo.
 - Runs on your machine by default (no cloud required); optional local AI via Ollama.
 
+## Installation (The Easy Way)
+
+Shirarium is distributed via a managed plugin repository for seamless updates.
+
+1.  Open your Jellyfin dashboard.
+2.  Navigate to **Plugins** -> **Repositories**.
+3.  Add a new repository with the following URL:
+    ```text
+    https://raw.githubusercontent.com/shiraclub/shirarium/master/manifest.json
+    ```
+4.  Navigate to the **Catalog** tab, find **Shirarium**, and click **Install**.
+5.  Restart your Jellyfin server.
+
 ## Current Architecture
 
 - Plugin: `src/Jellyfin.Plugin.Shirarium`

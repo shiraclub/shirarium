@@ -1,0 +1,19 @@
+[
+  {
+    "guid": "f8f6424f-3316-47ef-bfbe-b8138f7ef3ab",
+    "name": "Shirarium",
+    "description": "Elite-tier media organization and semantic parsing engine.",
+    "overview": "Organize your messy files into pristine, Jellyfin-friendly hierarchies using AI-assisted heuristics.",
+    "owner": "shiraclub",
+    "category": "Organization",
+    "versions": [
+      {
+        "version": "0.10.0",
+        "changelog": "Initial release with 100% core accuracy and managed AI inference.",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://github.com/shiraclub/shirarium/releases/download/v0.10.0/shirarium-v0.10.0.zip",
+        "checksum": ""
+      }
+    ]
+  }
+]
