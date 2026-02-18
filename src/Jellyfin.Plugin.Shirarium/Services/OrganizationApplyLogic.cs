@@ -65,7 +65,7 @@ internal static class OrganizationApplyLogic
 
         var normalizedSelections = new HashSet<string>(
             selectedSourcePaths.Where(path => !string.IsNullOrWhiteSpace(path)),
-            StringComparer.OrdinalIgnoreCase);
+            PathComparison.Comparer);
 
         var itemResults = new List<ApplyOrganizationPlanItemResult>(normalizedSelections.Count);
         var undoOperations = new List<ApplyUndoMoveOperation>(normalizedSelections.Count);
@@ -302,13 +302,13 @@ internal static class OrganizationApplyLogic
 
     private static bool IsUnderRoot(string path, string rootPath)
     {
-        if (path.Equals(rootPath, StringComparison.OrdinalIgnoreCase))
+        if (PathComparison.Equals(path, rootPath))
         {
             return true;
         }
 
         var rootWithSeparator = rootPath + Path.DirectorySeparatorChar;
-        return path.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase);
+        return PathComparison.StartsWith(path, rootWithSeparator);
     }
 
     private static bool IsSameVolume(string sourcePath, string targetPath)
@@ -329,11 +329,11 @@ internal static class OrganizationApplyLogic
         {
             var leftFull = Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             var rightFull = Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            return string.Equals(leftFull, rightFull, StringComparison.OrdinalIgnoreCase);
+            return PathComparison.Equals(leftFull, rightFull);
         }
         catch
         {
-            return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+            return PathComparison.Equals(left, right);
         }
     }
 }

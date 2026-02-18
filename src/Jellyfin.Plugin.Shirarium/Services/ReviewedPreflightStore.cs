@@ -224,8 +224,8 @@ public static class ReviewedPreflightStore
         return sourcePaths
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Select(path => NormalizePath(path))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .Distinct(PathComparison.Comparer)
+            .OrderBy(path => path, PathComparison.Comparer)
             .ToArray();
     }
 

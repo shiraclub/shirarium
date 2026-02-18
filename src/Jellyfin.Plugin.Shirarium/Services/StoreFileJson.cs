@@ -22,9 +22,17 @@ internal static class StoreFileJson
             var json = File.ReadAllText(filePath);
             return JsonSerializer.Deserialize<T>(json, jsonOptions) ?? defaultFactory();
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
-            TryBackupCorruptFile(filePath);
+            if (TryBackupCorruptFile(filePath, out var backupPath))
+            {
+                LogWarning($"Detected invalid JSON in '{filePath}'. Backed up to '{backupPath}'. Error={ex.Message}");
+            }
+            else
+            {
+                LogWarning($"Detected invalid JSON in '{filePath}', but backup creation failed. Error={ex.Message}");
+            }
+
             return defaultFactory();
         }
         catch
@@ -119,6 +127,7 @@ internal static class StoreFileJson
                 var elapsed = DateTimeOffset.UtcNow - startUtc;
                 if (elapsed >= LockAcquireTimeout)
                 {
+                    LogWarning($"Timed out acquiring store lock '{lockPath}' after {elapsed.TotalSeconds:0.0}s.");
                     throw new TimeoutException($"Timed out acquiring store lock for '{filePath}'.");
                 }
 
@@ -127,24 +136,39 @@ internal static class StoreFileJson
         }
     }
 
-    private static void TryBackupCorruptFile(string filePath)
+    private static bool TryBackupCorruptFile(string filePath, out string? backupPath)
     {
+        backupPath = null;
         try
         {
             var directory = Path.GetDirectoryName(filePath) ?? string.Empty;
             if (string.IsNullOrWhiteSpace(directory))
             {
-                return;
+                return false;
             }
 
             var extension = Path.GetExtension(filePath);
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
             var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
-            var backupPath = Path.Combine(directory, $"{fileNameWithoutExtension}.corrupt-{timestamp}{extension}");
+            backupPath = Path.Combine(directory, $"{fileNameWithoutExtension}.corrupt-{timestamp}{extension}");
             if (!File.Exists(backupPath))
             {
                 File.Copy(filePath, backupPath);
             }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void LogWarning(string message)
+    {
+        try
+        {
+            Console.Error.WriteLine($"[{DateTimeOffset.UtcNow:O}] [Shirarium.StoreFileJson] {message}");
         }
         catch
         {

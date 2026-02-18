@@ -266,11 +266,11 @@ internal static class UndoApplyLogic
         {
             var leftFull = Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             var rightFull = Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            return string.Equals(leftFull, rightFull, StringComparison.OrdinalIgnoreCase);
+            return PathComparison.Equals(leftFull, rightFull);
         }
         catch
         {
-            return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+            return PathComparison.Equals(left, right);
         }
     }
 }

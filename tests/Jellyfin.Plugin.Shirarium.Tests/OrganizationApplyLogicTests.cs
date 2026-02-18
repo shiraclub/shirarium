@@ -185,6 +185,48 @@ public sealed class OrganizationApplyLogicTests
     }
 
     [Fact]
+    public void ApplySelected_CaseOnlySelectionDifference_IsPlatformAware()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var sourcePath = Path.Combine(root, "incoming", "CaseFile.mkv");
+            var selectedPath = Path.Combine(root, "incoming", "casefile.mkv");
+            var organizationRoot = Path.Combine(root, "organized");
+            var targetPath = Path.Combine(root, "organized", "Case File", "Case File.mkv");
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(sourcePath, "content");
+
+            var plan = CreatePlan(organizationRoot, new OrganizationPlanEntry
+            {
+                ItemId = "1",
+                SourcePath = sourcePath,
+                TargetPath = targetPath,
+                Action = "move",
+                Reason = "Planned"
+            });
+
+            var result = OrganizationApplyLogic.ApplySelected(plan, [selectedPath]);
+            if (OperatingSystem.IsWindows())
+            {
+                Assert.Equal(1, result.AppliedCount);
+                Assert.Equal(0, result.SkippedCount);
+                Assert.Equal("applied", result.Results[0].Status);
+            }
+            else
+            {
+                Assert.Equal(0, result.AppliedCount);
+                Assert.Equal(1, result.SkippedCount);
+                Assert.Equal("NotFoundInPlan", result.Results[0].Reason);
+            }
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
     public void ApplySelected_Fails_WhenTargetIsOutsidePlanRoot()
     {
         var root = CreateTempRoot();

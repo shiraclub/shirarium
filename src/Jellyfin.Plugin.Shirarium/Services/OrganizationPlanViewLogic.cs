@@ -104,7 +104,7 @@ internal static class OrganizationPlanViewLogic
                 }
 
                 if (!string.IsNullOrWhiteSpace(pathPrefix)
-                    && !NormalizePathPrefix(viewEntry.SourcePath).StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase))
+                    && !NormalizePathPrefix(viewEntry.SourcePath).StartsWith(pathPrefix, PathComparison.Comparison))
                 {
                     return false;
                 }
@@ -146,8 +146,8 @@ internal static class OrganizationPlanViewLogic
         IOrderedEnumerable<OrganizationPlanViewEntry> ordered = sortBy switch
         {
             "targetPath" => descending
-                ? entries.OrderByDescending(entry => entry.EffectiveTargetPath, StringComparer.OrdinalIgnoreCase)
-                : entries.OrderBy(entry => entry.EffectiveTargetPath, StringComparer.OrdinalIgnoreCase),
+                ? entries.OrderByDescending(entry => entry.EffectiveTargetPath, PathComparison.Comparer)
+                : entries.OrderBy(entry => entry.EffectiveTargetPath, PathComparison.Comparer),
             "confidence" => descending
                 ? entries.OrderByDescending(entry => entry.Confidence)
                 : entries.OrderBy(entry => entry.Confidence),
@@ -161,8 +161,8 @@ internal static class OrganizationPlanViewLogic
                 ? entries.OrderByDescending(entry => entry.Reason, StringComparer.OrdinalIgnoreCase)
                 : entries.OrderBy(entry => entry.Reason, StringComparer.OrdinalIgnoreCase),
             _ => descending
-                ? entries.OrderByDescending(entry => entry.SourcePath, StringComparer.OrdinalIgnoreCase)
-                : entries.OrderBy(entry => entry.SourcePath, StringComparer.OrdinalIgnoreCase)
+                ? entries.OrderByDescending(entry => entry.SourcePath, PathComparison.Comparer)
+                : entries.OrderBy(entry => entry.SourcePath, PathComparison.Comparer)
         };
 
         return ordered.ThenBy(entry => entry.ItemId, StringComparer.OrdinalIgnoreCase);

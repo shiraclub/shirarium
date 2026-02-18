@@ -84,5 +84,43 @@ public sealed class OrganizationPlanOverridesLogicTests
         Assert.Equal("skip", result.Snapshot.Entries[0].Action);
         Assert.Null(result.Snapshot.Entries[0].TargetPath);
     }
-}
 
+    [Fact]
+    public void ValidateRequest_CaseOnlyDuplicateSourcePath_IsPlatformAware()
+    {
+        var plan = new OrganizationPlanSnapshot
+        {
+            PlanFingerprint = "plan-v1"
+        };
+
+        var error = OrganizationPlanOverridesLogic.ValidateRequest(
+            new PatchOrganizationPlanEntryOverridesRequest
+            {
+                ExpectedPlanFingerprint = "plan-v1",
+                Patches =
+                [
+                    new OrganizationPlanEntryOverridePatch
+                    {
+                        SourcePath = "/media/incoming/CaseFile.mkv",
+                        Action = "skip"
+                    },
+                    new OrganizationPlanEntryOverridePatch
+                    {
+                        SourcePath = "/media/incoming/casefile.mkv",
+                        Action = "move"
+                    }
+                ]
+            },
+            plan);
+
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.NotNull(error);
+            Assert.StartsWith("Duplicate patch source path:", error);
+        }
+        else
+        {
+            Assert.Null(error);
+        }
+    }
+}

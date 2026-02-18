@@ -38,8 +38,8 @@ internal static class OrganizationPlanReviewLogic
     {
         return overridesSnapshot.Entries
             .Where(entry => !string.IsNullOrWhiteSpace(entry.SourcePath))
-            .GroupBy(entry => entry.SourcePath, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.OrdinalIgnoreCase);
+            .GroupBy(entry => entry.SourcePath, PathComparison.Comparer)
+            .ToDictionary(group => group.Key, group => group.Last(), PathComparison.Comparer);
     }
 
     internal static OrganizationPlanSnapshot BuildEffectivePlan(

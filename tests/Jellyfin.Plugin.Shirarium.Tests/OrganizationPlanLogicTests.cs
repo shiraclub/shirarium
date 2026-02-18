@@ -300,6 +300,40 @@ public sealed class OrganizationPlanLogicTests
     }
 
     [Fact]
+    public void MarkDuplicateTargetConflicts_CaseOnlyTargetDifference_IsPlatformAware()
+    {
+        var entries = new List<OrganizationPlanEntry>
+        {
+            new()
+            {
+                SourcePath = "/media/incoming/A.mkv",
+                TargetPath = "/media/organized/Noroi/Noroi.mkv",
+                Action = "move",
+                Reason = "Planned"
+            },
+            new()
+            {
+                SourcePath = "/media/incoming/B.mkv",
+                TargetPath = "/media/organized/noroi/noroi.mkv",
+                Action = "move",
+                Reason = "Planned"
+            }
+        };
+
+        OrganizationPlanLogic.MarkDuplicateTargetConflicts(entries);
+
+        var conflictCount = entries.Count(entry => string.Equals(entry.Action, "conflict", StringComparison.OrdinalIgnoreCase));
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Equal(2, conflictCount);
+        }
+        else
+        {
+            Assert.Equal(0, conflictCount);
+        }
+    }
+
+    [Fact]
     public void BuildPlan_ComputesActionCounters()
     {
         var root = CreateTempRoot();

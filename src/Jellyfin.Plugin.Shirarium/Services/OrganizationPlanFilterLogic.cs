@@ -8,7 +8,7 @@ internal static class OrganizationPlanFilterLogic
     {
         var moveCandidates = plan.Entries
             .Where(entry => string.Equals(entry.Action, "move", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(entry => entry.SourcePath, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(entry => entry.SourcePath, PathComparison.Comparer)
             .ThenBy(entry => entry.ItemId, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -34,7 +34,7 @@ internal static class OrganizationPlanFilterLogic
             }
 
             if (!string.IsNullOrWhiteSpace(normalizedPrefix)
-                && !NormalizePathPrefix(entry.SourcePath).StartsWith(normalizedPrefix, StringComparison.OrdinalIgnoreCase))
+                && !NormalizePathPrefix(entry.SourcePath).StartsWith(normalizedPrefix, PathComparison.Comparison))
             {
                 return false;
             }

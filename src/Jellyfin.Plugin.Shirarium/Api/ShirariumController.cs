@@ -748,8 +748,8 @@ public sealed class ShirariumController : ControllerBase
             .Where(entry => entry.Action.Equals("move", StringComparison.OrdinalIgnoreCase))
             .Select(entry => entry.SourcePath)
             .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .Distinct(PathComparison.Comparer)
+            .OrderBy(path => path, PathComparison.Comparer)
             .ToArray();
     }
 
@@ -758,8 +758,8 @@ public sealed class ShirariumController : ControllerBase
         return sourcePaths
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Select(path => path.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .Distinct(PathComparison.Comparer)
+            .OrderBy(path => path, PathComparison.Comparer)
             .ToArray();
     }
 }

@@ -28,7 +28,7 @@ internal static class OrganizationPlanOverridesLogic
             return "At least one patch is required.";
         }
 
-        var sourcePathSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var sourcePathSet = new HashSet<string>(PathComparison.Comparer);
         foreach (var patch in request.Patches)
         {
             if (string.IsNullOrWhiteSpace(patch.SourcePath))
@@ -122,7 +122,7 @@ internal static class OrganizationPlanOverridesLogic
             PlanFingerprint = planFingerprint,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
             Entries = overrideMap.Values
-                .OrderBy(entry => entry.SourcePath, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(entry => entry.SourcePath, PathComparison.Comparer)
                 .ToArray()
         };
 
@@ -143,4 +143,3 @@ internal static class OrganizationPlanOverridesLogic
         public int RemovedCount { get; init; }
     }
 }
-

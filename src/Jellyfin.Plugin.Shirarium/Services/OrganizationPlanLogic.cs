@@ -184,7 +184,7 @@ internal static class OrganizationPlanLogic
     {
         var duplicates = entries
             .Where(entry => entry.Action == "move" && !string.IsNullOrWhiteSpace(entry.TargetPath))
-            .GroupBy(entry => entry.TargetPath!, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(entry => entry.TargetPath!, PathComparison.Comparer)
             .Where(group => group.Count() > 1)
             .SelectMany(group => group)
             .ToArray();
@@ -205,7 +205,7 @@ internal static class OrganizationPlanLogic
             return;
         }
 
-        var reservedTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var reservedTargets = new HashSet<string>(PathComparison.Comparer);
         foreach (var entry in entries)
         {
             if (entry.Action == "move" && !string.IsNullOrWhiteSpace(entry.TargetPath))
@@ -219,7 +219,7 @@ internal static class OrganizationPlanLogic
                 entry.Action == "conflict"
                 && string.Equals(entry.Reason, "TargetAlreadyExists", StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrWhiteSpace(entry.TargetPath))
-            .OrderBy(entry => entry.SourcePath, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(entry => entry.SourcePath, PathComparison.Comparer)
             .ThenBy(entry => entry.ItemId, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -247,14 +247,14 @@ internal static class OrganizationPlanLogic
 
         var duplicateGroups = entries
             .Where(entry => entry.Action == "move" && !string.IsNullOrWhiteSpace(entry.TargetPath))
-            .GroupBy(entry => entry.TargetPath!, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(entry => entry.TargetPath!, PathComparison.Comparer)
             .Where(group => group.Count() > 1)
             .ToArray();
 
         foreach (var group in duplicateGroups)
         {
             var ordered = group
-                .OrderBy(entry => entry.SourcePath, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(entry => entry.SourcePath, PathComparison.Comparer)
                 .ThenBy(entry => entry.ItemId, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
             var keeper = ordered[0];
@@ -466,11 +466,11 @@ internal static class OrganizationPlanLogic
         {
             var leftFull = Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             var rightFull = Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            return string.Equals(leftFull, rightFull, StringComparison.OrdinalIgnoreCase);
+            return PathComparison.Equals(leftFull, rightFull);
         }
         catch
         {
-            return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+            return PathComparison.Equals(left, right);
         }
     }
 }

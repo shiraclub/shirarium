@@ -84,7 +84,7 @@ public static class OrganizationPlanOverridesStore
             UpdatedAtUtc = snapshot.UpdatedAtUtc,
             Entries = snapshot.Entries
                 .Where(entry => !string.IsNullOrWhiteSpace(entry.SourcePath))
-                .OrderBy(entry => entry.SourcePath, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(entry => entry.SourcePath, PathComparison.Comparer)
                 .ToArray()
         };
 
