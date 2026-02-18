@@ -19,3 +19,6 @@ artifacts/
 TestResults/
 
 .env
+
+# Benchmarking Data (Tier C)
+datasets/benchmark/
