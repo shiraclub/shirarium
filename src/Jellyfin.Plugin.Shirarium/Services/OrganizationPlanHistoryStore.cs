@@ -35,24 +35,10 @@ public static class OrganizationPlanHistoryStore
     public static OrganizationPlanSnapshot[] Read(IApplicationPaths applicationPaths)
     {
         var filePath = GetFilePath(applicationPaths);
-        if (!File.Exists(filePath))
-        {
-            return [];
-        }
-
-        try
-        {
-            var json = File.ReadAllText(filePath);
-            var entries = JsonSerializer.Deserialize<OrganizationPlanSnapshot[]>(json, JsonOptions)
-                ?? [];
-            return entries
-                .Where(snapshot => snapshot.SchemaVersion == SnapshotSchemaVersions.OrganizationPlan)
-                .ToArray();
-        }
-        catch
-        {
-            return [];
-        }
+        var entries = StoreFileJson.ReadOrDefault(filePath, JsonOptions, static () => Array.Empty<OrganizationPlanSnapshot>());
+        return entries
+            .Where(snapshot => snapshot.SchemaVersion == SnapshotSchemaVersions.OrganizationPlan)
+            .ToArray();
     }
 
     /// <summary>
@@ -81,16 +67,25 @@ public static class OrganizationPlanHistoryStore
             Entries = snapshot.Entries
         };
         snapshot.PlanFingerprint = PlanFingerprint.Compute(snapshot);
-        var entries = Read(applicationPaths).ToList();
-        entries.Add(snapshot);
-
-        if (entries.Count > MaxEntries)
-        {
-            entries = entries.Skip(entries.Count - MaxEntries).ToList();
-        }
-
         var filePath = GetFilePath(applicationPaths);
-        var json = JsonSerializer.Serialize(entries.ToArray(), JsonOptions);
-        await File.WriteAllTextAsync(filePath, json, cancellationToken);
+        await StoreFileJson.UpdateAsync(
+            filePath,
+            JsonOptions,
+            static () => Array.Empty<OrganizationPlanSnapshot>(),
+            existingEntries =>
+            {
+                var entries = existingEntries
+                    .Where(entry => entry.SchemaVersion == SnapshotSchemaVersions.OrganizationPlan)
+                    .ToList();
+                entries.Add(snapshot);
+
+                if (entries.Count > MaxEntries)
+                {
+                    entries = entries.Skip(entries.Count - MaxEntries).ToList();
+                }
+
+                return entries.ToArray();
+            },
+            cancellationToken);
     }
 }

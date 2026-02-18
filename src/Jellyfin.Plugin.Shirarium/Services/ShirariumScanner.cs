@@ -81,6 +81,7 @@ public sealed class ShirariumScanner
         var examinedCount = 0;
         var candidateCount = 0;
         var parsedCount = 0;
+        var parseAttemptCount = 0;
         var skippedByLimitCount = 0;
         var skippedByConfidenceCount = 0;
         var engineFailureCount = 0;
@@ -136,12 +137,14 @@ public sealed class ShirariumScanner
 
             candidateCount++;
             IncrementBuckets(candidateReasonCounts, reasons);
-            if (parsedCount >= maxItems)
+            // MaxItemsPerRun limits parse calls, regardless of confidence pass/fail outcome.
+            if (parseAttemptCount >= maxItems)
             {
                 skippedByLimitCount++;
                 continue;
             }
 
+            parseAttemptCount++;
             ParseFilenameResponse? parsed;
             if (_parseFilenameAsync is not null)
             {

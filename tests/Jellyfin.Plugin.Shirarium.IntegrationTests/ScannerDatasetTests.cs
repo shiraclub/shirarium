@@ -83,26 +83,24 @@ public sealed class ScannerDatasetTests
 
             Assert.Equal(6, snapshot.ExaminedCount);
             Assert.Equal(5, snapshot.CandidateCount);
-            Assert.Equal(2, snapshot.ParsedCount);
-            Assert.Equal(1, snapshot.SkippedByLimitCount);
+            Assert.Equal(1, snapshot.ParsedCount);
+            Assert.Equal(3, snapshot.SkippedByLimitCount);
             Assert.Equal(1, snapshot.SkippedByConfidenceCount);
-            Assert.Equal(1, snapshot.EngineFailureCount);
+            Assert.Equal(0, snapshot.EngineFailureCount);
 
-            Assert.Equal(2, snapshot.Suggestions.Length);
+            Assert.Single(snapshot.Suggestions);
             Assert.Contains(snapshot.Suggestions, suggestion => suggestion.SuggestedTitle == "Movie One");
-            Assert.Contains(snapshot.Suggestions, suggestion => suggestion.SuggestedTitle == "Second Movie");
 
             AssertBucket(snapshot.CandidateReasonCounts, "MissingProviderIds", 5);
             AssertBucket(snapshot.CandidateReasonCounts, "MissingOverview", 4);
             AssertBucket(snapshot.CandidateReasonCounts, "MissingProductionYear", 5);
 
-            AssertBucket(snapshot.ParserSourceCounts, "heuristic", 3);
+            AssertBucket(snapshot.ParserSourceCounts, "heuristic", 2);
             AssertBucket(snapshot.ConfidenceBucketCounts, "0.4-0.5", 1);
-            AssertBucket(snapshot.ConfidenceBucketCounts, "0.8-0.9", 1);
             AssertBucket(snapshot.ConfidenceBucketCounts, "0.9-1.0", 1);
 
             var invocationCounts = runtime.ParseInvocationCounts;
-            Assert.Equal(4, invocationCounts.Values.Sum());
+            Assert.Equal(2, invocationCounts.Values.Sum());
         }
         finally
         {

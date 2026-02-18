@@ -93,22 +93,30 @@ public static class ReviewedPreflightStore
             SelectedSourceHash = ComputeSelectedSourceHash(planFingerprint, normalizedPaths)
         };
 
-        var snapshot = ReadSnapshot(applicationPaths, now);
-        var entries = snapshot.Entries.ToList();
-        entries.Add(entry);
-        if (entries.Count > MaxEntries)
-        {
-            entries = entries
-                .OrderByDescending(candidate => candidate.IssuedAtUtc)
-                .Take(MaxEntries)
-                .OrderBy(candidate => candidate.IssuedAtUtc)
-                .ToList();
-        }
+        var filePath = GetFilePath(applicationPaths);
+        await StoreFileJson.UpdateAsync(
+            filePath,
+            JsonOptions,
+            static () => new ReviewedPreflightSnapshot(),
+            snapshot =>
+            {
+                var entries = NormalizeEntries(snapshot, now).ToList();
+                entries.Add(entry);
+                if (entries.Count > MaxEntries)
+                {
+                    entries = entries
+                        .OrderByDescending(candidate => candidate.IssuedAtUtc)
+                        .Take(MaxEntries)
+                        .OrderBy(candidate => candidate.IssuedAtUtc)
+                        .ToList();
+                }
 
-        await WriteSnapshotAsync(applicationPaths, new ReviewedPreflightSnapshot
-        {
-            Entries = entries.ToArray()
-        }, cancellationToken);
+                return new ReviewedPreflightSnapshot
+                {
+                    Entries = entries.ToArray()
+                };
+            },
+            cancellationToken);
 
         return entry;
     }
@@ -135,40 +143,56 @@ public static class ReviewedPreflightStore
         }
 
         var now = DateTimeOffset.UtcNow;
-        var snapshot = ReadSnapshot(applicationPaths, now);
-        var entries = snapshot.Entries.ToList();
-        var index = entries.FindIndex(candidate => candidate.Token.Equals(token, StringComparison.OrdinalIgnoreCase));
-        if (index < 0)
-        {
-            return ConsumeStatus.TokenNotFound;
-        }
-
-        var entry = entries[index];
         var normalizedPaths = NormalizeSourcePaths(selectedSourcePaths);
         var selectedSourceHash = ComputeSelectedSourceHash(planFingerprint, normalizedPaths);
+        var status = ConsumeStatus.TokenNotFound;
 
-        entries.RemoveAt(index);
-        await WriteSnapshotAsync(applicationPaths, new ReviewedPreflightSnapshot
-        {
-            Entries = entries.ToArray()
-        }, cancellationToken);
+        var filePath = GetFilePath(applicationPaths);
+        await StoreFileJson.UpdateAsync(
+            filePath,
+            JsonOptions,
+            static () => new ReviewedPreflightSnapshot(),
+            snapshot =>
+            {
+                var entries = NormalizeEntries(snapshot, now).ToList();
+                var index = entries.FindIndex(candidate => candidate.Token.Equals(token, StringComparison.OrdinalIgnoreCase));
+                if (index < 0)
+                {
+                    status = ConsumeStatus.TokenNotFound;
+                    return new ReviewedPreflightSnapshot
+                    {
+                        Entries = entries.ToArray()
+                    };
+                }
 
-        if (entry.ExpiresAtUtc <= now)
-        {
-            return ConsumeStatus.TokenExpired;
-        }
+                var entry = entries[index];
+                entries.RemoveAt(index);
 
-        if (!entry.PlanFingerprint.Equals(planFingerprint, StringComparison.OrdinalIgnoreCase))
-        {
-            return ConsumeStatus.PlanFingerprintMismatch;
-        }
+                if (entry.ExpiresAtUtc <= now)
+                {
+                    status = ConsumeStatus.TokenExpired;
+                }
+                else if (!entry.PlanFingerprint.Equals(planFingerprint, StringComparison.OrdinalIgnoreCase))
+                {
+                    status = ConsumeStatus.PlanFingerprintMismatch;
+                }
+                else if (!entry.SelectedSourceHash.Equals(selectedSourceHash, StringComparison.Ordinal))
+                {
+                    status = ConsumeStatus.SelectedSourceMismatch;
+                }
+                else
+                {
+                    status = ConsumeStatus.Success;
+                }
 
-        if (!entry.SelectedSourceHash.Equals(selectedSourceHash, StringComparison.Ordinal))
-        {
-            return ConsumeStatus.SelectedSourceMismatch;
-        }
+                return new ReviewedPreflightSnapshot
+                {
+                    Entries = entries.ToArray()
+                };
+            },
+            cancellationToken);
 
-        return ConsumeStatus.Success;
+        return status;
     }
 
     internal static string ComputeSelectedSourceHash(string planFingerprint, IEnumerable<string> sourcePaths)
@@ -183,45 +207,16 @@ public static class ReviewedPreflightStore
         return Convert.ToHexString(digest);
     }
 
-    private static ReviewedPreflightSnapshot ReadSnapshot(
-        IApplicationPaths applicationPaths,
+    private static ReviewedPreflightEntry[] NormalizeEntries(
+        ReviewedPreflightSnapshot snapshot,
         DateTimeOffset now)
     {
-        var filePath = GetFilePath(applicationPaths);
-        if (!File.Exists(filePath))
-        {
-            return new ReviewedPreflightSnapshot();
-        }
-
-        try
-        {
-            var json = File.ReadAllText(filePath);
-            var snapshot = JsonSerializer.Deserialize<ReviewedPreflightSnapshot>(json, JsonOptions)
-                ?? new ReviewedPreflightSnapshot();
-            return new ReviewedPreflightSnapshot
-            {
-                Entries = snapshot.Entries
-                    .Where(entry => entry.SchemaVersion == SnapshotSchemaVersions.ReviewedPreflight)
-                    .Where(entry => !string.IsNullOrWhiteSpace(entry.Token))
-                    .Where(entry => entry.ExpiresAtUtc > now)
-                    .OrderBy(entry => entry.IssuedAtUtc)
-                    .ToArray()
-            };
-        }
-        catch
-        {
-            return new ReviewedPreflightSnapshot();
-        }
-    }
-
-    private static async Task WriteSnapshotAsync(
-        IApplicationPaths applicationPaths,
-        ReviewedPreflightSnapshot snapshot,
-        CancellationToken cancellationToken)
-    {
-        var filePath = GetFilePath(applicationPaths);
-        var json = JsonSerializer.Serialize(snapshot, JsonOptions);
-        await File.WriteAllTextAsync(filePath, json, cancellationToken);
+        return snapshot.Entries
+            .Where(entry => entry.SchemaVersion == SnapshotSchemaVersions.ReviewedPreflight)
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Token))
+            .Where(entry => entry.ExpiresAtUtc > now)
+            .OrderBy(entry => entry.IssuedAtUtc)
+            .ToArray();
     }
 
     private static string[] NormalizeSourcePaths(IEnumerable<string> sourcePaths)

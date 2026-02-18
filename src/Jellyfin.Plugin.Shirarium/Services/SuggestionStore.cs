@@ -34,20 +34,7 @@ public static class SuggestionStore
     public static ScanResultSnapshot Read(IApplicationPaths applicationPaths)
     {
         var filePath = GetFilePath(applicationPaths);
-        if (!File.Exists(filePath))
-        {
-            return new ScanResultSnapshot();
-        }
-
-        try
-        {
-            var json = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<ScanResultSnapshot>(json, JsonOptions) ?? new ScanResultSnapshot();
-        }
-        catch
-        {
-            return new ScanResultSnapshot();
-        }
+        return StoreFileJson.ReadOrDefault(filePath, JsonOptions, static () => new ScanResultSnapshot());
     }
 
     /// <summary>
@@ -62,7 +49,6 @@ public static class SuggestionStore
         CancellationToken cancellationToken = default)
     {
         var filePath = GetFilePath(applicationPaths);
-        var json = JsonSerializer.Serialize(snapshot, JsonOptions);
-        await File.WriteAllTextAsync(filePath, json, cancellationToken);
+        await StoreFileJson.WriteAsync(filePath, snapshot, JsonOptions, cancellationToken);
     }
 }

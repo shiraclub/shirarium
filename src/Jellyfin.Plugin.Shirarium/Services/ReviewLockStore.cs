@@ -35,24 +35,10 @@ public static class ReviewLockStore
     public static ReviewLockSnapshot[] Read(IApplicationPaths applicationPaths)
     {
         var filePath = GetFilePath(applicationPaths);
-        if (!File.Exists(filePath))
-        {
-            return [];
-        }
-
-        try
-        {
-            var json = File.ReadAllText(filePath);
-            var entries = JsonSerializer.Deserialize<ReviewLockSnapshot[]>(json, JsonOptions)
-                ?? [];
-            return entries
-                .Where(IsSupportedSchema)
-                .ToArray();
-        }
-        catch
-        {
-            return [];
-        }
+        var entries = StoreFileJson.ReadOrDefault(filePath, JsonOptions, static () => Array.Empty<ReviewLockSnapshot>());
+        return entries
+            .Where(IsSupportedSchema)
+            .ToArray();
     }
 
     /// <summary>
@@ -84,19 +70,30 @@ public static class ReviewLockStore
         CancellationToken cancellationToken = default)
     {
         snapshot = EnsureSupportedSchema(snapshot);
-        var entries = Read(applicationPaths).ToList();
-        if (entries.Any(existing => existing.ReviewId.Equals(snapshot.ReviewId, StringComparison.OrdinalIgnoreCase)))
-        {
-            throw new InvalidOperationException("DuplicateReviewId");
-        }
+        var filePath = GetFilePath(applicationPaths);
+        await StoreFileJson.UpdateAsync(
+            filePath,
+            JsonOptions,
+            static () => Array.Empty<ReviewLockSnapshot>(),
+            existingEntries =>
+            {
+                var entries = existingEntries
+                    .Where(IsSupportedSchema)
+                    .ToList();
+                if (entries.Any(existing => existing.ReviewId.Equals(snapshot.ReviewId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    throw new InvalidOperationException("DuplicateReviewId");
+                }
 
-        entries.Add(snapshot);
-        if (entries.Count > MaxEntries)
-        {
-            entries = entries.Skip(entries.Count - MaxEntries).ToList();
-        }
+                entries.Add(snapshot);
+                if (entries.Count > MaxEntries)
+                {
+                    entries = entries.Skip(entries.Count - MaxEntries).ToList();
+                }
 
-        await WriteAsync(applicationPaths, entries, cancellationToken);
+                return entries.ToArray();
+            },
+            cancellationToken);
     }
 
     /// <summary>
@@ -114,26 +111,27 @@ public static class ReviewLockStore
         DateTimeOffset appliedAtUtc,
         CancellationToken cancellationToken = default)
     {
-        var entries = Read(applicationPaths).ToList();
-        var index = entries.FindIndex(existing => existing.ReviewId.Equals(reviewId, StringComparison.OrdinalIgnoreCase));
-        if (index < 0)
-        {
-            throw new InvalidOperationException("ReviewLockNotFound");
-        }
-
-        entries[index].AppliedRunId = runId;
-        entries[index].AppliedAtUtc = appliedAtUtc;
-        await WriteAsync(applicationPaths, entries, cancellationToken);
-    }
-
-    private static async Task WriteAsync(
-        IApplicationPaths applicationPaths,
-        IReadOnlyCollection<ReviewLockSnapshot> entries,
-        CancellationToken cancellationToken)
-    {
         var filePath = GetFilePath(applicationPaths);
-        var json = JsonSerializer.Serialize(entries.ToArray(), JsonOptions);
-        await File.WriteAllTextAsync(filePath, json, cancellationToken);
+        await StoreFileJson.UpdateAsync(
+            filePath,
+            JsonOptions,
+            static () => Array.Empty<ReviewLockSnapshot>(),
+            existingEntries =>
+            {
+                var entries = existingEntries
+                    .Where(IsSupportedSchema)
+                    .ToArray();
+                var index = Array.FindIndex(entries, existing => existing.ReviewId.Equals(reviewId, StringComparison.OrdinalIgnoreCase));
+                if (index < 0)
+                {
+                    throw new InvalidOperationException("ReviewLockNotFound");
+                }
+
+                entries[index].AppliedRunId = runId;
+                entries[index].AppliedAtUtc = appliedAtUtc;
+                return entries;
+            },
+            cancellationToken);
     }
 
     private static bool IsSupportedSchema(ReviewLockSnapshot snapshot)

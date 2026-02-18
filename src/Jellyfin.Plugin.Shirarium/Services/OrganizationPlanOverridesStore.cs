@@ -34,27 +34,13 @@ public static class OrganizationPlanOverridesStore
     public static OrganizationPlanOverridesSnapshot Read(IApplicationPaths applicationPaths)
     {
         var filePath = GetFilePath(applicationPaths);
-        if (!File.Exists(filePath))
+        var snapshot = StoreFileJson.ReadOrDefault(filePath, JsonOptions, static () => new OrganizationPlanOverridesSnapshot());
+        if (snapshot.SchemaVersion != SnapshotSchemaVersions.OrganizationPlanOverrides)
         {
             return new OrganizationPlanOverridesSnapshot();
         }
 
-        try
-        {
-            var json = File.ReadAllText(filePath);
-            var snapshot = JsonSerializer.Deserialize<OrganizationPlanOverridesSnapshot>(json, JsonOptions)
-                ?? new OrganizationPlanOverridesSnapshot();
-            if (snapshot.SchemaVersion != SnapshotSchemaVersions.OrganizationPlanOverrides)
-            {
-                return new OrganizationPlanOverridesSnapshot();
-            }
-
-            return snapshot;
-        }
-        catch
-        {
-            return new OrganizationPlanOverridesSnapshot();
-        }
+        return snapshot;
     }
 
     /// <summary>
@@ -103,8 +89,7 @@ public static class OrganizationPlanOverridesStore
         };
 
         var filePath = GetFilePath(applicationPaths);
-        var json = JsonSerializer.Serialize(normalized, JsonOptions);
-        await File.WriteAllTextAsync(filePath, json, cancellationToken);
+        await StoreFileJson.WriteAsync(filePath, normalized, JsonOptions, cancellationToken);
         await OrganizationPlanOverridesHistoryStore.AppendAsync(applicationPaths, normalized, cancellationToken);
     }
 }

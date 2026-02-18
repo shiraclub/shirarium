@@ -35,24 +35,10 @@ public static class OrganizationPlanOverridesHistoryStore
     public static OrganizationPlanOverridesSnapshot[] Read(IApplicationPaths applicationPaths)
     {
         var filePath = GetFilePath(applicationPaths);
-        if (!File.Exists(filePath))
-        {
-            return [];
-        }
-
-        try
-        {
-            var json = File.ReadAllText(filePath);
-            var entries = JsonSerializer.Deserialize<OrganizationPlanOverridesSnapshot[]>(json, JsonOptions)
-                ?? [];
-            return entries
-                .Where(snapshot => snapshot.SchemaVersion == SnapshotSchemaVersions.OrganizationPlanOverrides)
-                .ToArray();
-        }
-        catch
-        {
-            return [];
-        }
+        var entries = StoreFileJson.ReadOrDefault(filePath, JsonOptions, static () => Array.Empty<OrganizationPlanOverridesSnapshot>());
+        return entries
+            .Where(snapshot => snapshot.SchemaVersion == SnapshotSchemaVersions.OrganizationPlanOverrides)
+            .ToArray();
     }
 
     /// <summary>
@@ -73,16 +59,25 @@ public static class OrganizationPlanOverridesHistoryStore
             UpdatedAtUtc = snapshot.UpdatedAtUtc,
             Entries = snapshot.Entries
         };
-        var entries = Read(applicationPaths).ToList();
-        entries.Add(snapshot);
-
-        if (entries.Count > MaxEntries)
-        {
-            entries = entries.Skip(entries.Count - MaxEntries).ToList();
-        }
-
         var filePath = GetFilePath(applicationPaths);
-        var json = JsonSerializer.Serialize(entries.ToArray(), JsonOptions);
-        await File.WriteAllTextAsync(filePath, json, cancellationToken);
+        await StoreFileJson.UpdateAsync(
+            filePath,
+            JsonOptions,
+            static () => Array.Empty<OrganizationPlanOverridesSnapshot>(),
+            existingEntries =>
+            {
+                var entries = existingEntries
+                    .Where(entry => entry.SchemaVersion == SnapshotSchemaVersions.OrganizationPlanOverrides)
+                    .ToList();
+                entries.Add(snapshot);
+
+                if (entries.Count > MaxEntries)
+                {
+                    entries = entries.Skip(entries.Count - MaxEntries).ToList();
+                }
+
+                return entries.ToArray();
+            },
+            cancellationToken);
     }
 }

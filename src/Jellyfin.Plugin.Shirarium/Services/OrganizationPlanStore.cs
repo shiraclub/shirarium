@@ -34,28 +34,14 @@ public static class OrganizationPlanStore
     public static OrganizationPlanSnapshot Read(IApplicationPaths applicationPaths)
     {
         var filePath = GetFilePath(applicationPaths);
-        if (!File.Exists(filePath))
+        var snapshot = StoreFileJson.ReadOrDefault(filePath, JsonOptions, static () => new OrganizationPlanSnapshot());
+        if (snapshot.SchemaVersion != SnapshotSchemaVersions.OrganizationPlan)
         {
             return new OrganizationPlanSnapshot();
         }
 
-        try
-        {
-            var json = File.ReadAllText(filePath);
-            var snapshot = JsonSerializer.Deserialize<OrganizationPlanSnapshot>(json, JsonOptions)
-                ?? new OrganizationPlanSnapshot();
-            if (snapshot.SchemaVersion != SnapshotSchemaVersions.OrganizationPlan)
-            {
-                return new OrganizationPlanSnapshot();
-            }
-
-            snapshot.PlanFingerprint = PlanFingerprint.Compute(snapshot);
-            return snapshot;
-        }
-        catch
-        {
-            return new OrganizationPlanSnapshot();
-        }
+        snapshot.PlanFingerprint = PlanFingerprint.Compute(snapshot);
+        return snapshot;
     }
 
     /// <summary>
@@ -85,8 +71,7 @@ public static class OrganizationPlanStore
         };
         snapshot.PlanFingerprint = PlanFingerprint.Compute(snapshot);
         var filePath = GetFilePath(applicationPaths);
-        var json = JsonSerializer.Serialize(snapshot, JsonOptions);
-        await File.WriteAllTextAsync(filePath, json, cancellationToken);
+        await StoreFileJson.WriteAsync(filePath, snapshot, JsonOptions, cancellationToken);
         await OrganizationPlanHistoryStore.AppendAsync(applicationPaths, snapshot, cancellationToken);
     }
 }

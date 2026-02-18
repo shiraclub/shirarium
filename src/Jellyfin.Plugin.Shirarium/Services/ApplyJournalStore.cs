@@ -34,21 +34,7 @@ public static class ApplyJournalStore
     public static ApplyJournalSnapshot Read(IApplicationPaths applicationPaths)
     {
         var filePath = GetFilePath(applicationPaths);
-        if (!File.Exists(filePath))
-        {
-            return new ApplyJournalSnapshot();
-        }
-
-        try
-        {
-            var json = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<ApplyJournalSnapshot>(json, JsonOptions)
-                ?? new ApplyJournalSnapshot();
-        }
-        catch
-        {
-            return new ApplyJournalSnapshot();
-        }
+        return StoreFileJson.ReadOrDefault(filePath, JsonOptions, static () => new ApplyJournalSnapshot());
     }
 
     /// <summary>
@@ -63,8 +49,7 @@ public static class ApplyJournalStore
         CancellationToken cancellationToken = default)
     {
         var filePath = GetFilePath(applicationPaths);
-        var json = JsonSerializer.Serialize(snapshot, JsonOptions);
-        await File.WriteAllTextAsync(filePath, json, cancellationToken);
+        await StoreFileJson.WriteAsync(filePath, snapshot, JsonOptions, cancellationToken);
     }
 
     /// <summary>
@@ -78,17 +63,22 @@ public static class ApplyJournalStore
         ApplyOrganizationPlanResult result,
         CancellationToken cancellationToken = default)
     {
-        var snapshot = Read(applicationPaths);
-        var runs = snapshot.Runs.ToList();
-        runs.Add(result);
-
-        var updated = new ApplyJournalSnapshot
-        {
-            Runs = runs.ToArray(),
-            UndoRuns = snapshot.UndoRuns
-        };
-
-        await WriteAsync(applicationPaths, updated, cancellationToken);
+        var filePath = GetFilePath(applicationPaths);
+        await StoreFileJson.UpdateAsync(
+            filePath,
+            JsonOptions,
+            static () => new ApplyJournalSnapshot(),
+            snapshot =>
+            {
+                var runs = snapshot.Runs.ToList();
+                runs.Add(result);
+                return new ApplyJournalSnapshot
+                {
+                    Runs = runs.ToArray(),
+                    UndoRuns = snapshot.UndoRuns
+                };
+            },
+            cancellationToken);
     }
 
     /// <summary>
@@ -102,24 +92,30 @@ public static class ApplyJournalStore
         UndoApplyResult result,
         CancellationToken cancellationToken = default)
     {
-        var snapshot = Read(applicationPaths);
-        var runs = snapshot.Runs.ToArray();
-        var runIndex = Array.FindIndex(runs, run => run.RunId.Equals(result.SourceApplyRunId, StringComparison.OrdinalIgnoreCase));
-        if (runIndex >= 0)
-        {
-            runs[runIndex].UndoneByRunId = result.UndoRunId;
-            runs[runIndex].UndoneAtUtc = result.UndoneAtUtc;
-        }
+        var filePath = GetFilePath(applicationPaths);
+        await StoreFileJson.UpdateAsync(
+            filePath,
+            JsonOptions,
+            static () => new ApplyJournalSnapshot(),
+            snapshot =>
+            {
+                var runs = snapshot.Runs.ToArray();
+                var runIndex = Array.FindIndex(runs, run => run.RunId.Equals(result.SourceApplyRunId, StringComparison.OrdinalIgnoreCase));
+                if (runIndex >= 0)
+                {
+                    runs[runIndex].UndoneByRunId = result.UndoRunId;
+                    runs[runIndex].UndoneAtUtc = result.UndoneAtUtc;
+                }
 
-        var undoRuns = snapshot.UndoRuns.ToList();
-        undoRuns.Add(result);
+                var undoRuns = snapshot.UndoRuns.ToList();
+                undoRuns.Add(result);
 
-        var updated = new ApplyJournalSnapshot
-        {
-            Runs = runs,
-            UndoRuns = undoRuns.ToArray()
-        };
-
-        await WriteAsync(applicationPaths, updated, cancellationToken);
+                return new ApplyJournalSnapshot
+                {
+                    Runs = runs,
+                    UndoRuns = undoRuns.ToArray()
+                };
+            },
+            cancellationToken);
     }
 }
