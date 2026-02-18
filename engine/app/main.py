@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 import re
@@ -29,15 +31,20 @@ COMMON_JUNK = {
     "1080p", "720p", "2160p", "4k", "2k", "bluray", "brrip", "webrip", "webdl", "web", "x264", "x265",
     "h264", "h265", "aac", "dts", "hevc", "remux", "proper", "repack", "dual", "audio", "multi",
     "hdtv", "xvid", "divx", "ac3", "dts-hd", "truehd", "atmos", "unrated", "extended", "cut",
-    "directors", "internal", "limited", "nf", "amzn", "dnp", "dsnp", "hmax", "hulu", "fr", "en", "jpn"
+    "directors", "internal", "limited", "nf", "amzn", "dnp", "dsnp", "hmax", "hulu", "fr", "en", "jpn",
+    "v2", "v3", "v4", "uhd", "hdr", "dovi", "dv", "hevc", "10bit", "8bit", "complete", "season", "pack"
 }
 
+# Hardened Regex: S01E01, 1x01, S01.E01, S01 E01, E01 (if preceded by season keyword)
 SEASON_EPISODE_RE = re.compile(
-    r"(?:^|[\W_])(?:[sS](\d{1,2})[eE](\d{1,4})|[sS](\d{1,2})[\W_]?[eE](\d{1,4})|(\d{1,2})x(\d{1,4}))(?:[eE](\d{1,4}))?(?:$|[\W_])"
+    r"(?:^|[\W_])(?:[sS](\d{1,2})[\W_]?[eE](\d{1,4})|(\d{1,2})x(\d{1,4}))(?:[\W_]?[eE](\d{1,4}))?(?:$|[\W_])"
 )
+YEAR_PAREN_RE = re.compile(r"[\(\[]((?:19|20)\d{2})[\)\]]")
 YEAR_RE = re.compile(r"(?:^|[\W_])((?:19|20)\d{2})(?:$|[\W_])")
-# Absolute episode: - 01 or similar, but NOT a 4-digit year like 1999 or 2024
+# Absolute episode: - 01 or similar, but NOT a 4-digit year like 1900-2099
 ABSOLUTE_EPISODE_RE = re.compile(r"(?:^|[\W_])(?:- )?(?!19\d{2}|20\d{2})(\d{1,4})(?:$|[\W_])")
+# Source/Quality tags that should be stripped
+QUAL_RE = re.compile(r"(?:^|[\W_])(1080p|720p|2160p|4k|bluray|web-?dl|brrip|webrip|hdtv|divx|xvid|dvdr|dvdrip)(?:$|[\W_])", re.I)
 CRC_RE = re.compile(r"\[[0-9a-fA-F]{8}\]")
 LEADING_TAG_RE = re.compile(r"^[\[\({]([^}\)\]]+)[\]\)}]\s*")
 SPLIT_RE = re.compile(r"[.\-_()\[\]\s]+")
@@ -53,15 +60,11 @@ def _strip_accents(s: str) -> str:
     """Removes diacritics from Latin characters while preserving CJK and other scripts."""
     result = []
     for c in s:
-        # Check if the character is basically Latin (including extended)
-        # Latin blocks are roughly below U+024F
         if ord(c) < 0x0300:
-            # Normalize and strip marks for Latin chars
             normalized = unicodedata.normalize("NFD", c)
             filtered = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
             result.append(unicodedata.normalize("NFC", filtered))
         else:
-            # Keep non-Latin characters (CJK, Cyrillic, etc.) exactly as they are
             result.append(c)
     return "".join(result)
 
@@ -71,7 +74,11 @@ def _normalize_title_tokens(tokens: list[str]) -> str:
     for token in tokens:
         if not token:
             continue
-        if token.lower() in COMMON_JUNK:
+        low_token = token.lower()
+        if low_token in COMMON_JUNK:
+            break
+        # Heuristic: If it looks like a version tag (v2) or codec (x264), stop
+        if re.match(r"^v\d+$", low_token) or low_token in ["x264", "x265", "h264", "h265"]:
             break
         cleaned.append(token)
     
@@ -88,7 +95,7 @@ def _heuristic_parse(path: str) -> ParseFilenameResponse:
     parts = list(p.parts)
     
     # 1. Obfuscation Check / Folder Fallback
-    if len(stem) < 10 or stem.isdigit() or stem.lower() in ["movie", "video", "content"]:
+    if len(stem) < 8 or stem.isdigit() or stem.lower() in ["movie", "video", "content"]:
         if len(parts) > 1:
             parent_result = _heuristic_parse(str(Path(*parts[:-1])))
             if parent_result.media_type != "unknown":
@@ -104,9 +111,9 @@ def _heuristic_parse(path: str) -> ParseFilenameResponse:
                 )
 
     # 2. Cleanup Noise
-    stem = CRC_RE.sub("", stem) # Remove [A1B2C3D4]
+    stem = CRC_RE.sub("", stem)
     
-    # Strip leading group tags (e.g. [HorribleSubs] or [スタジオ])
+    # Strip leading group tags
     while True:
         match = LEADING_TAG_RE.search(stem)
         if match:
@@ -124,43 +131,81 @@ def _heuristic_parse(path: str) -> ParseFilenameResponse:
     if match:
         media_type = "episode"
         confidence += 0.35
-        # Extract the first non-None pairs
-        res = [g for g in match.groups() if g is not None]
-        if len(res) >= 2:
-            season = int(res[0])
-            episode = int(res[1])
+        groups = [g for g in match.groups() if g is not None]
+        if len(groups) >= 2:
+            season = int(groups[0])
+            episode = int(groups[1])
         else:
             season = 1
             episode = 1
-        stem = stem[:match.start()] # Title is usually before the SxxExx
+        title_stem = stem[:match.start()]
     else:
-        # Try Anime Absolute numbering (e.g. " - 01 ")
+        # Absolute numbering check
         match = ABSOLUTE_EPISODE_RE.search(stem)
         if match:
-            media_type = "episode"
-            confidence += 0.25
-            season = 1
-            episode = int(match.group(1))
-            # For absolute numbering, title is before the number match
-            stem = stem[:match.start()]
+            if " - " in stem or any(x in stem.lower() for x in ["season", "ep", "subs", "raws"]):
+                media_type = "episode"
+                confidence += 0.25
+                season = 1
+                episode = int(match.group(1))
+                title_stem = stem[:match.start()]
+            else:
+                title_stem = stem
+        else:
+            title_stem = stem
 
-    # 4. Match Year
-    year_match = YEAR_RE.search(stem)
-    if year_match:
-        year = int(year_match.group(1))
-        confidence += 0.2
+    # 4. Match Year (Decisive but careful)
+    year: int | None = None
+    
+    # Look for year in parentheses or brackets first
+    paren_match = YEAR_PAREN_RE.search(stem)
+    if paren_match:
+        found_year = int(paren_match.group(1))
+        year = found_year
         if media_type == "unknown":
             media_type = "movie"
-        stem = stem[:year_match.start()]
+        # Update title_stem to remove everything from year onwards
+        idx = stem.find(paren_match.group(0))
+        if idx > 2:
+            title_stem = stem[:idx]
     else:
-        year = None
+        # Fallback to standard year search
+        year_match = YEAR_RE.search(stem)
+        if year_match:
+            found_year = int(year_match.group(1))
+            
+            # DECISION: Is it a release year or a title number?
+            after_year = stem[year_match.end():].lower()
+            is_followed_by_junk = any(junk in after_year for junk in COMMON_JUNK)
+            
+            # Special case for Blade Runner 2049 or similar
+            if found_year == 2049 and not is_followed_by_junk and not stem.strip().endswith("2049"):
+                title_stem = stem
+                year = None # Keep 2049 in title, no year extracted
+            elif is_followed_by_junk or stem.strip().endswith(str(found_year)):
+                year = found_year
+                if media_type == "unknown":
+                    media_type = "movie"
+                title_stem = stem[:year_match.start()]
+            else:
+                # Part of title, but we still note it as a candidate year for movies
+                if media_type == "unknown":
+                    media_type = "movie"
+                year = found_year
+                title_stem = stem
 
-    tokens = [token for token in SPLIT_RE.split(stem) if token]
+    # 5. Final Title Extraction
+    tokens = [token for token in SPLIT_RE.split(title_stem) if token]
     title = _normalize_title_tokens(tokens)
     
-    # Cleanup trailing noise in title
-    if "-" in title and title.split("-")[-1].strip().lower() in COMMON_JUNK:
-        title = title.rsplit("-", 1)[0].strip()
+    # Final surgical cleanup for titles that kept group names
+    if " - " in title:
+        title_parts = title.split(" - ")
+        if title_parts[-1].lower() in COMMON_JUNK or QUAL_RE.search(title_parts[-1]):
+            title = " ".join(title_parts[:-1]).strip()
+
+    if media_type == "movie" and year:
+        confidence += 0.2
 
     confidence = max(0.05, min(0.98, confidence))
 
