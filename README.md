@@ -12,7 +12,7 @@ Dry-run by default. Apply only what you approve. Undo supported.
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
 [![CI](https://github.com/shiraclub/shirarium/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/shiraclub/shirarium/actions/workflows/ci.yml?query=branch%3Amaster)
-![Mode](https://img.shields.io/badge/mode-dry--run-orange)
+![Safety](https://img.shields.io/badge/safety-dry--run%20by%20default-orange)
 
 Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
