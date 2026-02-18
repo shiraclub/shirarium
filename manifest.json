@@ -8,10 +8,10 @@
     "category": "Organization",
     "versions": [
       {
-        "version": "0.10.0",
-        "changelog": "Initial release with 100% core accuracy and managed AI inference.",
+        "version": "0.0.1",
+        "changelog": "Initial Alpha Release. Complete migration to Native C# architecture.",
         "targetAbi": "10.11.6.0",
-        "sourceUrl": "https://github.com/shiraclub/shirarium/releases/download/v0.10.0/shirarium-v0.10.0.zip",
+        "sourceUrl": "https://github.com/shiraclub/shirarium/releases/download/v0.0.1/shirarium-v0.0.1.zip",
         "checksum": ""
       }
     ]
