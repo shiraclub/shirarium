@@ -250,25 +250,46 @@ def _parse_core(stem: str) -> ParseFilenameResponse:
 
 
 async def _ollama_parse(path: str) -> ParseFilenameResponse | None:
-    payload = {
-        "model": OLLAMA_MODEL,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Path: {path}"}
-        ],
-        "stream": False,
-        "options": {
-            "temperature": 0.0,
-            "num_predict": 128
+    is_ollama = "/api/chat" in OLLAMA_BASE_URL or "11434" in OLLAMA_BASE_URL
+    
+    # Adaptive endpoint detection
+    if is_ollama:
+        url = f"{OLLAMA_BASE_URL}/api/chat" if not OLLAMA_BASE_URL.endswith("/api/chat") else OLLAMA_BASE_URL
+        payload = {
+            "model": OLLAMA_MODEL,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"Path: {path}"}
+            ],
+            "stream": False,
+            "options": {
+                "temperature": 0.0,
+                "num_predict": 128
+            }
         }
-    }
+    else:
+        # Assume OpenAI-compatible (llama-server)
+        url = f"{OLLAMA_BASE_URL}/v1/chat/completions" if not OLLAMA_BASE_URL.endswith("/v1/chat/completions") else OLLAMA_BASE_URL
+        payload = {
+            "model": OLLAMA_MODEL,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"Path: {path}"}
+            ],
+            "temperature": 0.0,
+            "max_tokens": 128
+        }
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)
+            response = await client.post(url, json=payload)
             response.raise_for_status()
             data = response.json()
-            content = data.get("message", {}).get("content", "")
+            
+            if is_ollama:
+                content = data.get("message", {}).get("content", "")
+            else:
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
 
             # 1. Strip <think> blocks if present
             content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
@@ -291,7 +312,7 @@ async def _ollama_parse(path: str) -> ParseFilenameResponse | None:
                 raw_tokens=[content[:50]]
             )
     except Exception as e:
-        print(f"Ollama Error: {e}")
+        print(f"Inference Error ({url}): {e}")
         return None
 
 

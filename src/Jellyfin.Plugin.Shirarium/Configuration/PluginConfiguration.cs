@@ -59,6 +59,29 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     public bool EnableFileOrganizationPlanning { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether to use a managed local inference engine (llama.cpp) 
+    /// managed directly by the plugin instead of an external Ollama/vLLM instance.
+    /// </summary>
+    public bool EnableManagedLocalInference { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the plugin should automatically download 
+    /// the recommended LLM model if it is missing.
+    /// </summary>
+    public bool AutoDownloadModel { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the local path to the GGUF model file. 
+    /// If empty, defaults to the plugin data directory.
+    /// </summary>
+    public string LocalModelPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the URL used to download the recommended model (Qwen 3 4B GGUF).
+    /// </summary>
+    public string ModelUrl { get; set; } = "https://huggingface.co/Qwen/Qwen3-4B-Instruct-GGUF/resolve/main/qwen3-4b-instruct-q5_k_m.gguf";
+
+    /// <summary>
     /// Gets or sets the destination root path used when generating organization plans.
     /// </summary>
     public string OrganizationRootPath { get; set; } = "/media";

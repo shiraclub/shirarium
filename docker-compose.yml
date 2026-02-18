@@ -22,9 +22,9 @@ services:
     ports:
       - "${ENGINE_PORT:-8787}:8787"
     environment:
-      - SHIRARIUM_USE_OLLAMA=${USE_OLLAMA:-false}
+      - SHIRARIUM_USE_OLLAMA=${USE_OLLAMA:-true}
       - SHIRARIUM_OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
-      - SHIRARIUM_OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:8b}
+      - SHIRARIUM_OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:4b}
     restart: unless-stopped
 
   ollama:
@@ -34,6 +34,4 @@ services:
       - "11434:11434"
     volumes:
       - ./data/ollama:/root/.ollama
-    profiles:
-      - local-llm
     restart: unless-stopped
