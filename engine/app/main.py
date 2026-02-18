@@ -194,12 +194,17 @@ def _parse_core(stem: str) -> ParseFilenameResponse:
                 season = 1
                 episode = num
                 title_stem = stem[:match.start()]
+            else:
+                title_stem = stem
+        else:
+            title_stem = stem
 
-    # Match Year (Decisive but careful)
+    # 4. Match Year (Decisive but careful)
     year: int | None = None
     year_match = YEAR_PAREN_RE.search(stem)
     if year_match:
-        year = int(year_match.group(1))
+        found_year = int(year_match.group(1))
+        year = found_year
         if media_type == "unknown":
             media_type = "movie"
         idx = stem.find(year_match.group(0))
