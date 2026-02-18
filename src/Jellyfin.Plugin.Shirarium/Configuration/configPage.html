@@ -146,10 +146,45 @@
                     color: #ff9e9e;
                     white-space: pre-wrap;
                 }
+
+                #ShirariumReviewPage .shirarium-status-bar {
+                    background: rgba(82, 181, 75, 0.1);
+                    border: 1px solid var(--theme-primary-color, #52b54b);
+                    padding: 10px;
+                    border-radius: 6px;
+                    margin-bottom: 12px;
+                    display: none;
+                }
+
+                #ShirariumReviewPage .progress-container {
+                    background: #2a2a2a;
+                    height: 8px;
+                    border-radius: 4px;
+                    margin-top: 6px;
+                    overflow: hidden;
+                }
+
+                #ShirariumReviewPage .progress-bar {
+                    background: var(--theme-primary-color, #52b54b);
+                    height: 100%;
+                    width: 0%;
+                    transition: width 0.3s ease;
+                }
             </style>
 
             <div class="verticalSection verticalSection-extrabottompadding shirarium-grid">
                 <h2>Shirarium Review Console</h2>
+                
+                <div id="shirariumInferenceStatus" class="shirarium-status-bar">
+                    <div class="shirarium-inline">
+                        <strong id="shirariumStatusLabel">AI Engine: Initializing...</strong>
+                        <span id="shirariumStatusDetail" class="shirarium-small">Downloading recommended model (2.5GB)</span>
+                    </div>
+                    <div class="progress-container">
+                        <div id="shirariumProgressBar" class="progress-bar"></div>
+                    </div>
+                </div>
+
                 <div class="shirarium-muted">Review, preflight, lock, and apply organization moves from inside Jellyfin.</div>
 
                 <div class="shirarium-kpis">
@@ -176,6 +211,7 @@
                     <button type="button" class="shirarium-tab" data-panel="preflight">Preflight</button>
                     <button type="button" class="shirarium-tab" data-panel="locks">Locks</button>
                     <button type="button" class="shirarium-tab" data-panel="history">History</button>
+                    <button type="button" class="shirarium-tab" data-panel="benchmark">Benchmark</button>
                 </div>
 
                 <div id="shirariumPanelReview" class="shirarium-panel active">
@@ -349,6 +385,19 @@
                     </div>
                 </div>
 
+                <div id="shirariumPanelBenchmark" class="shirarium-panel">
+                    <div class="shirarium-grid">
+                        <h3>System Benchmark</h3>
+                        <div class="shirarium-muted">Test your hardware's AI parsing performance.</div>
+                        <div class="shirarium-toolbar">
+                            <button is="emby-button" type="button" id="shirariumRunBenchmark" class="raised button-submit">Run Speed Test (100 items)</button>
+                        </div>
+                        <div id="shirariumBenchmarkResult" class="shirarium-status-bar" style="display:block; background:rgba(0,0,0,0.2)">
+                            <div id="shirariumBenchmarkText">Ready to benchmark.</div>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="shirariumMessage" class="shirarium-muted"></div>
                 <div id="shirariumError" class="shirarium-error"></div>
             </div>
@@ -408,6 +457,40 @@
 
             function setMessage(message) {
                 el("shirariumMessage").textContent = message || "";
+            }
+
+            async function pollInferenceStatus() {
+                try {
+                    var status = await apiJson("shirarium/inference-status", "GET");
+                    var statusEl = el("shirariumInferenceStatus");
+                    var labelEl = el("shirariumStatusLabel");
+                    var detailEl = el("shirariumStatusDetail");
+                    var barEl = el("shirariumProgressBar");
+
+                    if (status.status === "Ready" || status.status === "Disabled") {
+                        statusEl.style.display = "none";
+                        return;
+                    }
+
+                    statusEl.style.display = "block";
+                    labelEl.textContent = "AI Engine: " + status.status;
+                    detailEl.textContent = status.error ? status.error : (status.progress.toFixed(1) + "% complete");
+                    barEl.style.width = status.progress + "%";
+
+                    if (status.status === "Error") {
+                        statusEl.style.borderColor = "#ff9e9e";
+                        statusEl.style.background = "rgba(255, 158, 158, 0.1)";
+                    }
+                } catch (e) {
+                    console.error("Failed to poll inference status", e);
+                }
+            }
+
+            var statusInterval = null;
+            function startPolling() {
+                if (statusInterval) clearInterval(statusInterval);
+                pollInferenceStatus();
+                statusInterval = setInterval(pollInferenceStatus, 2000);
             }
 
             function setError(error) {
@@ -1134,7 +1217,8 @@
                     review: el("shirariumPanelReview"),
                     preflight: el("shirariumPanelPreflight"),
                     locks: el("shirariumPanelLocks"),
-                    history: el("shirariumPanelHistory")
+                    history: el("shirariumPanelHistory"),
+                    benchmark: el("shirariumPanelBenchmark")
                 };
 
                 Object.keys(panels).forEach(function (key) {
@@ -1160,6 +1244,9 @@
                 el("shirariumApplyBulkTargetPrefix").addEventListener("click", applyBulkTargetPrefix);
                 el("shirariumReloadLocks").addEventListener("click", loadLocks);
                 el("shirariumReloadHistory").addEventListener("click", loadHistory);
+                el("shirariumRunBenchmark").addEventListener("click", function() {
+                    setMessage("Benchmarking not yet implemented via API. Run engine/tests/benchmark.py manually for now.");
+                });
 
                 el("shirariumSelectAll").addEventListener("change", function (event) {
                     var checked = !!event.target.checked;
@@ -1266,12 +1353,14 @@
             function initializePage() {
                 if (initialized) {
                     loadReviewView();
+                    startPolling();
                     return;
                 }
 
                 bindEvents();
                 initialized = true;
                 loadReviewView();
+                startPolling();
             }
 
             document.querySelector("#ShirariumReviewPage").addEventListener("pageshow", initializePage);

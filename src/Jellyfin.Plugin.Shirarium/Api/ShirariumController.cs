@@ -6,6 +6,7 @@ using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Shirarium.Api;
@@ -23,23 +24,43 @@ public sealed class ShirariumController : ControllerBase
     private readonly OrganizationPlanner _planner;
     private readonly ShirariumScanner _scanner;
     private readonly OrganizationPlanUndoer _undoer;
+    private readonly InferenceManager? _inferenceManager;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ShirariumController"/> class.
     /// </summary>
-    /// <param name="libraryManager">Jellyfin library manager.</param>
-    /// <param name="applicationPaths">Jellyfin application paths.</param>
-    /// <param name="logger">Logger instance.</param>
     public ShirariumController(
         ILibraryManager libraryManager,
         IApplicationPaths applicationPaths,
-        ILogger<ShirariumController> logger)
+        ILogger<ShirariumController> logger,
+        IEnumerable<IHostedService> hostedServices)
     {
         _applicationPaths = applicationPaths;
         _scanner = new ShirariumScanner(libraryManager, applicationPaths, logger);
         _planner = new OrganizationPlanner(applicationPaths, logger);
         _applier = new OrganizationPlanApplier(applicationPaths, logger);
         _undoer = new OrganizationPlanUndoer(applicationPaths, logger);
+        _inferenceManager = hostedServices.OfType<InferenceManager>().FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Gets the current status of the managed local inference engine.
+    /// </summary>
+    [HttpGet("inference-status")]
+    public ActionResult<InferenceStatusResponse> GetInferenceStatus()
+    {
+        if (_inferenceManager == null)
+        {
+            return Ok(new InferenceStatusResponse { Status = "NotInitialized" });
+        }
+
+        var (status, progress, error) = _inferenceManager.GetStatus();
+        return Ok(new InferenceStatusResponse
+        {
+            Status = status,
+            Progress = progress,
+            Error = error
+        });
     }
 
     /// <summary>

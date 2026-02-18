@@ -19,12 +19,28 @@ public sealed class InferenceManager : IHostedService, IDisposable
     private readonly HttpClient _httpClient;
     private Process? _runnerProcess;
     private bool _isDisposed;
+    private string _status = "Idle";
+    private string _error = string.Empty;
+    private double _downloadProgress;
 
     public InferenceManager(IApplicationPaths applicationPaths, ILogger<InferenceManager> logger)
     {
         _applicationPaths = applicationPaths;
         _logger = logger;
         _httpClient = new HttpClient { Timeout = TimeSpan.FromHours(1) }; // Models are large
+    }
+
+    /// <summary>
+    /// Gets the current status of the inference engine.
+    /// </summary>
+    public (string Status, double Progress, string Error) GetStatus()
+    {
+        if (_runnerProcess != null && !_runnerProcess.HasExited)
+        {
+            return ("Ready", 100.0, string.Empty);
+        }
+
+        return (_status, _downloadProgress, _error);
     }
 
     /// <inheritdoc />
@@ -35,6 +51,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
         var config = Plugin.Instance?.Configuration;
         if (config == null || !config.EnableManagedLocalInference)
         {
+            _status = "Disabled";
             return;
         }
 
@@ -43,24 +60,32 @@ public sealed class InferenceManager : IHostedService, IDisposable
         {
             try 
             {
+                _status = "Initializing";
                 var binaryPath = await EnsureBinaryExistsAsync(CancellationToken.None);
                 if (string.IsNullOrEmpty(binaryPath))
                 {
-                    _logger.LogWarning("Managed local inference enabled but runner binary is missing.");
+                    _status = "Error";
+                    _error = "Runner binary missing and download failed.";
+                    _logger.LogWarning(_error);
                     return;
                 }
 
                 var modelPath = await EnsureModelExistsAsync(config, CancellationToken.None);
                 if (string.IsNullOrEmpty(modelPath))
                 {
-                    _logger.LogWarning("Managed local inference enabled but model file is missing.");
+                    _status = "Error";
+                    _error = "Model file missing and download failed.";
+                    _logger.LogWarning(_error);
                     return;
                 }
 
                 StartServer(binaryPath, modelPath);
+                _status = "Ready";
             }
             catch (Exception ex)
             {
+                _status = "Error";
+                _error = ex.Message;
                 _logger.LogError(ex, "Error initializing local inference engine.");
             }
         }, cancellationToken);
@@ -138,7 +163,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
         const string BaseUrl = "https://github.com/ggml-org/llama.cpp/releases/download/b4640/";
         
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && RuntimeInformation.ProcessArchitecture == Architecture.X64)
-            return BaseUrl + "llama-b4640-bin-win-vulkan-x64.zip"; // We'd need to unzip this in a real impl
+            return BaseUrl + "llama-b4640-bin-win-vulkan-x64.zip";
         
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && RuntimeInformation.ProcessArchitecture == Architecture.X64)
             return BaseUrl + "llama-b4640-bin-ubuntu-x64.zip";
@@ -189,6 +214,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
 
         if (File.Exists(modelPath))
         {
+            _downloadProgress = 100.0;
             return modelPath;
         }
 
@@ -197,6 +223,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
             return string.Empty;
         }
 
+        _status = "DownloadingModel";
         _logger.LogInformation("Downloading recommended LLM model to {Path}...", modelPath);
         
         try
@@ -204,9 +231,24 @@ public sealed class InferenceManager : IHostedService, IDisposable
             using var response = await _httpClient.GetAsync(config.ModelUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
 
+            var totalBytes = response.Content.Headers.ContentLength;
+            using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using var fileStream = new FileStream(modelPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
-            await response.Content.CopyToAsync(fileStream, cancellationToken);
+
+            var buffer = new byte[8192];
+            var totalRead = 0L;
+            int read;
+            while ((read = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+            {
+                await fileStream.WriteAsync(buffer, 0, read, cancellationToken);
+                totalRead += read;
+                if (totalBytes.HasValue)
+                {
+                    _downloadProgress = (double)totalRead / totalBytes.Value * 100.0;
+                }
+            }
             
+            _downloadProgress = 100.0;
             _logger.LogInformation("Model download complete.");
             return modelPath;
         }
