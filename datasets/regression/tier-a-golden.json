@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "1.0",
+  "name": "tier-a-golden",
+  "description": "Tier A Golden Standard regression dataset based on research ontology (Scene, P2P, Anime, Messy).",
+  "entries": [
+    {
+      "relativePath": "The.Matrix.1999.1080p.BluRay.x264-SPARKS.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "The Matrix",
+        "year": 1999
+      },
+      "tags": ["scene", "standard"]
+    },
+    {
+      "relativePath": "Spirited Away (2001) [1080p] [Dual-Audio].mp4",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Spirited Away",
+        "year": 2001
+      },
+      "tags": ["p2p", "spaces"]
+    },
+    {
+      "relativePath": "Les Misérables 2012 FR 720p.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Les Miserables",
+        "year": 2012
+      },
+      "tags": ["foreign", "unicode"]
+    },
+    {
+      "relativePath": "Breaking.Bad.S01E01.HDTV.XviD-Scene.avi",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Breaking Bad",
+        "season": 1,
+        "episode": 1
+      },
+      "tags": ["scene", "tv", "legacy"]
+    },
+    {
+      "relativePath": "Show.Name.2x03.Webrip-Group.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Show Name",
+        "season": 2,
+        "episode": 3
+      },
+      "tags": ["p2p", "sxe-format"]
+    },
+    {
+      "relativePath": "[HorribleSubs] Attack on Titan - 59 [1080p].mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Attack on Titan",
+        "episode": 59
+      },
+      "tags": ["anime", "fansub", "absolute"]
+    },
+    {
+      "relativePath": "[スタジオ] 僕のヒーローアカデミア - 01 [720p][AAC][EB2BCF4E].mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "僕のヒーローアカデミア",
+        "episode": 1
+      },
+      "tags": ["anime", "japanese", "crc"]
+    },
+    {
+      "relativePath": "My.Show.S01E01-E02.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "My Show",
+        "season": 1,
+        "episode": 1
+      },
+      "tags": ["p2p", "multi-episode"]
+    },
+    {
+      "relativePath": "Movies/The Matrix (1999)/54854.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "The Matrix",
+        "year": 1999
+      },
+      "tags": ["obfuscated", "folder-fallback"]
+    },
+    {
+      "relativePath": "TV/The.Wire.S01E01/rar/the.wire.s01e01.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "The Wire",
+        "season": 1,
+        "episode": 1
+      },
+      "tags": ["scene", "nested", "rar-style"]
+    }
+  ]
+}
