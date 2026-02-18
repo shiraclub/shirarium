@@ -43,7 +43,7 @@ internal static class OrganizationPlanViewLogic
         ScanResultSnapshot? scanSnapshot = null)
     {
         var overrideMap = OrganizationPlanReviewLogic.BuildOverrideMap(overridesSnapshot);
-        var suggestionMap = scanSnapshot?.Suggestions.ToDictionary(s => s.SourcePath, s => s, PathComparison.Comparer) 
+        var suggestionMap = scanSnapshot?.Suggestions.ToDictionary(s => s.Path, s => s, PathComparison.Comparer) 
             ?? new Dictionary<string, ScanSuggestion>(PathComparison.Comparer);
             
         var strategySet = BuildSet(request.Strategies);

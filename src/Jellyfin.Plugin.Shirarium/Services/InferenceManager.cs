@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Runtime.InteropServices;
 using Jellyfin.Plugin.Shirarium.Configuration;
 using MediaBrowser.Common.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Shirarium.Services;
@@ -11,7 +12,7 @@ namespace Jellyfin.Plugin.Shirarium.Services;
 /// <summary>
 /// Manages the lifecycle of the managed local inference engine (llama.cpp).
 /// </summary>
-public sealed class InferenceManager : IDisposable
+public sealed class InferenceManager : IHostedService, IDisposable
 {
     private readonly IApplicationPaths _applicationPaths;
     private readonly ILogger _logger;
@@ -19,39 +20,58 @@ public sealed class InferenceManager : IDisposable
     private Process? _runnerProcess;
     private bool _isDisposed;
 
-    public InferenceManager(IApplicationPaths applicationPaths, ILogger logger)
+    public InferenceManager(IApplicationPaths applicationPaths, ILogger<InferenceManager> logger)
     {
         _applicationPaths = applicationPaths;
         _logger = logger;
         _httpClient = new HttpClient { Timeout = TimeSpan.FromHours(1) }; // Models are large
     }
 
-    /// <summary>
-    /// Ensures the local inference engine is ready, downloading model and binaries if necessary.
-    /// </summary>
-    public async Task EnsureReadyAsync(CancellationToken cancellationToken = default)
+    /// <inheritdoc />
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
+        _logger.LogInformation("InferenceManager starting...");
+        
         var config = Plugin.Instance?.Configuration;
         if (config == null || !config.EnableManagedLocalInference)
         {
             return;
         }
 
-        var binaryPath = await EnsureBinaryExistsAsync(cancellationToken);
-        if (string.IsNullOrEmpty(binaryPath))
+        // We run the heavy setup in a separate task to not block server startup
+        _ = Task.Run(async () => 
         {
-            _logger.LogWarning("Managed local inference enabled but runner binary is missing and could not be downloaded.");
-            return;
-        }
+            try 
+            {
+                var binaryPath = await EnsureBinaryExistsAsync(CancellationToken.None);
+                if (string.IsNullOrEmpty(binaryPath))
+                {
+                    _logger.LogWarning("Managed local inference enabled but runner binary is missing.");
+                    return;
+                }
 
-        var modelPath = await EnsureModelExistsAsync(config, cancellationToken);
-        if (string.IsNullOrEmpty(modelPath))
-        {
-            _logger.LogWarning("Managed local inference enabled but model file is missing.");
-            return;
-        }
+                var modelPath = await EnsureModelExistsAsync(config, CancellationToken.None);
+                if (string.IsNullOrEmpty(modelPath))
+                {
+                    _logger.LogWarning("Managed local inference enabled but model file is missing.");
+                    return;
+                }
 
-        StartServer(binaryPath, modelPath);
+                StartServer(binaryPath, modelPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error initializing local inference engine.");
+            }
+        }, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("InferenceManager stopping...");
+        _runnerProcess?.Kill();
+        return Task.CompletedTask;
     }
 
     private async Task<string> EnsureBinaryExistsAsync(CancellationToken cancellationToken)
