@@ -95,9 +95,7 @@ jobs:
           startup_completed="$(jq -r '.StartupWizardCompleted // false' /tmp/jellyfin-public.json | tr '[:upper:]' '[:lower:]')"
 
           if [[ "${startup_completed}" != "true" ]]; then
-            cat >/tmp/jellyfin-startup-user.json <<'JSON'
-{"Name":"root","Password":"Passw0rd!","PasswordConfirm":"Passw0rd!"}
-JSON
+            echo '{"Name":"root","Password":"Passw0rd!","PasswordConfirm":"Passw0rd!"}' > /tmp/jellyfin-startup-user.json
 
             startup_user_ready_code=""
             for i in {1..120}; do
@@ -138,9 +136,7 @@ JSON
             fi
           fi
 
-          cat >/tmp/jellyfin-auth.json <<'JSON'
-{"Username":"root","Pw":"Passw0rd!"}
-JSON
+          echo '{"Username":"root","Pw":"Passw0rd!"}' > /tmp/jellyfin-auth.json
 
           auth_code=""
           for i in {1..120}; do
