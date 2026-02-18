@@ -5,6 +5,7 @@ using MediaBrowser.Common.Api;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 using Xunit;
@@ -638,7 +639,8 @@ public sealed class ControllerContractTests
         return new ShirariumController(
             null!,
             applicationPaths,
-            NullLogger<ShirariumController>.Instance);
+            NullLogger<ShirariumController>.Instance,
+            Enumerable.Empty<IHostedService>());
     }
 
     private static async Task<OrganizationPlanSnapshot> WritePlanAsync(
