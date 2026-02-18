@@ -9,10 +9,10 @@
     "versions": [
       {
         "version": "0.0.1",
-        "changelog": "Initial Alpha Release. Complete migration to Native C# architecture.",
+        "changelog": "Release v0.0.1",
         "targetAbi": "10.11.6.0",
         "sourceUrl": "https://github.com/shiraclub/shirarium/releases/download/v0.0.1/shirarium-v0.0.1.zip",
-        "checksum": ""
+        "checksum": "8ccbb0059a73aa72e64b7b3f8c3ee9d02d24998d24876074284bbdb93d0ea5af"
       }
     ]
   }
