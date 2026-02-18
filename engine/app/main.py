@@ -51,9 +51,28 @@ SPLIT_RE = re.compile(r"[.\-_()\[\]\s]+")
 
 OLLAMA_USE = os.getenv("SHIRARIUM_USE_OLLAMA", "false").lower() == "true"
 OLLAMA_BASE_URL = os.getenv("SHIRARIUM_OLLAMA_BASE_URL", "http://ollama:11434").rstrip("/")
-OLLAMA_MODEL = os.getenv("SHIRARIUM_OLLAMA_MODEL", "llama3.1:8b")
+OLLAMA_MODEL = os.getenv("SHIRARIUM_OLLAMA_MODEL", "qwen3:4b")
 
 app = FastAPI(title="shirarium-engine", version="0.1.0")
+
+SYSTEM_PROMPT = """You are Shirarium-Core, a high-precision metadata extraction engine.
+TASK: Extract media metadata from the provided path.
+OUTPUT: Strict JSON only. No markdown, no conversational filler.
+
+LOGIC RULES:
+1. TITLE vs YEAR: If a title looks like a year (e.g., '1917', '2012'), use context to disambiguate. 
+2. ABSOLUTE NUMBERING: For anime, 3-4 digit numbers (e.g., '1050') are likely absolute episodes, not years.
+3. SCRIPT FIDELITY: Preserve original scripts (CJK, Cyrillic) exactly. DO NOT transliterate.
+
+SCHEMA:
+{
+  "title": "string",
+  "media_type": "movie" | "episode" | "unknown",
+  "year": integer | null,
+  "season": integer | null,
+  "episode": integer | null,
+  "confidence": float
+}"""
 
 
 def _strip_accents(s: str) -> str:
@@ -97,7 +116,7 @@ def _heuristic_parse(path: str) -> ParseFilenameResponse:
     # 1. Base Parse of the current stem
     result = _parse_core(stem)
     
-    # 2. Folder Context Enrichment (The "Elite" Fallback)
+    # 2. Folder Context Enrichment
     if len(parts) > 1:
         for i in range(len(parts)-2, -1, -1):
             parent_name = parts[i]
@@ -164,6 +183,7 @@ def _parse_core(stem: str) -> ParseFilenameResponse:
             episode = 1
         title_stem = stem[:match.start()]
     else:
+        # Absolute numbering check
         match = ABSOLUTE_EPISODE_RE.search(stem)
         if match:
             num = int(match.group(1))
@@ -229,57 +249,50 @@ def _parse_core(stem: str) -> ParseFilenameResponse:
     )
 
 
-async def _ollama_parse(path: str) -> ParseFilenameResponse:
-    prompt = (
-        "Extract metadata from this media filename/path and return strict JSON only with keys: "
-        "title, media_type, year, season, episode, confidence. "
-        "media_type must be one of movie|episode|unknown. "
-        "confidence is 0 to 1.\n\n"
-        f"Input: {path}"
-    )
-
+async def _ollama_parse(path: str) -> ParseFilenameResponse | None:
     payload = {
         "model": OLLAMA_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": f"Path: {path}"}
+        ],
         "stream": False,
+        "options": {
+            "temperature": 0.0,
+            "num_predict": 128
+        }
     }
 
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        response = await client.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)
-        response.raise_for_status()
-        data = response.json()
-        content = data.get("message", {}).get("content", "")
-
     try:
-        parsed = json.loads(content)
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=502, detail=f"Ollama returned invalid JSON: {exc}") from exc
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)
+            response.raise_for_status()
+            data = response.json()
+            content = data.get("message", {}).get("content", "")
 
-    title = str(parsed.get("title", "")).strip() or "Unknown Title"
-    media_type = parsed.get("media_type", "unknown")
-    if media_type not in {"movie", "episode", "unknown"}:
-        media_type = "unknown"
+            # 1. Strip <think> blocks if present
+            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+            
+            # 2. Extract JSON if wrapped in markdown
+            json_match = re.search(r"\{.*\}", content, re.DOTALL)
+            if json_match:
+                content = json_match.group(0)
 
-    year = parsed.get("year")
-    season = parsed.get("season")
-    episode = parsed.get("episode")
-    confidence = parsed.get("confidence", 0.5)
-
-    if not isinstance(confidence, (float, int)):
-        confidence = 0.5
-
-    raw_tokens = [token for token in SPLIT_RE.split(Path(path).stem) if token]
-
-    return ParseFilenameResponse(
-        title=title,
-        media_type=media_type,
-        year=year if isinstance(year, int) else None,
-        season=season if isinstance(season, int) else None,
-        episode=episode if isinstance(episode, int) else None,
-        confidence=max(0.0, min(1.0, float(confidence))),
-        source="ollama",
-        raw_tokens=raw_tokens,
-    )
+            parsed = json.loads(content)
+            
+            return ParseFilenameResponse(
+                title=parsed.get("title", "Unknown Title"),
+                media_type=parsed.get("media_type", "unknown"),
+                year=parsed.get("year"),
+                season=parsed.get("season"),
+                episode=parsed.get("episode"),
+                confidence=parsed.get("confidence", 0.95),
+                source="ollama",
+                raw_tokens=[content[:50]]
+            )
+    except Exception as e:
+        print(f"Ollama Error: {e}")
+        return None
 
 
 @app.get("/health")
@@ -291,15 +304,10 @@ async def health() -> dict[str, str]:
 async def parse_filename(request: ParseFilenameRequest) -> ParseFilenameResponse:
     heuristic_result = _heuristic_parse(request.path)
 
-    if not OLLAMA_USE:
-        return heuristic_result
-
-    try:
-        ollama_result = await _ollama_parse(request.path)
-    except Exception:
-        return heuristic_result
-
-    if ollama_result.confidence >= heuristic_result.confidence:
-        return ollama_result
+    if OLLAMA_USE:
+        if heuristic_result.confidence < 0.90 or heuristic_result.media_type == "unknown":
+            ai_result = await _ollama_parse(request.path)
+            if ai_result:
+                return ai_result
 
     return heuristic_result
