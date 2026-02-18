@@ -12,27 +12,39 @@ internal static class OrganizationApplyLogic
         return EvaluateSelected(
             plan,
             selectedSourcePaths,
-            File.Exists,
+            path => File.Exists(path) || Directory.Exists(path),
             path => _ = Directory.CreateDirectory(path),
-            File.Move,
+            MovePath,
             executeMoves: true,
             cancellationToken);
+    }
+
+    private static void MovePath(string source, string target)
+    {
+        if (Directory.Exists(source))
+        {
+            Directory.Move(source, target);
+        }
+        else
+        {
+            File.Move(source, target);
+        }
     }
 
     internal static ApplyOrganizationPlanResult ApplySelected(
         OrganizationPlanSnapshot plan,
         IEnumerable<string> selectedSourcePaths,
-        Func<string, bool> fileExists,
+        Func<string, bool> pathExists,
         Action<string> ensureDirectory,
-        Action<string, string> moveFile,
+        Action<string, string> movePath,
         CancellationToken cancellationToken = default)
     {
         return EvaluateSelected(
             plan,
             selectedSourcePaths,
-            fileExists,
+            pathExists,
             ensureDirectory,
-            moveFile,
+            movePath,
             executeMoves: true,
             cancellationToken);
     }
@@ -45,7 +57,7 @@ internal static class OrganizationApplyLogic
         return EvaluateSelected(
             plan,
             selectedSourcePaths,
-            File.Exists,
+            path => File.Exists(path) || Directory.Exists(path),
             _ => { },
             (_, _) => { },
             executeMoves: false,
@@ -55,9 +67,9 @@ internal static class OrganizationApplyLogic
     private static ApplyOrganizationPlanResult EvaluateSelected(
         OrganizationPlanSnapshot plan,
         IEnumerable<string> selectedSourcePaths,
-        Func<string, bool> fileExists,
+        Func<string, bool> pathExists,
         Action<string> ensureDirectory,
-        Action<string, string> moveFile,
+        Action<string, string> movePath,
         bool executeMoves,
         CancellationToken cancellationToken)
     {
@@ -196,7 +208,7 @@ internal static class OrganizationApplyLogic
                 continue;
             }
 
-            if (!fileExists(sourcePath))
+            if (!pathExists(sourcePath))
             {
                 failedCount++;
                 itemResults.Add(new ApplyOrganizationPlanItemResult
@@ -209,7 +221,7 @@ internal static class OrganizationApplyLogic
                 continue;
             }
 
-            if (fileExists(targetPath))
+            if (pathExists(targetPath))
             {
                 failedCount++;
                 itemResults.Add(new ApplyOrganizationPlanItemResult
@@ -238,15 +250,74 @@ internal static class OrganizationApplyLogic
             try
             {
                 ensureDirectory(targetDirectory);
-                moveFile(sourcePath, targetPath);
+                movePath(sourcePath, targetPath);
                 appliedCount++;
+                
+                var associatedResults = new List<AssociatedFileResult>();
+                
+                // Move associated files and directories
+                foreach (var associatedMove in entry.AssociatedFiles)
+                {
+                    try
+                    {
+                        var assocSource = associatedMove.SourcePath;
+                        var assocTarget = associatedMove.TargetPath;
+                        
+                        // Ensure target directory for associated item exists
+                        var assocTargetDir = Path.GetDirectoryName(assocTarget);
+                        if (!string.IsNullOrWhiteSpace(assocTargetDir))
+                        {
+                            ensureDirectory(assocTargetDir);
+                        }
+                        
+                        if (!pathExists(assocSource))
+                        {
+                            associatedResults.Add(new AssociatedFileResult
+                            {
+                                SourcePath = assocSource,
+                                TargetPath = assocTarget,
+                                Status = "failed",
+                                ErrorMessage = "SourceNotFound"
+                            });
+                            continue;
+                        }
+
+                        movePath(assocSource, assocTarget);
+
+                        associatedResults.Add(new AssociatedFileResult
+                        {
+                            SourcePath = assocSource,
+                            TargetPath = assocTarget,
+                            Status = "applied"
+                        });
+                        
+                        undoOperations.Add(new ApplyUndoMoveOperation
+                        {
+                            FromPath = assocTarget,
+                            ToPath = assocSource
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        associatedResults.Add(new AssociatedFileResult
+                        {
+                            SourcePath = associatedMove.SourcePath,
+                            TargetPath = associatedMove.TargetPath,
+                            Status = "failed",
+                            ErrorMessage = ex.Message
+                        });
+                    }
+                }
+
                 itemResults.Add(new ApplyOrganizationPlanItemResult
                 {
                     SourcePath = entry.SourcePath,
                     TargetPath = targetPath,
                     Status = "applied",
-                    Reason = "Moved"
+                    Reason = "Moved",
+                    AssociatedResults = associatedResults.ToArray()
                 });
+
                 undoOperations.Add(new ApplyUndoMoveOperation
                 {
                     FromPath = targetPath,

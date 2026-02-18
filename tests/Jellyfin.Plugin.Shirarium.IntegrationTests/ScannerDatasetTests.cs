@@ -82,9 +82,9 @@ public sealed class ScannerDatasetTests
             var snapshot = await scanner.RunAsync();
 
             Assert.Equal(6, snapshot.ExaminedCount);
-            Assert.Equal(5, snapshot.CandidateCount);
+            Assert.Equal(6, snapshot.CandidateCount);
             Assert.Equal(1, snapshot.ParsedCount);
-            Assert.Equal(3, snapshot.SkippedByLimitCount);
+            Assert.Equal(4, snapshot.SkippedByLimitCount);
             Assert.Equal(1, snapshot.SkippedByConfidenceCount);
             Assert.Equal(0, snapshot.EngineFailureCount);
 
@@ -94,6 +94,7 @@ public sealed class ScannerDatasetTests
             AssertBucket(snapshot.CandidateReasonCounts, "MissingProviderIds", 5);
             AssertBucket(snapshot.CandidateReasonCounts, "MissingOverview", 4);
             AssertBucket(snapshot.CandidateReasonCounts, "MissingProductionYear", 5);
+            AssertBucket(snapshot.CandidateReasonCounts, "ReorganizationAudit", 1);
 
             AssertBucket(snapshot.ParserSourceCounts, "heuristic", 2);
             AssertBucket(snapshot.ConfidenceBucketCounts, "0.4-0.5", 1);

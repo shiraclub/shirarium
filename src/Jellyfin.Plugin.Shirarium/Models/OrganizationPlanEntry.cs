@@ -49,4 +49,9 @@ public sealed class OrganizationPlanEntry
     /// Gets the source suggested media type.
     /// </summary>
     public string SuggestedMediaType { get; init; } = "unknown";
+
+    /// <summary>
+    /// Gets the associated file moves (NFOs, subtitles, images) planned for this entry.
+    /// </summary>
+    public AssociatedFileMove[] AssociatedFiles { get; set; } = [];
 }

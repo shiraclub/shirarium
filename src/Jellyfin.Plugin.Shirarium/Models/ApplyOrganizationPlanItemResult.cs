@@ -24,4 +24,9 @@ public sealed class ApplyOrganizationPlanItemResult
     /// Gets the machine-readable reason for this item result.
     /// </summary>
     public string Reason { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the results for each associated file move attempt.
+    /// </summary>
+    public AssociatedFileResult[] AssociatedResults { get; set; } = [];
 }

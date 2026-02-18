@@ -69,4 +69,44 @@ public sealed class ScanSuggestion
     /// Gets the UTC timestamp when this suggestion was generated.
     /// </summary>
     public DateTimeOffset ScannedAtUtc { get; init; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// Gets the video resolution (e.g., 1080p, 2160p).
+    /// </summary>
+    public string? Resolution { get; init; }
+
+    /// <summary>
+    /// Gets the video codec (e.g., HEVC, x264).
+    /// </summary>
+    public string? VideoCodec { get; init; }
+
+    /// <summary>
+    /// Gets the video bit depth (e.g., 8bit, 10bit).
+    /// </summary>
+    public string? VideoBitDepth { get; init; }
+
+    /// <summary>
+    /// Gets the audio codec (e.g., DTS, AAC, AC3).
+    /// </summary>
+    public string? AudioCodec { get; init; }
+
+    /// <summary>
+    /// Gets the number of audio channels (e.g., 5.1, 2.0).
+    /// </summary>
+    public string? AudioChannels { get; init; }
+
+    /// <summary>
+    /// Gets the release group (e.g., YTS, RARBG).
+    /// </summary>
+    public string? ReleaseGroup { get; init; }
+
+    /// <summary>
+    /// Gets the media source (e.g., BluRay, WEBRip, DVD).
+    /// </summary>
+    public string? MediaSource { get; init; }
+
+    /// <summary>
+    /// Gets the edition (e.g., Extended Cut, Unrated).
+    /// </summary>
+    public string? Edition { get; init; }
 }

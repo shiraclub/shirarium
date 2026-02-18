@@ -459,7 +459,7 @@ public sealed class IntegrationFlowTests
 
             var move = Assert.Single(plan.Entries, entry => entry.Action == "move");
             Assert.Equal(
-                Path.Combine(organizationRoot, "Kowasugi", "Season 01", "Kowasugi - S01E02.mkv"),
+                Path.Combine(organizationRoot, "Kowasugi", "Season 01", "Kowasugi S01E02.mkv"),
                 move.TargetPath);
         }
         finally

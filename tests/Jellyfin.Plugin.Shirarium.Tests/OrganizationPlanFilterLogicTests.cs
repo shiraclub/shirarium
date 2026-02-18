@@ -48,7 +48,7 @@ public sealed class OrganizationPlanFilterLogicTests
                 {
                     ItemId = "4",
                     SourcePath = @"D:\incoming\episode.mkv",
-                    TargetPath = @"D:\organized\Kowasugi\Season 01\Kowasugi - S01E02.mkv",
+                    TargetPath = @"D:\organized\Kowasugi\Season 01\Kowasugi S01E02.mkv",
                     Strategy = "episode",
                     Action = "move",
                     Reason = "Planned",

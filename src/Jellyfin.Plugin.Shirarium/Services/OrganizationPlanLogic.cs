@@ -5,8 +5,8 @@ namespace Jellyfin.Plugin.Shirarium.Services;
 
 internal static class OrganizationPlanLogic
 {
-    internal const string DefaultMoviePathTemplate = "{TitleWithYear}/{TitleWithYear}";
-    internal const string DefaultEpisodePathTemplate = "{Title}/Season {Season2}/{Title} - S{Season2}E{Episode2}";
+    internal const string DefaultMoviePathTemplate = "{TitleWithYear} [{Resolution}]/{TitleWithYear} [{Resolution}]";
+    internal const string DefaultEpisodePathTemplate = "{Title}/Season {Season2}/{Title} S{Season2}E{Episode2} [{Resolution}]";
     internal const string DefaultTargetConflictPolicy = "fail";
 
     internal static string NormalizeSegment(string segment)
@@ -110,7 +110,7 @@ internal static class OrganizationPlanLogic
         if (string.Equals(suggestion.SuggestedMediaType, "movie", StringComparison.OrdinalIgnoreCase))
         {
             entry.Strategy = "movie";
-            var movieTokens = BuildMovieTemplateTokens(title, suggestion.SuggestedYear);
+            var movieTokens = BuildMovieTemplateTokens(title, suggestion.SuggestedYear, suggestion);
             if (!TryRenderRelativePath(
                     effectiveMovieTemplate,
                     movieTokens,
@@ -138,7 +138,8 @@ internal static class OrganizationPlanLogic
             var episodeTokens = BuildEpisodeTemplateTokens(
                 title,
                 suggestion.SuggestedSeason.Value,
-                suggestion.SuggestedEpisode.Value);
+                suggestion.SuggestedEpisode.Value,
+                suggestion);
             if (!TryRenderRelativePath(
                     effectiveEpisodeTemplate,
                     episodeTokens,
@@ -177,7 +178,95 @@ internal static class OrganizationPlanLogic
 
         entry.Action = "move";
         entry.Reason = "Planned";
+
+        entry.AssociatedFiles = DiscoverAssociatedFiles(suggestion.Path, targetPath);
+
         return entry;
+    }
+
+    private static AssociatedFileMove[] DiscoverAssociatedFiles(string sourceVideoPath, string targetVideoPath)
+    {
+        var sourceDir = Path.GetDirectoryName(sourceVideoPath);
+        var targetDir = Path.GetDirectoryName(targetVideoPath);
+        if (string.IsNullOrWhiteSpace(sourceDir) || string.IsNullOrWhiteSpace(targetDir) || !Directory.Exists(sourceDir))
+        {
+            return [];
+        }
+
+        var videoFileNameWithoutExt = Path.GetFileNameWithoutExtension(sourceVideoPath);
+        var targetFileNameWithoutExt = Path.GetFileNameWithoutExtension(targetVideoPath);
+        var associatedMoves = new List<AssociatedFileMove>();
+
+        // 1. Strict name matches (e.g. Movie.en.srt, Movie.nfo)
+        var filesInDir = Directory.GetFiles(sourceDir);
+        foreach (var file in filesInDir)
+        {
+            var fileName = Path.GetFileName(file);
+            if (fileName.StartsWith(videoFileNameWithoutExt, StringComparison.OrdinalIgnoreCase) 
+                && !PathEquals(file, sourceVideoPath))
+            {
+                var suffix = fileName.Substring(videoFileNameWithoutExt.Length);
+                associatedMoves.Add(new AssociatedFileMove
+                {
+                    SourcePath = file,
+                    TargetPath = Path.Combine(targetDir, targetFileNameWithoutExt + suffix)
+                });
+            }
+        }
+
+        // 2. Common assets if this is likely a private folder
+        if (IsLikelyPrivateFolder(sourceDir))
+        {
+            var commonNames = new[] { "movie.nfo", "poster.jpg", "fanart.jpg", "logo.png", "folder.jpg", "landscape.jpg", "backdrop.jpg", "clearlogo.png" };
+            foreach (var commonName in commonNames)
+            {
+                var sourcePath = Path.Combine(sourceDir, commonName);
+                if (File.Exists(sourcePath) && !associatedMoves.Any(m => PathEquals(m.SourcePath, sourcePath)))
+                {
+                    associatedMoves.Add(new AssociatedFileMove
+                    {
+                        SourcePath = sourcePath,
+                        TargetPath = Path.Combine(targetDir, commonName)
+                    });
+                }
+            }
+
+            // 3. Known subdirectories (e.g. Subs, extras)
+            var commonDirs = new[] { "Subs", "extras", "featurettes", "Specials", "behind the scenes", "Featurettes" };
+            foreach (var commonDir in commonDirs)
+            {
+                var sourcePath = Path.Combine(sourceDir, commonDir);
+                if (Directory.Exists(sourcePath))
+                {
+                    // For directories, we'll need to handle them carefully in the apply logic.
+                    // For now, we record the top-level directory move.
+                    associatedMoves.Add(new AssociatedFileMove
+                    {
+                        SourcePath = sourcePath,
+                        TargetPath = Path.Combine(targetDir, commonDir)
+                    });
+                }
+            }
+        }
+
+        return associatedMoves.ToArray();
+    }
+
+    private static bool IsLikelyPrivateFolder(string directoryPath)
+    {
+        try
+        {
+            var videoExtensions = new HashSet<string>(new[] { ".mkv", ".mp4", ".avi", ".mov", ".wmv", ".m4v" }, StringComparer.OrdinalIgnoreCase);
+            var files = Directory.GetFiles(directoryPath);
+            var videoFileCount = files.Count(f => videoExtensions.Contains(Path.GetExtension(f)));
+            
+            // If there's only one video file, we assume the folder is "owned" by that video.
+            return videoFileCount == 1;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     internal static void MarkDuplicateTargetConflicts(IList<OrganizationPlanEntry> entries)
@@ -353,32 +442,56 @@ internal static class OrganizationPlanLogic
         Suffix
     }
 
-    private static Dictionary<string, string> BuildMovieTemplateTokens(string title, int? year)
+    private static Dictionary<string, string> BuildMovieTemplateTokens(
+        string title,
+        int? year,
+        ScanSuggestion suggestion)
     {
         var titleWithYear = year.HasValue ? $"{title} ({year.Value})" : title;
         var yearValue = year.HasValue ? year.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
 
-        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        var tokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["Title"] = title,
             ["TitleWithYear"] = titleWithYear,
-            ["Year"] = yearValue
+            ["Year"] = yearValue,
+            ["Resolution"] = suggestion.Resolution ?? string.Empty,
+            ["VideoCodec"] = suggestion.VideoCodec ?? string.Empty,
+            ["VideoBitDepth"] = suggestion.VideoBitDepth ?? string.Empty,
+            ["AudioCodec"] = suggestion.AudioCodec ?? string.Empty,
+            ["AudioChannels"] = suggestion.AudioChannels ?? string.Empty,
+            ["ReleaseGroup"] = suggestion.ReleaseGroup ?? string.Empty,
+            ["MediaSource"] = suggestion.MediaSource ?? string.Empty,
+            ["Edition"] = suggestion.Edition ?? string.Empty
         };
+
+        return tokens;
     }
 
     private static Dictionary<string, string> BuildEpisodeTemplateTokens(
         string title,
         int season,
-        int episode)
+        int episode,
+        ScanSuggestion suggestion)
     {
-        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        var tokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["Title"] = title,
             ["Season"] = season.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["Season2"] = season.ToString("00", System.Globalization.CultureInfo.InvariantCulture),
             ["Episode"] = episode.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ["Episode2"] = episode.ToString("00", System.Globalization.CultureInfo.InvariantCulture)
+            ["Episode2"] = episode.ToString("00", System.Globalization.CultureInfo.InvariantCulture),
+            ["Resolution"] = suggestion.Resolution ?? string.Empty,
+            ["VideoCodec"] = suggestion.VideoCodec ?? string.Empty,
+            ["VideoBitDepth"] = suggestion.VideoBitDepth ?? string.Empty,
+            ["AudioCodec"] = suggestion.AudioCodec ?? string.Empty,
+            ["AudioChannels"] = suggestion.AudioChannels ?? string.Empty,
+            ["ReleaseGroup"] = suggestion.ReleaseGroup ?? string.Empty,
+            ["MediaSource"] = suggestion.MediaSource ?? string.Empty,
+            ["Edition"] = suggestion.Edition ?? string.Empty
         };
+
+        return tokens;
     }
 
     private static bool TryRenderRelativePath(
@@ -412,6 +525,29 @@ internal static class OrganizationPlanLogic
         }
 
         relativePath = Path.Combine(segments);
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return false;
+        }
+
+        // Post-process to remove empty brackets/parentheses and double spaces
+        // caused by missing tokens (e.g. "Movie (2024) []" -> "Movie (2024)")
+        relativePath = relativePath.Replace("[]", string.Empty)
+                                   .Replace("()", string.Empty)
+                                   .Replace("[ ]", string.Empty)
+                                   .Replace("( )", string.Empty);
+
+        while (relativePath.Contains("  "))
+        {
+            relativePath = relativePath.Replace("  ", " ");
+        }
+
+        // Clean up any lingering spaces before dots or separators
+        relativePath = relativePath.Replace(" .", ".")
+                                   .Replace(" /", "/")
+                                   .Replace(" \\", "\\")
+                                   .Trim();
+
         return !string.IsNullOrWhiteSpace(relativePath);
     }
 

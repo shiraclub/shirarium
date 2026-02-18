@@ -36,6 +36,8 @@ public sealed class OrganizationPlanLogicTests
             Assert.Equal("movie", entry.Strategy);
             Assert.Equal("move", entry.Action);
             Assert.Equal("Planned", entry.Reason);
+            // Default template: {TitleWithYear} [{Resolution}]/{TitleWithYear} [{Resolution}]
+            // Resolution is null, so cleanup removes " []"
             Assert.Equal(
                 Path.Combine(root, "organized", "Noroi (2005)", "Noroi (2005).mkv"),
                 entry.TargetPath);
@@ -67,9 +69,89 @@ public sealed class OrganizationPlanLogicTests
 
             Assert.Equal("episode", entry.Strategy);
             Assert.Equal("move", entry.Action);
+            // Default template: {Title}/Season {Season2}/{Title} S{Season2}E{Episode2} [{Resolution}]
             Assert.Equal(
-                Path.Combine(root, "organized", "Kowasugi", "Season 01", "Kowasugi - S01E02.mkv"),
+                Path.Combine(root, "organized", "Kowasugi", "Season 01", "Kowasugi S01E02.mkv"),
                 entry.TargetPath);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void BuildEntry_WithMediaInfo_UsesTokensInPath()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var sourcePath = Path.Combine(root, "incoming", "movie.mkv");
+            var suggestion = new ScanSuggestion
+            {
+                Path = sourcePath,
+                SuggestedTitle = "Matrix",
+                SuggestedMediaType = "movie",
+                SuggestedYear = 1999,
+                Resolution = "1080p",
+                VideoCodec = "HEVC",
+                Confidence = 1.0
+            };
+
+            var entry = OrganizationPlanLogic.BuildEntry(
+                suggestion,
+                Path.Combine(root, "organized"),
+                normalizePathSegments: true);
+
+            Assert.Equal(
+                Path.Combine(root, "organized", "Matrix (1999) [1080p]", "Matrix (1999) [1080p].mkv"),
+                entry.TargetPath);
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void BuildEntry_PlansAssociatedFiles_WhenTheyExist()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var incoming = Path.Combine(root, "incoming");
+            var organized = Path.Combine(root, "organized");
+            Directory.CreateDirectory(incoming);
+            
+            var videoPath = Path.Combine(incoming, "movie.mkv");
+            var nfoPath = Path.Combine(incoming, "movie.nfo");
+            var srtPath = Path.Combine(incoming, "movie.en.srt");
+            
+            File.WriteAllText(videoPath, "video");
+            File.WriteAllText(nfoPath, "nfo");
+            File.WriteAllText(srtPath, "srt");
+
+            var suggestion = CreateSuggestion(videoPath, "Movie", "movie", suggestedYear: 2024);
+            suggestion = new ScanSuggestion 
+            { 
+                ItemId = suggestion.ItemId,
+                Name = suggestion.Name,
+                Path = suggestion.Path,
+                SuggestedTitle = suggestion.SuggestedTitle,
+                SuggestedMediaType = suggestion.SuggestedMediaType,
+                SuggestedYear = suggestion.SuggestedYear,
+                SuggestedSeason = suggestion.SuggestedSeason,
+                SuggestedEpisode = suggestion.SuggestedEpisode,
+                Confidence = suggestion.Confidence,
+                Source = suggestion.Source,
+                Resolution = "1080p" 
+            };
+
+            var entry = OrganizationPlanLogic.BuildEntry(suggestion, organized, true);
+
+            Assert.Equal(2, entry.AssociatedFiles.Length);
+            Assert.Contains(entry.AssociatedFiles, m => m.SourcePath == nfoPath && m.TargetPath.EndsWith("Movie (2024) [1080p].nfo"));
+            Assert.Contains(entry.AssociatedFiles, m => m.SourcePath == srtPath && m.TargetPath.EndsWith("Movie (2024) [1080p].en.srt"));
         }
         finally
         {

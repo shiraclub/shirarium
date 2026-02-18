@@ -72,17 +72,17 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the relative movie path template under <see cref="OrganizationRootPath"/>.
     /// </summary>
     /// <remarks>
-    /// Available tokens: {Title}, {TitleWithYear}, {Year}.
+    /// Available tokens: {Title}, {TitleWithYear}, {Year}, {Resolution}, {VideoCodec}, etc.
     /// </remarks>
-    public string MoviePathTemplate { get; set; } = "{TitleWithYear}/{TitleWithYear}";
+    public string MoviePathTemplate { get; set; } = "{TitleWithYear} [{Resolution}]/{TitleWithYear} [{Resolution}]";
 
     /// <summary>
     /// Gets or sets the relative episode path template under <see cref="OrganizationRootPath"/>.
     /// </summary>
     /// <remarks>
-    /// Available tokens: {Title}, {Season}, {Season2}, {Episode}, {Episode2}.
+    /// Available tokens: {Title}, {Season}, {Season2}, {Episode}, {Episode2}, {Resolution}, etc.
     /// </remarks>
-    public string EpisodePathTemplate { get; set; } = "{Title}/Season {Season2}/{Title} - S{Season2}E{Episode2}";
+    public string EpisodePathTemplate { get; set; } = "{Title}/Season {Season2}/{Title} S{Season2}E{Episode2} [{Resolution}]";
 
     /// <summary>
     /// Gets or sets the plan-time target conflict policy.

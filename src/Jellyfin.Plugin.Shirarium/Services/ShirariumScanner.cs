@@ -130,9 +130,16 @@ public sealed class ShirariumScanner
             examinedCount++;
 
             var reasons = ScanLogic.GetCandidateReasons(item);
-            if (reasons.Length == 0)
+            // If it's already matched (no reasons), we still pick it up for reorganization audit
+            // if reorganization planning is enabled in config.
+            if (reasons.Length == 0 && !config.EnableFileOrganizationPlanning)
             {
                 continue;
+            }
+
+            if (reasons.Length == 0)
+            {
+                reasons = ["ReorganizationAudit"];
             }
 
             candidateCount++;
@@ -145,14 +152,53 @@ public sealed class ShirariumScanner
             }
 
             parseAttemptCount++;
-            ParseFilenameResponse? parsed;
-            if (_parseFilenameAsync is not null)
+            ParseFilenameResponse? parsed = null;
+            if (reasons.Contains("ReorganizationAudit"))
             {
-                parsed = await _parseFilenameAsync(sourcePath, cancellationToken);
+                // Bypass engine for items already correctly matched in Jellyfin.
+                var title = ScanLogic.GetStringProperty(item, "Name");
+                var year = ScanLogic.GetIntProperty(item, "ProductionYear");
+                var mediaType = ScanLogic.GetStringProperty(item, "Type")?.ToLowerInvariant();
+                
+                // For episodes, get season/episode indices
+                int? season = null;
+                int? episode = null;
+                if (string.Equals(mediaType, "episode", StringComparison.OrdinalIgnoreCase))
+                {
+                    season = ScanLogic.GetIntProperty(item, "ParentIndexNumber");
+                    episode = ScanLogic.GetIntProperty(item, "IndexNumber");
+                }
+                else if (string.Equals(mediaType, "movie", StringComparison.OrdinalIgnoreCase))
+                {
+                    mediaType = "movie";
+                }
+                else
+                {
+                    mediaType = "unknown";
+                }
+
+                parsed = new ParseFilenameResponse
+                {
+                    Title = title ?? Path.GetFileNameWithoutExtension(sourcePath),
+                    Year = year,
+                    MediaType = mediaType == "movie" ? "movie" : (mediaType == "episode" ? "episode" : "unknown"),
+                    Season = season,
+                    Episode = episode,
+                    Confidence = 1.0,
+                    Source = "jellyfin-metadata",
+                    RawTokens = []
+                };
             }
             else
             {
-                parsed = await engineClient!.ParseFilenameAsync(sourcePath, cancellationToken);
+                if (_parseFilenameAsync is not null)
+                {
+                    parsed = await _parseFilenameAsync(sourcePath, cancellationToken);
+                }
+                else
+                {
+                    parsed = await engineClient!.ParseFilenameAsync(sourcePath, cancellationToken);
+                }
             }
 
             if (parsed is null)
@@ -190,7 +236,15 @@ public sealed class ShirariumScanner
                 Source = parsed.Source,
                 CandidateReasons = reasons,
                 RawTokens = parsed.RawTokens.ToArray(),
-                ScannedAtUtc = DateTimeOffset.UtcNow
+                ScannedAtUtc = DateTimeOffset.UtcNow,
+                Resolution = ScanLogic.GetResolution(item),
+                VideoCodec = ScanLogic.GetVideoCodec(item),
+                VideoBitDepth = ScanLogic.GetVideoBitDepth(item),
+                AudioCodec = ScanLogic.GetAudioCodec(item),
+                AudioChannels = ScanLogic.GetAudioChannels(item),
+                ReleaseGroup = ScanLogic.GetReleaseGroup(item),
+                MediaSource = ScanLogic.GetMediaSource(item),
+                Edition = ScanLogic.GetEdition(item)
             };
 
             suggestions.Add(suggestion);

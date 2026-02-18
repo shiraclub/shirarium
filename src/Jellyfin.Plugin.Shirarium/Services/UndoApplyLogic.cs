@@ -24,18 +24,30 @@ internal static class UndoApplyLogic
         return UndoRun(
             sourceRun,
             targetConflictPolicy,
-            File.Exists,
+            path => File.Exists(path) || Directory.Exists(path),
             path => _ = Directory.CreateDirectory(path),
-            File.Move,
+            MovePath,
             cancellationToken);
+    }
+
+    private static void MovePath(string source, string target)
+    {
+        if (Directory.Exists(source))
+        {
+            Directory.Move(source, target);
+        }
+        else
+        {
+            File.Move(source, target);
+        }
     }
 
     internal static UndoApplyResult UndoRun(
         ApplyOrganizationPlanResult sourceRun,
         string? targetConflictPolicy,
-        Func<string, bool> fileExists,
+        Func<string, bool> pathExists,
         Action<string> ensureDirectory,
-        Action<string, string> moveFile,
+        Action<string, string> movePath,
         CancellationToken cancellationToken = default)
     {
         var normalizedConflictPolicy = NormalizeTargetConflictPolicy(targetConflictPolicy);
@@ -69,7 +81,7 @@ internal static class UndoApplyLogic
                 continue;
             }
 
-            if (!fileExists(operation.FromPath))
+            if (!pathExists(operation.FromPath))
             {
                 skippedCount++;
                 itemResults.Add(new UndoApplyItemResult
@@ -84,7 +96,7 @@ internal static class UndoApplyLogic
 
             string? conflictMovedToPath = null;
             var conflictResolvedForOperation = false;
-            if (fileExists(operation.ToPath))
+            if (pathExists(operation.ToPath))
             {
                 if (normalizedConflictPolicy.Equals(TargetConflictPolicySkip, StringComparison.OrdinalIgnoreCase))
                 {
@@ -101,7 +113,7 @@ internal static class UndoApplyLogic
 
                 if (normalizedConflictPolicy.Equals(TargetConflictPolicySuffix, StringComparison.OrdinalIgnoreCase))
                 {
-                    var suffixTargetPath = ResolveSuffixTargetPath(operation.ToPath, fileExists);
+                    var suffixTargetPath = ResolveSuffixTargetPath(operation.ToPath, pathExists);
                     if (suffixTargetPath is null)
                     {
                         failedCount++;
@@ -117,7 +129,7 @@ internal static class UndoApplyLogic
 
                     try
                     {
-                        moveFile(operation.ToPath, suffixTargetPath);
+                        movePath(operation.ToPath, suffixTargetPath);
                         conflictMovedToPath = suffixTargetPath;
                         conflictResolvedForOperation = true;
                     }
@@ -167,7 +179,7 @@ internal static class UndoApplyLogic
             try
             {
                 ensureDirectory(targetDirectory);
-                moveFile(operation.FromPath, operation.ToPath);
+                movePath(operation.FromPath, operation.ToPath);
                 appliedCount++;
                 itemResults.Add(new UndoApplyItemResult
                 {
@@ -185,12 +197,12 @@ internal static class UndoApplyLogic
             catch (Exception ex)
             {
                 if (!string.IsNullOrWhiteSpace(conflictMovedToPath)
-                    && fileExists(conflictMovedToPath)
-                    && !fileExists(operation.ToPath))
+                    && pathExists(conflictMovedToPath)
+                    && !pathExists(operation.ToPath))
                 {
                     try
                     {
-                        moveFile(conflictMovedToPath, operation.ToPath);
+                        movePath(conflictMovedToPath, operation.ToPath);
                     }
                     catch
                     {
