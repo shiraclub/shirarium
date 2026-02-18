@@ -90,7 +90,8 @@ public sealed class ShirariumController : ControllerBase
 
         var plan = OrganizationPlanStore.Read(_applicationPaths);
         var overridesSnapshot = OrganizationPlanOverridesStore.ReadForFingerprint(_applicationPaths, plan.PlanFingerprint);
-        return Ok(OrganizationPlanViewLogic.Build(plan, overridesSnapshot, request));
+        var scanSnapshot = SuggestionStore.Read(_applicationPaths);
+        return Ok(OrganizationPlanViewLogic.Build(plan, overridesSnapshot, request, scanSnapshot));
     }
 
     /// <summary>

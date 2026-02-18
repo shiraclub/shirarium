@@ -74,5 +74,50 @@ public sealed class OrganizationPlanViewEntry
     /// Gets optional target-path override value.
     /// </summary>
     public string? OverrideTargetPath { get; init; }
+
+    /// <summary>
+    /// Gets the video resolution.
+    /// </summary>
+    public string? Resolution { get; init; }
+
+    /// <summary>
+    /// Gets the video codec.
+    /// </summary>
+    public string? VideoCodec { get; init; }
+
+    /// <summary>
+    /// Gets the video bit depth.
+    /// </summary>
+    public string? VideoBitDepth { get; init; }
+
+    /// <summary>
+    /// Gets the audio codec.
+    /// </summary>
+    public string? AudioCodec { get; init; }
+
+    /// <summary>
+    /// Gets the audio channels.
+    /// </summary>
+    public string? AudioChannels { get; init; }
+
+    /// <summary>
+    /// Gets the release group.
+    /// </summary>
+    public string? ReleaseGroup { get; init; }
+
+    /// <summary>
+    /// Gets the media source.
+    /// </summary>
+    public string? MediaSource { get; init; }
+
+    /// <summary>
+    /// Gets the edition.
+    /// </summary>
+    public string? Edition { get; init; }
+
+    /// <summary>
+    /// Gets the number of associated files.
+    /// </summary>
+    public int AssociatedFilesCount { get; init; }
 }
 

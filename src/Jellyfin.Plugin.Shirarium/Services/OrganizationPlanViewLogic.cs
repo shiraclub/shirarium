@@ -39,9 +39,13 @@ internal static class OrganizationPlanViewLogic
     internal static OrganizationPlanViewResponse Build(
         OrganizationPlanSnapshot plan,
         OrganizationPlanOverridesSnapshot overridesSnapshot,
-        OrganizationPlanViewRequest request)
+        OrganizationPlanViewRequest request,
+        ScanResultSnapshot? scanSnapshot = null)
     {
         var overrideMap = OrganizationPlanReviewLogic.BuildOverrideMap(overridesSnapshot);
+        var suggestionMap = scanSnapshot?.Suggestions.ToDictionary(s => s.SourcePath, s => s, PathComparison.Comparer) 
+            ?? new Dictionary<string, ScanSuggestion>(PathComparison.Comparer);
+            
         var strategySet = BuildSet(request.Strategies);
         var actionSet = BuildSet(request.Actions);
         var reasonSet = BuildSet(request.Reasons);
@@ -51,6 +55,7 @@ internal static class OrganizationPlanViewLogic
             .Select(entry =>
             {
                 overrideMap.TryGetValue(entry.SourcePath, out var entryOverride);
+                suggestionMap.TryGetValue(entry.SourcePath, out var suggestion);
                 var effectiveEntry = OrganizationPlanReviewLogic.ApplyOverride(entry, entryOverride);
 
                 return new OrganizationPlanViewEntry
@@ -68,7 +73,16 @@ internal static class OrganizationPlanViewLogic
                     EffectiveTargetPath = effectiveEntry.TargetPath,
                     HasOverride = entryOverride is not null,
                     OverrideAction = entryOverride?.Action,
-                    OverrideTargetPath = entryOverride?.TargetPath
+                    OverrideTargetPath = entryOverride?.TargetPath,
+                    Resolution = suggestion?.Resolution,
+                    VideoCodec = suggestion?.VideoCodec,
+                    VideoBitDepth = suggestion?.VideoBitDepth,
+                    AudioCodec = suggestion?.AudioCodec,
+                    AudioChannels = suggestion?.AudioChannels,
+                    ReleaseGroup = suggestion?.ReleaseGroup,
+                    MediaSource = suggestion?.MediaSource,
+                    Edition = suggestion?.Edition,
+                    AssociatedFilesCount = entry.AssociatedFiles?.Length ?? 0
                 };
             })
             .Where(viewEntry =>
