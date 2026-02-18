@@ -36,8 +36,9 @@ COMMON_JUNK = {
 }
 
 # Hardened Regex: S01E01, 1x01, S01.E01, S01 E01, E01 (if preceded by season keyword)
+# Added support for S\d+ standalone (e.g. S4)
 SEASON_EPISODE_RE = re.compile(
-    r"(?:^|[\W_])(?:[sS](\d{1,2})[\W_]?[eE](\d{1,4})|(\d{1,2})x(\d{1,4}))(?:[\W_]?[eE](\d{1,4}))?(?:$|[\W_])"
+    r"(?:^|[\W_])(?:[sS](\d{1,2})[\W_]?[eE](\d{1,4})|(\d{1,2})x(\d{1,4})|[sS](\d{1,2}))(?:[\W_]?[eE](\d{1,4}))?(?:$|[\W_])"
 )
 YEAR_PAREN_RE = re.compile(r"[\(\[]((?:19|20)\d{2})[\)\]]")
 YEAR_RE = re.compile(r"(?:^|[\W_])((?:19|20)\d{2})(?:$|[\W_])")
@@ -118,6 +119,7 @@ def _heuristic_parse(path: str) -> ParseFilenameResponse:
     
     # 2. Folder Context Enrichment
     if len(parts) > 1:
+        # We merge results from parents to fill in gaps
         for i in range(len(parts)-2, -1, -1):
             parent_name = parts[i]
             if parent_name.lower() in ["movies", "tv", "media", "organized", "incoming"]:
@@ -125,29 +127,24 @@ def _heuristic_parse(path: str) -> ParseFilenameResponse:
                 
             parent_result = _parse_core(parent_name)
             
-            title = result.title
+            # Merge logic
             if result.title == "Unknown Title" or len(result.title) < 3 or result.title.isdigit():
-                title = parent_result.title
+                result.title = parent_result.title
             
-            year = result.year or parent_result.year
-            media_type = result.media_type
-            if media_type == "unknown":
-                media_type = parent_result.media_type
+            if result.year is None:
+                result.year = parent_result.year
             
-            season = result.season or parent_result.season
-            episode = result.episode or parent_result.episode
+            if result.media_type == "unknown":
+                result.media_type = parent_result.media_type
             
-            if title != "Unknown Title":
-                return ParseFilenameResponse(
-                    title=title,
-                    media_type=media_type,
-                    year=year,
-                    season=season,
-                    episode=episode,
-                    confidence=max(result.confidence, parent_result.confidence * 0.9),
-                    source="heuristic",
-                    raw_tokens=result.raw_tokens + parent_result.raw_tokens
-                )
+            if result.season is None:
+                result.season = parent_result.season
+            if result.episode is None:
+                result.episode = parent_result.episode
+            
+            # If we reached a stable state, stop looking at parents
+            if result.title != "Unknown Title" and result.media_type != "unknown":
+                break
 
     return result
 
@@ -174,10 +171,13 @@ def _parse_core(stem: str) -> ParseFilenameResponse:
     if match:
         media_type = "episode"
         confidence += 0.35
-        groups = [g for g in match.groups() if g is not None]
-        if len(groups) >= 2:
-            season = int(groups[0])
-            episode = int(groups[1])
+        # Extract the first non-None pairs
+        gs = [g for g in match.groups() if g is not None]
+        if len(gs) >= 2:
+            season = int(gs[0])
+            episode = int(gs[1])
+        elif len(gs) == 1:
+            season = int(gs[0])
         else:
             season = 1
             episode = 1
@@ -194,17 +194,12 @@ def _parse_core(stem: str) -> ParseFilenameResponse:
                 season = 1
                 episode = num
                 title_stem = stem[:match.start()]
-            else:
-                title_stem = stem
-        else:
-            title_stem = stem
 
-    # 4. Match Year (Decisive but careful)
+    # Match Year (Decisive but careful)
     year: int | None = None
     year_match = YEAR_PAREN_RE.search(stem)
     if year_match:
-        found_year = int(year_match.group(1))
-        year = found_year
+        year = int(year_match.group(1))
         if media_type == "unknown":
             media_type = "movie"
         idx = stem.find(year_match.group(0))
