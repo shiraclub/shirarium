@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "1.0",
+  "name": "arr-suite-curated",
+  "description": "Curated edge cases from Sonarr/Radarr test suites (Scene, Obfuscated, Anime).",
+  "entries": [
+    {
+      "relativePath": "The.Office.US.S01E01.720p.HDTV.x264-GRP.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "The Office US",
+        "season": 1,
+        "episode": 1
+      },
+      "tags": ["standard", "scene"]
+    },
+    {
+      "relativePath": "2012.2010.1080p.BluRay.x264-GRP.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "2012",
+        "year": 2010
+      },
+      "tags": ["evil", "year-in-title"]
+    },
+    {
+      "relativePath": "Movie.43.2013.1080p.BluRay.x264-GRP.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Movie 43",
+        "year": 2013
+      },
+      "tags": ["evil", "number-in-title"]
+    },
+    {
+      "relativePath": "Castle.2009.S01E01.720p.WEB-DL.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Castle 2009",
+        "season": 1,
+        "episode": 1
+      },
+      "tags": ["evil", "year-in-title-and-metadata"]
+    },
+    {
+      "relativePath": "100.Code.S01E01.720p.HDTV.x264-GRP.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "100 Code",
+        "season": 1,
+        "episode": 1
+      },
+      "tags": ["evil", "starts-with-number"]
+    },
+    {
+      "relativePath": "[HorribleSubs] One Piece - 950 [720p].mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "One Piece",
+        "episode": 950
+      },
+      "tags": ["anime", "absolute"]
+    },
+    {
+      "relativePath": "300.2006.1080p.BluRay.x264-GRP.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "300",
+        "year": 2006
+      },
+      "tags": ["evil", "starts-with-number"]
+    },
+    {
+      "relativePath": "Marvel's.Agents.of.S.H.I.E.L.D.S01E01.720p.HDTV.x264-GRP.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Marvel's Agents of S.H.I.E.L.D.",
+        "season": 1,
+        "episode": 1
+      },
+      "tags": ["punctuation", "complex-title"]
+    },
+    {
+      "relativePath": "Hawaii.Five-0.2010.S01E01.720p.HDTV.x264-GRP.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Hawaii Five-0 2010",
+        "season": 1,
+        "episode": 1
+      },
+      "tags": ["evil", "year-in-title"]
+    },
+    {
+      "relativePath": "Parks.and.Recreation.S01E01.E02.720p.HDTV.x264-GRP.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Parks and Recreation",
+        "season": 1,
+        "episode": 1
+      },
+      "tags": ["multi-episode"]
+    }
+  ]
+}

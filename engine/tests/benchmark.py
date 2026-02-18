@@ -83,8 +83,16 @@ def run_benchmark(dataset_path, threads=4, verbose=False, limit=None):
 
     start_bench = time.perf_counter()
     
+    results = []
+    chunk_size = max(1, total // 10) # 10% progress increments
+    
     with ThreadPoolExecutor(max_workers=threads) as executor:
-        results = [r for r in executor.map(evaluate_item, entries) if r is not None]
+        for i in range(0, total, chunk_size):
+            chunk = entries[i:i + chunk_size]
+            results.extend([r for r in executor.map(evaluate_item, chunk) if r is not None])
+            progress = (len(results) / total) * 100
+            elapsed = time.perf_counter() - start_bench
+            print(f"Progress: {progress:3.0f}% | Items: {len(results):8d} | Elapsed: {elapsed:6.1f}s")
     
     total_duration = time.perf_counter() - start_bench
     passed_count = sum(1 for r in results if r["passed"])
