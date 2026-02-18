@@ -133,7 +133,7 @@ foreach ($entry in $manifest.entries) {
         throw "Dataset entry resolves outside media root: $relativePath"
     }
 
-    $targetDirectory = Split-Path -LiteralPath $targetPath -Parent
+    $targetDirectory = [System.IO.Path]::GetDirectoryName($targetPath)
     if (-not [string]::IsNullOrWhiteSpace($targetDirectory)) {
         New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
     }
