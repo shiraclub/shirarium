@@ -327,8 +327,11 @@ async def parse_filename(request: ParseFilenameRequest) -> ParseFilenameResponse
 
     if OLLAMA_USE:
         if heuristic_result.confidence < 0.90 or heuristic_result.media_type == "unknown":
-            ai_result = await _ollama_parse(request.path)
-            if ai_result:
-                return ai_result
+            try:
+                ai_result = await _ollama_parse(request.path)
+                if ai_result:
+                    return ai_result
+            except Exception as e:
+                print(f"Ollama Fallback Error: {e}")
 
     return heuristic_result
