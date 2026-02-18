@@ -225,6 +225,11 @@ def _parse_core(stem: str) -> ParseFilenameResponse:
                     media_type = "movie"
                 year = found_year
 
+    if media_type == "unknown":
+        low_stem = stem.lower()
+        if re.search(r"[sS]\d+", low_stem) or "season" in low_stem:
+            media_type = "episode"
+
     # Final Title Extraction
     tokens = [token for token in SPLIT_RE.split(title_stem) if token]
     title = _normalize_title_tokens(tokens)
