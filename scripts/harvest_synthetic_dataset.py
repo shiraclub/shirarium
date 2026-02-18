@@ -95,4 +95,8 @@ def harvest(count=10000):
     print(f"Successfully harvested {count} entries to {output_path}")
 
 if __name__ == "__main__":
-    harvest(10000)
+    import sys
+    count = 10000
+    if len(sys.argv) > 1:
+        count = int(sys.argv[1])
+    harvest(count)

@@ -1,7 +1,8 @@
 # scripts/setup-benchmark-data.ps1
 # Automates downloading of large Tier C datasets for benchmarking.
 
-$BenchmarkDir = Join-Path $PSScriptRoot "..", "datasets", "benchmark"
+$BenchmarkDir = Join-Path (Join-Path $PSScriptRoot "..") "datasets"
+$BenchmarkDir = Join-Path $BenchmarkDir "benchmark"
 if (-not (Test-Path $BenchmarkDir)) {
     New-Item -ItemType Directory -Path $BenchmarkDir | Out-Null
 }
@@ -9,7 +10,7 @@ if (-not (Test-Path $BenchmarkDir)) {
 $Datasets = @(
     @{
         Name = "tpb-titles-2023"
-        Url  = "https://huggingface.co/datasets/d2mw/thepiratebay-categorized-titles-2023-04/resolve/main/default.csv"
+        Url  = "https://huggingface.co/datasets/d2mw/thepiratebay-categorized-titles-2023-04/resolve/main/titles-cats-only-2023-04-01.csv?download=true"
         File = "tpb-titles-2023.csv"
         Desc = "7.7 Million real-world torrent titles (TPB April 2023)"
     }

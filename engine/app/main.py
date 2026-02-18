@@ -94,23 +94,46 @@ def _heuristic_parse(path: str) -> ParseFilenameResponse:
     stem = p.stem
     parts = list(p.parts)
     
-    # 1. Obfuscation Check / Folder Fallback
-    if len(stem) < 8 or stem.isdigit() or stem.lower() in ["movie", "video", "content"]:
-        if len(parts) > 1:
-            parent_result = _heuristic_parse(str(Path(*parts[:-1])))
-            if parent_result.media_type != "unknown":
+    # 1. Base Parse of the current stem
+    result = _parse_core(stem)
+    
+    # 2. Folder Context Enrichment (The "Elite" Fallback)
+    if len(parts) > 1:
+        for i in range(len(parts)-2, -1, -1):
+            parent_name = parts[i]
+            if parent_name.lower() in ["movies", "tv", "media", "organized", "incoming"]:
+                continue
+                
+            parent_result = _parse_core(parent_name)
+            
+            title = result.title
+            if result.title == "Unknown Title" or len(result.title) < 3 or result.title.isdigit():
+                title = parent_result.title
+            
+            year = result.year or parent_result.year
+            media_type = result.media_type
+            if media_type == "unknown":
+                media_type = parent_result.media_type
+            
+            season = result.season or parent_result.season
+            episode = result.episode or parent_result.episode
+            
+            if title != "Unknown Title":
                 return ParseFilenameResponse(
-                    title=parent_result.title,
-                    media_type=parent_result.media_type,
-                    year=parent_result.year,
-                    season=parent_result.season,
-                    episode=parent_result.episode,
-                    confidence=parent_result.confidence * 0.9,
+                    title=title,
+                    media_type=media_type,
+                    year=year,
+                    season=season,
+                    episode=episode,
+                    confidence=max(result.confidence, parent_result.confidence * 0.9),
                     source="heuristic",
-                    raw_tokens=[stem] + parent_result.raw_tokens,
+                    raw_tokens=result.raw_tokens + parent_result.raw_tokens
                 )
 
-    # 2. Cleanup Noise
+    return result
+
+
+def _parse_core(stem: str) -> ParseFilenameResponse:
     stem = CRC_RE.sub("", stem)
     
     # Strip leading group tags
@@ -121,11 +144,12 @@ def _heuristic_parse(path: str) -> ParseFilenameResponse:
         else:
             break
     
-    # 3. Match Season/Episode
+    # Match Season/Episode
     season: int | None = None
     episode: int | None = None
     media_type: Literal["movie", "episode", "unknown"] = "unknown"
     confidence = 0.4
+    title_stem = stem
     
     match = SEASON_EPISODE_RE.search(stem)
     if match:
@@ -140,65 +164,51 @@ def _heuristic_parse(path: str) -> ParseFilenameResponse:
             episode = 1
         title_stem = stem[:match.start()]
     else:
-        # Absolute numbering check
         match = ABSOLUTE_EPISODE_RE.search(stem)
         if match:
-            if " - " in stem or any(x in stem.lower() for x in ["season", "ep", "subs", "raws"]):
+            num = int(match.group(1))
+            is_year_like = 1900 <= num <= 2100
+            if " - " in stem or (not is_year_like and any(x in stem.lower() for x in ["season", "ep", "subs", "raws"])):
                 media_type = "episode"
                 confidence += 0.25
                 season = 1
-                episode = int(match.group(1))
+                episode = num
                 title_stem = stem[:match.start()]
-            else:
-                title_stem = stem
-        else:
-            title_stem = stem
 
-    # 4. Match Year (Decisive but careful)
+    # Match Year (Decisive but careful)
     year: int | None = None
-    
-    # Look for year in parentheses or brackets first
-    paren_match = YEAR_PAREN_RE.search(stem)
-    if paren_match:
-        found_year = int(paren_match.group(1))
-        year = found_year
+    year_match = YEAR_PAREN_RE.search(stem)
+    if year_match:
+        year = int(year_match.group(1))
         if media_type == "unknown":
             media_type = "movie"
-        # Update title_stem to remove everything from year onwards
-        idx = stem.find(paren_match.group(0))
+        idx = stem.find(year_match.group(0))
         if idx > 2:
             title_stem = stem[:idx]
     else:
-        # Fallback to standard year search
         year_match = YEAR_RE.search(stem)
         if year_match:
             found_year = int(year_match.group(1))
-            
-            # DECISION: Is it a release year or a title number?
             after_year = stem[year_match.end():].lower()
             is_followed_by_junk = any(junk in after_year for junk in COMMON_JUNK)
+            is_at_start = year_match.start() < 2
             
-            # Special case for Blade Runner 2049 or similar
-            if found_year == 2049 and not is_followed_by_junk and not stem.strip().endswith("2049"):
+            if is_at_start and not is_followed_by_junk and not stem.strip().endswith(str(found_year)):
                 title_stem = stem
-                year = None # Keep 2049 in title, no year extracted
             elif is_followed_by_junk or stem.strip().endswith(str(found_year)):
                 year = found_year
                 if media_type == "unknown":
                     media_type = "movie"
                 title_stem = stem[:year_match.start()]
             else:
-                # Part of title, but we still note it as a candidate year for movies
                 if media_type == "unknown":
                     media_type = "movie"
                 year = found_year
-                title_stem = stem
 
-    # 5. Final Title Extraction
+    # Final Title Extraction
     tokens = [token for token in SPLIT_RE.split(title_stem) if token]
     title = _normalize_title_tokens(tokens)
     
-    # Final surgical cleanup for titles that kept group names
     if " - " in title:
         title_parts = title.split(" - ")
         if title_parts[-1].lower() in COMMON_JUNK or QUAL_RE.search(title_parts[-1]):
@@ -206,8 +216,6 @@ def _heuristic_parse(path: str) -> ParseFilenameResponse:
 
     if media_type == "movie" and year:
         confidence += 0.2
-
-    confidence = max(0.05, min(0.98, confidence))
 
     return ParseFilenameResponse(
         title=title,
