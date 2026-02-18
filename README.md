@@ -1,6 +1,10 @@
 # Shirarium
 
-Local-first Jellyfin metadata and file-organization planner for chaotic libraries.
+Clean up your Jellyfin library.
+
+Shirarium turns messy file and folder names into Jellyfin-friendly structure using AI-assisted parsing and a review-first workflow.
+
+Dry-run by default. Apply only what you approve. Undo supported.
 
 ![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11.6-00A4DC?logo=jellyfin&logoColor=white)
@@ -14,15 +18,11 @@ Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ## What It Does
 
-- Runs a Jellyfin plugin (`.NET`) and an external parsing engine (`FastAPI`).
-- Detects likely unmatched media candidates after library scans.
-- Parses filenames via heuristics (and optional Ollama path).
-- Stores dry-run suggestions without changing media files.
-- Builds dry-run physical organization plans using Jellyfin naming best practices.
-- Exposes richer scan observability buckets (candidate reasons, parser sources, confidence buckets).
-- Targets practical folder hygiene for shared storage/FTP workflows (for example Hetzner boxes).
-- Exposes scan/suggestion endpoints for admin workflows.
-- Adds a Jellyfin plugin dashboard page for review, override patching, preflight, lock, history, and apply flows.
+- Finds likely-unmatched items after library scans.
+- Figures out what a file probably is from its name (movie vs episode, title/year/season/episode).
+- Generates a clean, Jellyfin-friendly folder/file organization plan you can review and apply.
+- Keeps it safe: dry-run by default, plus override, preflight, apply, and undo.
+- Runs on your machine by default (no cloud required); optional local AI via Ollama.
 
 ## Current Architecture
 
