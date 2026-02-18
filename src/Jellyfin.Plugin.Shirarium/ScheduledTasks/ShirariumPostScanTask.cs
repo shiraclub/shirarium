@@ -19,12 +19,25 @@ public sealed class ShirariumPostScanTask : ILibraryPostScanTask
     /// <param name="libraryManager">Jellyfin library manager.</param>
     /// <param name="applicationPaths">Jellyfin application paths.</param>
     /// <param name="logger">Logger instance.</param>
+    /// <param name="loggerFactory">Logger factory for creating service loggers.</param>
     public ShirariumPostScanTask(
         ILibraryManager libraryManager,
         IApplicationPaths applicationPaths,
-        ILogger<ShirariumPostScanTask> logger)
+        ILogger<ShirariumPostScanTask> logger,
+        ILoggerFactory loggerFactory)
     {
-        _scanner = new ShirariumScanner(libraryManager, applicationPaths, logger);
+        // Manual Composition Root for Plugin Services
+        // In a future refactor, we could move this to a proper DI registration if Jellyfin supports it better.
+        var heuristicParser = new HeuristicParser();
+        var ollamaService = new OllamaService(loggerFactory.CreateLogger<OllamaService>());
+        var engineClient = new EngineClient(heuristicParser, ollamaService);
+
+        _scanner = new ShirariumScanner(
+            libraryManager,
+            applicationPaths,
+            loggerFactory.CreateLogger<ShirariumScanner>(), // Use dedicated logger for scanner
+            engineClient);
+            
         _planner = new OrganizationPlanner(applicationPaths, logger);
     }
 

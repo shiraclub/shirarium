@@ -1,56 +1,59 @@
-using System.Net.Http.Json;
-using Jellyfin.Plugin.Shirarium.Configuration;
 using Jellyfin.Plugin.Shirarium.Contracts;
 
 namespace Jellyfin.Plugin.Shirarium.Services;
 
 /// <summary>
-/// HTTP client wrapper for communicating with the Shirarium engine service.
+/// Client for the Shirarium organization engine.
+/// Now acts as an orchestrator between the native HeuristicParser and the local OllamaService.
 /// </summary>
 public sealed class EngineClient
 {
-    private readonly HttpClient _httpClient;
+    private readonly HeuristicParser _heuristicParser;
+    private readonly OllamaService _ollamaService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="EngineClient"/> class.
     /// </summary>
-    /// <param name="httpClient">HTTP client instance.</param>
-    public EngineClient(HttpClient httpClient)
+    /// <param name="heuristicParser">The native heuristic parser.</param>
+    /// <param name="ollamaService">The local LLM service.</param>
+    public EngineClient(HeuristicParser heuristicParser, OllamaService ollamaService)
     {
-        _httpClient = httpClient;
+        _heuristicParser = heuristicParser;
+        _ollamaService = ollamaService;
     }
 
     /// <summary>
-    /// Parses a media filename/path using the configured engine endpoint.
+    /// Parses a filename to extract metadata using heuristics, falling back to AI if enabled and needed.
     /// </summary>
-    /// <param name="path">Media path or filename to parse.</param>
+    /// <param name="path">The full file path.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Parse result or <c>null</c> if parsing is disabled or fails.</returns>
-    public async Task<ParseFilenameResponse?> ParseFilenameAsync(string path, CancellationToken cancellationToken = default)
+    /// <returns>The parse result.</returns>
+    public async Task<ParseFilenameResponse?> ParseFilenameAsync(string path, CancellationToken cancellationToken)
     {
-        var plugin = Plugin.Instance;
-        if (plugin is null || !plugin.Configuration.EnableAiParsing)
+        // 1. Heuristic Parse (Zero latency)
+        var result = _heuristicParser.Parse(path);
+
+        // 2. Check Configuration for AI
+        var config = Plugin.Instance?.Configuration;
+        if (config == null || !config.EnableAiParsing)
         {
-            return null;
+            return result;
         }
 
-        var baseUrl = plugin.Configuration.EngineBaseUrl.TrimEnd('/');
-        var request = new ParseFilenameRequest { Path = path };
+        bool useAi = config.EnableManagedLocalInference || !string.IsNullOrWhiteSpace(config.ExternalOllamaUrl);
 
-        try
+        // 3. AI Fallback logic
+        if (useAi && (result.Confidence < 0.90 || result.MediaType == "unknown"))
         {
-            using var response = await _httpClient.PostAsJsonAsync(
-                $"{baseUrl}/v1/parse-filename",
-                request,
-                cancellationToken);
-
-            response.EnsureSuccessStatusCode();
-
-            return await response.Content.ReadFromJsonAsync<ParseFilenameResponse>(cancellationToken: cancellationToken);
+            var aiResult = await _ollamaService.ParseAsync(path, cancellationToken);
+            if (aiResult != null)
+            {
+                // If AI is confident, return it.
+                // We could implement more complex merging here later.
+                return aiResult;
+            }
         }
-        catch
-        {
-            return null;
-        }
+
+        return result;
     }
 }

@@ -3,35 +3,9 @@ services:
     image: jellyfin/jellyfin:10.11.6
     container_name: shirarium-jellyfin-dev
     ports:
-      - "${JELLYFIN_PORT:-8097}:8096"
-    environment:
-      - JELLYFIN_PublishedServerUrl=http://localhost:${JELLYFIN_PORT:-8097}
+      - "8097:8096"
     volumes:
       - ./data/jellyfin/config:/config
       - ./data/jellyfin/cache:/cache
-      - ${MEDIA_PATH}:/media:ro
+      - ./data/media:/media
       - ./artifacts/plugin:/config/plugins/Shirarium
-    depends_on:
-      - engine
-    restart: unless-stopped
-
-  engine:
-    build:
-      context: ./engine
-    container_name: shirarium-engine
-    ports:
-      - "${ENGINE_PORT:-8787}:8787"
-    environment:
-      - SHIRARIUM_USE_OLLAMA=${USE_OLLAMA:-true}
-      - SHIRARIUM_OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
-      - SHIRARIUM_OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:4b}
-    restart: unless-stopped
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: shirarium-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ./data/ollama:/root/.ollama
-    restart: unless-stopped

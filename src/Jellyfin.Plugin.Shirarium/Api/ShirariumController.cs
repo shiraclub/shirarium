@@ -33,10 +33,23 @@ public sealed class ShirariumController : ControllerBase
         ILibraryManager libraryManager,
         IApplicationPaths applicationPaths,
         ILogger<ShirariumController> logger,
-        IEnumerable<IHostedService> hostedServices)
+        IEnumerable<IHostedService> hostedServices,
+        ILoggerFactory loggerFactory)
     {
         _applicationPaths = applicationPaths;
-        _scanner = new ShirariumScanner(libraryManager, applicationPaths, logger);
+        
+        // Manual Composition for Plugin Internal Services
+        // Ideally we would register these in DI, but for a plugin this is robust.
+        var heuristicParser = new HeuristicParser();
+        var ollamaService = new OllamaService(loggerFactory.CreateLogger<OllamaService>());
+        var engineClient = new EngineClient(heuristicParser, ollamaService);
+
+        _scanner = new ShirariumScanner(
+            libraryManager,
+            applicationPaths,
+            logger, // Controller logger is fine here, or use factory
+            engineClient);
+
         _planner = new OrganizationPlanner(applicationPaths, logger);
         _applier = new OrganizationPlanApplier(applicationPaths, logger);
         _undoer = new OrganizationPlanUndoer(applicationPaths, logger);

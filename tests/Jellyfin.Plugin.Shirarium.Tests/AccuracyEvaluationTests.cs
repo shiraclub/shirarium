@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Jellyfin.Plugin.Shirarium.Contracts;
 using Jellyfin.Plugin.Shirarium.Services;
 using Xunit;
 using Xunit.Abstractions;
@@ -16,7 +15,7 @@ public sealed class AccuracyEvaluationTests
     }
 
     [Fact]
-    public async Task EvaluateTierAGoldenStandard_ComputesAccuracyScore()
+    public void EvaluateTierAGoldenStandard_ComputesAccuracyScore()
     {
         var manifestPath = ResolveRepoFilePath("datasets", "regression", "tier-a-golden.json");
         var json = File.ReadAllText(manifestPath);
@@ -28,16 +27,8 @@ public sealed class AccuracyEvaluationTests
         int passed = 0;
         var failures = new List<string>();
 
-        // We'll use the heuristic parser directly from the engine logic if possible, 
-        // but since it's in Python, we simulate the 'ShirariumScanner' behavior 
-        // or call the actual Engine if it's running. 
-        // For unit tests, we'll mock the EngineClient to return what our current logic would.
-        
-        // Actually, let's look at how we can test the parser logic. 
-        // The parser logic is in Python. The C# side just consumes it.
-        // BUT, the goal of this test is to evaluate the *entire* system's ability to reach 
-        // the expected metadata from a path.
-        
+        var parser = new HeuristicParser();
+
         _output.WriteLine($"Evaluating manifest: {root.GetProperty("name").GetString()}");
         _output.WriteLine($"Description: {root.GetProperty("description").GetString()}");
         _output.WriteLine("--------------------------------------------------");
@@ -53,30 +44,28 @@ public sealed class AccuracyEvaluationTests
             var expectedEpisode = expected.TryGetProperty("episode", out var e) ? (int?)e.GetInt32() : null;
             var expectedMediaType = expected.GetProperty("mediaType").GetString();
 
-            // For now, we simulate the Engine's heuristic parse in C# if we had one, 
-            // but since we don't, we'll use this test to document where we are.
-            // In a real CI, this would call the Python engine via EngineClient.
-            
-            // For this demonstration, we'll implement a "Check" against a mock or the real engine.
-            // Since I cannot run the Docker engine during unit tests easily without setup, 
-            // I will use a local C# version of the heuristic if I had one, or mark as "Not Evaluated".
-            
-            // PROPOSAL: We add a 'ParseHeuristic' to C# as a fallback or primary, 
-            // but for now, let's just assert that we HAVE the data and the test structure works.
-            
-            _output.WriteLine($"Test Case {total}: {relativePath}");
-            _output.WriteLine($"  Expected: {expectedMediaType} | {expectedTitle} ({expectedYear}) S{expectedSeason}E{expectedEpisode}");
-            
-            // Placeholder for actual parse call
-            bool isMatch = true; // Simulate pass for now to show structure
-            
+            var result = parser.Parse(relativePath);
+
+            bool isMatch = true;
+            if (!string.Equals(result.MediaType, expectedMediaType, StringComparison.OrdinalIgnoreCase)) isMatch = false;
+            if (expectedYear.HasValue && result.Year != expectedYear.Value) isMatch = false;
+            if (expectedSeason.HasValue && result.Season != expectedSeason.Value) isMatch = false;
+            if (expectedEpisode.HasValue && result.Episode != expectedEpisode.Value) isMatch = false;
+            // Title matching can be fuzzy, but for Golden Standard we expect high fidelity.
+            // We'll normalize simple things like casing.
+            if (expectedTitle != null && !string.Equals(result.Title, expectedTitle, StringComparison.OrdinalIgnoreCase)) isMatch = false;
+
             if (isMatch)
             {
                 passed++;
+                _output.WriteLine($"[PASS] {relativePath}");
             }
             else
             {
                 failures.Add(relativePath);
+                _output.WriteLine($"[FAIL] {relativePath}");
+                _output.WriteLine($"  Expected: {expectedMediaType} | {expectedTitle} ({expectedYear}) S{expectedSeason}E{expectedEpisode}");
+                _output.WriteLine($"  Actual:   {result.MediaType} | {result.Title} ({result.Year}) S{result.Season}E{result.Episode}");
             }
         }
 
@@ -84,16 +73,8 @@ public sealed class AccuracyEvaluationTests
         _output.WriteLine("--------------------------------------------------");
         _output.WriteLine($"Summary: {passed}/{total} passed ({accuracy:F2}%)");
 
-        if (failures.Count > 0)
-        {
-            _output.WriteLine("\nFailures:");
-            foreach (var f in failures)
-            {
-                _output.WriteLine($"  - {f}");
-            }
-        }
-
-        Assert.True(accuracy >= 0); // Always true, but establishes the pattern
+        // We expect 100% accuracy for Tier A now that we have ported the logic
+        Assert.Equal(100.0, accuracy);
     }
 
     private static string ResolveRepoFilePath(params string[] pathParts)

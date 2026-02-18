@@ -55,7 +55,7 @@ jobs:
           }
           trap cleanup EXIT
 
-          docker compose up -d jellyfin-dev engine ollama
+          docker compose up -d jellyfin-dev
 
           # Wait until the public endpoint returns real JSON payload (not startup/migration HTML).
           for i in {1..180}; do

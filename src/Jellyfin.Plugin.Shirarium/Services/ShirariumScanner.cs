@@ -16,50 +16,63 @@ public sealed class ShirariumScanner
     private readonly ILogger _logger;
     private readonly PluginConfiguration? _configOverride;
     private readonly ISourceCandidateProvider _sourceCandidateProvider;
+    private readonly EngineClient? _engineClient;
     private readonly Func<string, CancellationToken, Task<ParseFilenameResponse?>>? _parseFilenameAsync;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ShirariumScanner"/> class.
     /// </summary>
-    /// <param name="libraryManager">Jellyfin library manager.</param>
-    /// <param name="applicationPaths">Jellyfin application paths.</param>
-    /// <param name="logger">Logger instance.</param>
-    /// <param name="configOverride">Optional configuration override used mainly for tests.</param>
-    /// <param name="parseFilenameAsync">Optional parser delegate used mainly for tests.</param>
     public ShirariumScanner(
         ILibraryManager libraryManager,
         IApplicationPaths applicationPaths,
         ILogger logger,
-        PluginConfiguration? configOverride = null,
-        Func<string, CancellationToken, Task<ParseFilenameResponse?>>? parseFilenameAsync = null)
+        EngineClient engineClient,
+        PluginConfiguration? configOverride = null)
         : this(
             applicationPaths,
             logger,
             new JellyfinLibraryCandidateProvider(libraryManager),
-            configOverride,
-            parseFilenameAsync)
+            engineClient,
+            configOverride)
     {
     }
 
+    /// <summary>
+    /// Internal constructor for testing with delegate override.
+    /// </summary>
     internal ShirariumScanner(
         IApplicationPaths applicationPaths,
         ILogger logger,
         ISourceCandidateProvider sourceCandidateProvider,
-        PluginConfiguration? configOverride = null,
-        Func<string, CancellationToken, Task<ParseFilenameResponse?>>? parseFilenameAsync = null)
+        PluginConfiguration? configOverride,
+        Func<string, CancellationToken, Task<ParseFilenameResponse?>> parseFilenameAsync)
     {
         _applicationPaths = applicationPaths;
         _logger = logger;
+        _sourceCandidateProvider = sourceCandidateProvider;
         _configOverride = configOverride;
         _parseFilenameAsync = parseFilenameAsync;
+        _engineClient = null;
+    }
+
+    private ShirariumScanner(
+        IApplicationPaths applicationPaths,
+        ILogger logger,
+        ISourceCandidateProvider sourceCandidateProvider,
+        EngineClient engineClient,
+        PluginConfiguration? configOverride)
+    {
+        _applicationPaths = applicationPaths;
+        _logger = logger;
         _sourceCandidateProvider = sourceCandidateProvider;
+        _engineClient = engineClient;
+        _configOverride = configOverride;
+        _parseFilenameAsync = null;
     }
 
     /// <summary>
     /// Executes a full dry-run scan and stores the resulting suggestion snapshot.
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The generated scan snapshot.</returns>
     public async Task<ScanResultSnapshot> RunAsync(CancellationToken cancellationToken = default)
     {
         var plugin = Plugin.Instance;
@@ -88,17 +101,6 @@ public sealed class ShirariumScanner
         var candidateReasonCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var parserSourceCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var confidenceBucketCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-        HttpClient? httpClient = null;
-        EngineClient? engineClient = null;
-        if (_parseFilenameAsync is null)
-        {
-            httpClient = new HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(20)
-            };
-            engineClient = new EngineClient(httpClient);
-        }
 
         IEnumerable<object> items;
         try
@@ -130,8 +132,6 @@ public sealed class ShirariumScanner
             examinedCount++;
 
             var reasons = ScanLogic.GetCandidateReasons(item);
-            // If it's already matched (no reasons), we still pick it up for reorganization audit
-            // if reorganization planning is enabled in config.
             if (reasons.Length == 0 && !config.EnableFileOrganizationPlanning)
             {
                 continue;
@@ -144,7 +144,7 @@ public sealed class ShirariumScanner
 
             candidateCount++;
             IncrementBuckets(candidateReasonCounts, reasons);
-            // MaxItemsPerRun limits parse calls, regardless of confidence pass/fail outcome.
+            
             if (parseAttemptCount >= maxItems)
             {
                 skippedByLimitCount++;
@@ -155,12 +155,10 @@ public sealed class ShirariumScanner
             ParseFilenameResponse? parsed = null;
             if (reasons.Contains("ReorganizationAudit"))
             {
-                // Bypass engine for items already correctly matched in Jellyfin.
                 var title = ScanLogic.GetStringProperty(item, "Name");
                 var year = ScanLogic.GetIntProperty(item, "ProductionYear");
                 var mediaType = ScanLogic.GetStringProperty(item, "Type")?.ToLowerInvariant();
                 
-                // For episodes, get season/episode indices
                 int? season = null;
                 int? episode = null;
                 if (string.Equals(mediaType, "episode", StringComparison.OrdinalIgnoreCase))
@@ -191,13 +189,18 @@ public sealed class ShirariumScanner
             }
             else
             {
-                if (_parseFilenameAsync is not null)
+                if (_parseFilenameAsync != null)
                 {
                     parsed = await _parseFilenameAsync(sourcePath, cancellationToken);
                 }
+                else if (_engineClient != null)
+                {
+                    parsed = await _engineClient.ParseFilenameAsync(sourcePath, cancellationToken);
+                }
                 else
                 {
-                    parsed = await engineClient!.ParseFilenameAsync(sourcePath, cancellationToken);
+                    // Should not happen if constructed correctly
+                    _logger.LogError("ShirariumScanner misconfigured: No parser available.");
                 }
             }
 
@@ -276,8 +279,6 @@ public sealed class ShirariumScanner
             skippedByLimitCount,
             skippedByConfidenceCount,
             engineFailureCount);
-
-        httpClient?.Dispose();
 
         return snapshot;
     }

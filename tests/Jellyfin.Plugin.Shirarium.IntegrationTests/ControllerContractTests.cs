@@ -640,7 +640,8 @@ public sealed class ControllerContractTests
             null!,
             applicationPaths,
             NullLogger<ShirariumController>.Instance,
-            Enumerable.Empty<IHostedService>());
+            Enumerable.Empty<IHostedService>(),
+            NullLoggerFactory.Instance);
     }
 
     private static async Task<OrganizationPlanSnapshot> WritePlanAsync(

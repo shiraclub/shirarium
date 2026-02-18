@@ -3,7 +3,7 @@ namespace Jellyfin.Plugin.Shirarium.Contracts;
 /// <summary>
 /// Structured parse result returned by the engine service.
 /// </summary>
-public sealed class ParseFilenameResponse
+public sealed record class ParseFilenameResponse
 {
     /// <summary>
     /// Gets the inferred title.
