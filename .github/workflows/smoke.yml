@@ -92,13 +92,7 @@ jobs:
             exit 1
           fi
 
-          startup_completed="$(python - <<'PY'
-import json
-from pathlib import Path
-payload = json.loads(Path("/tmp/jellyfin-public.json").read_text(encoding="utf-8"))
-print(str(payload.get("StartupWizardCompleted", False)).lower())
-PY
-)"
+          startup_completed="$(jq -r '.StartupWizardCompleted // false' /tmp/jellyfin-public.json | tr '[:upper:]' '[:lower:]')"
 
           if [[ "${startup_completed}" != "true" ]]; then
             cat >/tmp/jellyfin-startup-user.json <<'JSON'
@@ -168,13 +162,7 @@ JSON
             exit 1
           fi
 
-          ACCESS_TOKEN="$(python - <<'PY'
-import json
-from pathlib import Path
-payload = json.loads(Path("/tmp/jellyfin-auth-response.json").read_text(encoding="utf-8"))
-print(payload.get("AccessToken", ""))
-PY
-)"
+          ACCESS_TOKEN="$(jq -r '.AccessToken // ""' /tmp/jellyfin-auth-response.json)"
 
           if [[ -z "${ACCESS_TOKEN}" ]]; then
             echo "Authentication response did not contain an access token."
@@ -201,21 +189,7 @@ PY
               -H "X-Emby-Token: ${ACCESS_TOKEN}" > /tmp/jellyfin-virtual-folders-code.txt || true
 
             if [[ "$(cat /tmp/jellyfin-virtual-folders-code.txt)" == "200" ]]; then
-              library_visible="$(python - <<'PY'
-import json
-from pathlib import Path
-folders = json.loads(Path("/tmp/jellyfin-virtual-folders.json").read_text(encoding="utf-8"))
-found = False
-for folder in folders:
-    for location in folder.get("Locations", []):
-        if location == "/media/incoming":
-            found = True
-            break
-    if found:
-        break
-print("true" if found else "false")
-PY
-)"
+              library_visible="$(jq -r 'any(.[]; .Locations | contains(["/media/incoming"]))' /tmp/jellyfin-virtual-folders.json)"
               if [[ "${library_visible}" == "true" ]]; then
                 break
               fi
@@ -239,17 +213,7 @@ PY
               -X POST "${JELLYFIN_BASE_URL}/shirarium/scan" \
               -H "X-Emby-Token: ${ACCESS_TOKEN}" || true)"
             if [[ "${scan_code}" == "200" ]]; then
-              non_empty_scan="$(python - <<'PY'
-import json
-from pathlib import Path
-scan = json.loads(Path("/tmp/shirarium-scan.json").read_text(encoding="utf-8"))
-candidate_count = int(scan.get("CandidateCount", 0))
-suggestions = scan.get("Suggestions", [])
-parsed_count = int(scan.get("ParsedCount", 0))
-ok = candidate_count > 0 and parsed_count > 0 and len(suggestions) > 0
-print("true" if ok else "false")
-PY
-)"
+              non_empty_scan="$(jq -r '(.CandidateCount | tonumber > 0) and (.ParsedCount | tonumber > 0) and (.Suggestions | length > 0)' /tmp/shirarium-scan.json)"
               if [[ "${non_empty_scan}" == "true" ]]; then
                 break
               fi
@@ -286,15 +250,7 @@ PY
             exit 1
           fi
 
-          non_empty_plan="$(python - <<'PY'
-import json
-from pathlib import Path
-plan = json.loads(Path("/tmp/shirarium-organization-plan.json").read_text(encoding="utf-8"))
-entries = plan.get("Entries", [])
-planned_count = int(plan.get("PlannedCount", 0))
-print("true" if planned_count > 0 and len(entries) > 0 else "false")
-PY
-)"
+          non_empty_plan="$(jq -r '(.PlannedCount | tonumber > 0) and (.Entries | length > 0)' /tmp/shirarium-organization-plan.json)"
 
           if [[ "${non_empty_plan}" != "true" ]]; then
             echo "Organization plan is empty after successful scan."
