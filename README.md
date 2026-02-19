@@ -1,10 +1,7 @@
 # Shirarium
 
-Clean up your Jellyfin library with **Elite-Tier Precision**.
-
-Shirarium turns messy file and folder names into a pristine, Jellyfin-friendly structure using advanced heuristics and optional AI-assisted parsing.
-
-**Dry-run by default.** Apply only what you approve. Undo supported.
+Clean up your Jellyfin library.  
+Shirarium turns messy file and folder names into a pristine, Jellyfin-friendly structure using advanced heuristics and optional AI-assisted parsing.  
 
 ![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11.6-00A4DC?logo=jellyfin&logoColor=white)
@@ -12,8 +9,6 @@ Shirarium turns messy file and folder names into a pristine, Jellyfin-friendly s
 ![Native C#](https://img.shields.io/badge/Architecture-Native%20C%23-28a745?logo=csharp&logoColor=white)
 [![CI](https://github.com/shiraclub/shirarium/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/shiraclub/shirarium/actions/workflows/ci.yml?query=branch%3Amaster)
 ![Safety](https://img.shields.io/badge/safety-dry--run%20by%20default-orange)
-
-Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ## Features
 
@@ -106,3 +101,5 @@ Go to **Dashboard -> Plugins -> Shirarium** to configure:
 1. Optional queueing model for very large libraries.
 2. Throughput benchmarking for large remote libraries.
 3. Bulk override presets and saved filter sets.
+
+Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
