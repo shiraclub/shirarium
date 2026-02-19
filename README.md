@@ -1,6 +1,7 @@
 # Shirarium
 
 Clean up your Jellyfin library.  
+
 Shirarium turns messy file and folder names into a pristine, Jellyfin-friendly structure using advanced heuristics and optional AI-assisted parsing.  
 
 ![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
