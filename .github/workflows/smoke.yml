@@ -54,7 +54,7 @@ jobs:
             --clean \
             --dataset datasets/regression/tier-b-synthetic.json
           
-          mkdir -p "${MEDIA_PATH}/incoming"
+          mkdir -p "${MEDIA_PATH}"
           
           cleanup() {
             docker compose down -v || true
@@ -174,11 +174,11 @@ jobs:
           fi
 
           add_library_code="$(curl -s -o /tmp/jellyfin-add-library.out -w "%{http_code}" \
-            -X POST "${JELLYFIN_BASE_URL}/Library/VirtualFolders?name=Incoming&collectionType=movies&paths=%2Fmedia%2Fincoming&refreshLibrary=true" \
+            -X POST "${JELLYFIN_BASE_URL}/Library/VirtualFolders?name=Media&collectionType=movies&paths=%2Fmedia&refreshLibrary=true" \
             -H "X-Emby-Token: ${ACCESS_TOKEN}" || true)"
 
           if [[ "${add_library_code}" != "204" && "${add_library_code}" != "200" ]]; then
-            echo "Failed to add Incoming media library. Status: ${add_library_code}"
+            echo "Failed to add Media library. Status: ${add_library_code}"
             cat /tmp/jellyfin-add-library.out || true
             docker logs shirarium-jellyfin-dev || true
             exit 1
@@ -191,7 +191,7 @@ jobs:
               -H "X-Emby-Token: ${ACCESS_TOKEN}" > /tmp/jellyfin-virtual-folders-code.txt || true
 
             if [[ "$(cat /tmp/jellyfin-virtual-folders-code.txt)" == "200" ]]; then
-              library_visible="$(jq -r 'any(.[]; .Locations | contains(["/media/incoming"]))' /tmp/jellyfin-virtual-folders.json)"
+              library_visible="$(jq -r 'any(.[]; .Locations | contains(["/media"]))' /tmp/jellyfin-virtual-folders.json)"
               if [[ "${library_visible}" == "true" ]]; then
                 break
               fi
@@ -200,7 +200,7 @@ jobs:
           done
 
           if [[ "${library_visible}" != "true" ]]; then
-            echo "Incoming media library was not visible after creation."
+            echo "Media library was not visible after creation."
             cat /tmp/jellyfin-virtual-folders.json || true
             docker logs shirarium-jellyfin-dev || true
             exit 1

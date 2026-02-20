@@ -91,10 +91,8 @@ public sealed class ScannerDatasetTests
             Assert.Single(snapshot.Suggestions);
             Assert.Contains(snapshot.Suggestions, suggestion => suggestion.SuggestedTitle == "Movie One");
 
-            AssertBucket(snapshot.CandidateReasonCounts, "MissingProviderIds", 5);
-            AssertBucket(snapshot.CandidateReasonCounts, "MissingOverview", 4);
-            AssertBucket(snapshot.CandidateReasonCounts, "MissingProductionYear", 5);
-            AssertBucket(snapshot.CandidateReasonCounts, "ReorganizationAudit", 1);
+            AssertBucket(snapshot.CandidateReasonCounts, "Reorganization", 6);
+            AssertBucket(snapshot.CandidateReasonCounts, "Unrecognized", 6);
 
             AssertBucket(snapshot.ParserSourceCounts, "heuristic", 2);
             AssertBucket(snapshot.ConfidenceBucketCounts, "0.4-0.5", 1);
