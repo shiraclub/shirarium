@@ -1,6 +1,6 @@
 # Shirarium
 
-<img src="thumb.png" width="120" height="120" alt="Shirarium Logo" />
+<img src="thumb.png" width="396" height="216" alt="Shirarium Logo" />
 
 Clean up your Jellyfin library.
 
