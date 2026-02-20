@@ -4,7 +4,7 @@
     "name": "Shirarium",
     "description": "The ultimate library cleaning and metadata extraction tool.",
     "overview": "Easily clean up your Jellyfin library by renaming files and folders with high-precision heuristics. No external containers required; 100% native and offline intelligence.",
-    "owner": "shiraclub",
+    "owner": "Shiraclub",
     "category": "Organization",
     "versions": [
       {
