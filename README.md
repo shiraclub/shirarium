@@ -13,11 +13,19 @@ Shirarium turns messy file and folder names into a pristine, Jellyfin-friendly s
 [![CI](https://github.com/shiraclub/shirarium/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/shiraclub/shirarium/actions/workflows/ci.yml?query=branch%3Amaster)
 ![Safety](https://img.shields.io/badge/safety-dry--run%20by%20default-orange)
 
+## Missions
+
+Shirarium has two core missions:
+
+1.  **Tidy Up (Filesystem Organizer):** Recursively scans your media folders directly (bypassing Jellyfin's DB) to find every file, even those Jellyfin missed. It proposes a clean, standardized folder structure (e.g., `Movies/Title (Year) [Resolution]/Title.mkv`) based on filename parsing.
+2.  **Identify "Unjellied" Content:** Cross-references the filesystem against Jellyfin's database to flag items that are **Unrecognized** (missing from Jellyfin) or **Missing Metadata** (recognized but unidentified).
+
 ## Features
 
-- **Native Speed**: Zero-latency heuristic C# parsing engine.
-- **Batteries Included**: No external Docker containers required. Just install the plugin.
-- **Managed AI**: Optionally download and manage a local LLM (Qwen 3 4B via llama-server) for 100% offline intelligence.
+- **Filesystem-First Scanning**: Finds files Jellyfin ignores.
+- **Hybrid Intelligence**: Uses Jellyfin's accurate metadata when available (Probe data), falls back to advanced filename heuristics/AI when not.
+- **Native Speed**: Zero-latency C# regex engine for initial parsing.
+- **Batteries Included**: Managed local AI (Qwen 2.5 3B via llama-server) automatically downloaded and run for difficult filenames.
 - **Review First**: Generates a detailed organization plan. You approve changes before any file moves.
 - **Safety Net**: Complete Undo/Rollback support.
 
@@ -56,11 +64,21 @@ Copy-Item .env.example .env
 .\scripts\dev-up.ps1
 ```
 
-3. Seed test media (Optional):
+3. Seed test media (Optional but Recommended):
 
-```powershell
-.\scripts\seed-dev-media.ps1 -DatasetPath datasets/regression/tier-b-synthetic.json -CleanIncoming
-```
+   **Option A: Clean Dataset (Good for basic testing)**
+   ```powershell
+   .\scripts\seed-dev-media.ps1 -DatasetPath datasets/regression/tier-b-synthetic.json -CleanIncoming
+   ```
+
+   **Option B: Dirty "Chaos" Dataset (Realistic)**
+   ```powershell
+   # First generate the dataset (requires python)
+   python scripts/harvest_synthetic_dataset.py
+   
+   # Then seed it
+   .\scripts\seed-dev-media.ps1 -DatasetPath datasets/regression/tier-b-synthetic-dirty.json -CleanIncoming
+   ```
 
 4. Build and reload plugin:
 
@@ -73,8 +91,8 @@ Copy-Item .env.example .env
 ## Architecture
 
 - **Core**: `src/Jellyfin.Plugin.Shirarium` - A native .NET plugin.
-- **Heuristics**: In-process high-performance Regex engine.
-- **AI**: Managed `llama-server` process (auto-downloaded) or connection to external Ollama.
+- **Scanning**: Hybrid `FilesystemCandidateProvider` + Jellyfin DB Cross-reference.
+- **AI**: Managed `llama-server` process (auto-downloaded) running Qwen 2.5 3B Instruct.
 
 ## Testing
 
@@ -94,15 +112,14 @@ dotnet test tests/Jellyfin.Plugin.Shirarium.Tests/Jellyfin.Plugin.Shirarium.Test
 
 Go to **Dashboard -> Plugins -> Shirarium** to configure:
 
-- **AI Parsing**: Enable/Disable managed local inference or set an external Ollama URL.
-- **Conflict Policy**: Choose how to handle filename collisions (`fail`, `skip`, `suffix`).
+- **AI Parsing**: Enable/Disable managed local inference.
 - **Path Templates**: Customize how movies and episodes are renamed.
 
 ## Safety
 
 - No automatic file move/rename happens in the current pipeline.
 - Apply operations require explicit source-path selection.
-- Apply is guarded by plan fingerprint matching to ensure operations run only against the exact reviewed plan.
+- Apply is guarded by plan fingerprint matching.
 - **Undo** is fully supported via the "History" tab or API.
 
 ## Roadmap

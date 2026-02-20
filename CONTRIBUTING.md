@@ -70,17 +70,10 @@ BREAKING CHANGE: explain what changed and how to migrate.
 
 Before opening a PR, run what is relevant:
 
-Engine tests:
+Hydrate Test Media:
 
 ```powershell
-cd .\engine
-python -m unittest discover -s tests -v
-```
-
-Or:
-
-```powershell
-.\scripts\test-engine.ps1
+.\scripts\seed-dev-media.ps1 -DatasetPath datasets/regression/tier-b-synthetic.json -CleanIncoming
 ```
 
 Plugin build:

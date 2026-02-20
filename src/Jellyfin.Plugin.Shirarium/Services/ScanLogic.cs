@@ -74,7 +74,7 @@ internal static class ScanLogic
     internal static string? GetResolution(object item)
     {
         var height = GetIntProperty(item, "Height");
-        if (!height.HasValue)
+        if (!height.HasValue || height.Value <= 0)
         {
             return null;
         }

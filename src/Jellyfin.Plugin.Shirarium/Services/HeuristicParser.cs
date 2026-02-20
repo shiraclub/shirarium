@@ -72,14 +72,17 @@ public sealed class HeuristicParser
             for (int i = parts.Length - 2; i >= 0 && i >= parts.Length - 3; i--)
             {
                 var parentName = parts[i];
-                if (IsIgnoredFolder(parentName)) continue;
+                if (string.IsNullOrWhiteSpace(parentName) || IsIgnoredFolder(parentName)) continue;
 
                 var parentResult = ParseCore(parentName);
 
                 // Merge logic
                 if (result.Title == "Unknown Title" || result.Title.Length < 3 || int.TryParse(result.Title, out _))
                 {
-                    result = result with { Title = parentResult.Title };
+                    if (parentResult.Title != "Unknown Title")
+                    {
+                        result = result with { Title = parentResult.Title };
+                    }
                 }
 
                 if (result.Year == null)
