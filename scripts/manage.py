@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+import urllib.error
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -22,7 +23,29 @@ def run_command(cmd, cwd=REPO_ROOT, env=None):
     try:
         subprocess.check_call(cmd, cwd=cwd, env=env)
     except subprocess.CalledProcessError as e:
-        print(f"Error command failed: {e}")
+        print(f"Error: command failed with exit code {e.returncode}")
+        sys.exit(e.returncode)
+
+def call_api(path, method="GET", body=None, args=None):
+    """Call Jellyfin/Shirarium API."""
+    url = f"{args.url.rstrip('/')}/shirarium/{path}"
+    headers = {"X-Emby-Token": args.token} if args.token else {}
+    data = json.dumps(body).encode("utf-8") if body else None
+    
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    if body:
+        req.add_header("Content-Type", "application/json")
+    
+    try:
+        with urllib.request.urlopen(req) as f:
+            resp = json.loads(f.read().decode("utf-8"))
+            print(json.dumps(resp, indent=2))
+            return resp
+    except urllib.error.HTTPError as e:
+        print(f"API Error ({e.code}): {e.read().decode('utf-8')}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Failed to connect: {e}")
         sys.exit(1)
 
 def cmd_up(args):
@@ -139,6 +162,35 @@ def cmd_clean(args):
     else:
         print("Directory does not exist, nothing to wipe.")
 
+def cmd_api(args):
+    """Execute API commands."""
+    if args.api_command == "scan":
+        call_api("scan", method="POST", args=args)
+    elif args.api_command == "plan":
+        call_api("plan-organize", method="POST", args=args)
+    elif args.api_command == "status":
+        call_api("ops-status", args=args)
+    elif args.api_command == "suggestions":
+        call_api("suggestions", args=args)
+    elif args.api_command == "summary":
+        call_api("organization-plan-summary", args=args)
+    elif args.api_command == "history":
+        call_api("organization-plan-history", args=args)
+    elif args.api_command == "locks":
+        call_api("review-locks", args=args)
+    elif args.api_command == "apply":
+        if not args.fingerprint:
+            print("Error: --fingerprint is required for apply")
+            sys.exit(1)
+        body = {
+            "expectedPlanFingerprint": args.fingerprint,
+            "sourcePaths": args.paths if args.paths else []
+        }
+        call_api("apply-plan", method="POST", body=body, args=args)
+    elif args.api_command == "undo":
+        body = {"runId": args.run_id} if args.run_id else {}
+        call_api("undo-apply", method="POST", body=body, args=args)
+
 def main():
     parser = argparse.ArgumentParser(description="Shirarium Developer CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -157,7 +209,7 @@ def main():
     # test
     p_test = subparsers.add_parser("test", help="Run tests")
     p_test.add_argument("--integration", action="store_true", help="Run integration tests")
-    p_test.add_argument("--system", action="store_true", help="Run system E2E tests (Testcontainers)")
+    p_test.add_argument("--system", action="store_true", help="Run system E2E tests")
     p_test.set_defaults(func=cmd_test)
 
     # seed
@@ -176,6 +228,29 @@ def main():
     p_clean = subparsers.add_parser("clean", help="Wipe Jellyfin data volumes")
     p_clean.add_argument("--prod", action="store_true", help="Wipe production data")
     p_clean.set_defaults(func=cmd_clean)
+
+    # api
+    p_api = subparsers.add_parser("api", help="Call Shirarium API")
+    p_api.add_argument("--url", default="http://localhost:8097", help="Jellyfin URL (default: dev port 8097)")
+    p_api.add_argument("--token", help="API Access Token (Admin)")
+    api_subs = p_api.add_subparsers(dest="api_command", required=True)
+    
+    api_subs.add_parser("scan", help="Trigger dry-run scan")
+    api_subs.add_parser("plan", help="Generate organization plan")
+    api_subs.add_parser("status", help="Get operational status")
+    api_subs.add_parser("suggestions", help="Get latest scan suggestions")
+    api_subs.add_parser("summary", help="Get organization plan summary")
+    api_subs.add_parser("history", help="Get plan history")
+    api_subs.add_parser("locks", help="List review locks")
+    
+    p_apply = api_subs.add_parser("apply", help="Apply organization plan")
+    p_apply.add_argument("--fingerprint", required=True, help="Expected plan fingerprint")
+    p_apply.add_argument("--paths", nargs="+", help="Specific source paths to apply (optional)")
+    
+    p_undo = api_subs.add_parser("undo", help="Undo last apply run")
+    p_undo.add_argument("--run-id", help="Specific run ID to undo (optional)")
+
+    p_api.set_defaults(func=cmd_api)
 
     args = parser.parse_args()
     args.func(args)

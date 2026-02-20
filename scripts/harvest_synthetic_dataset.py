@@ -23,80 +23,132 @@ SOURCES = ["BluRay", "WEB-DL", "WEBRip", "HDTV", "HDR", "DoVi"]
 CODECS = ["x264", "x265", "h264", "HEVC", "AV1"]
 GROUPS = ["SPARKS", "DON", "AMIABLE", "FRAme", "Erai-raws", "SubsPlease", "YTS", "RARBG"]
 
+def get_clutter(base_name, parent_folder=""):
+    clutter = []
+    # 50% chance of NFO
+    if random.random() > 0.5:
+        clutter.append(f"{parent_folder}{base_name}.nfo")
+    
+    # 20% chance of Sample
+    if random.random() > 0.8:
+        clutter.append(f"{parent_folder}Sample/{base_name}-sample.mkv")
+        
+    # 10% chance of Proof
+    if random.random() > 0.9:
+        clutter.append(f"{parent_folder}Proof/{base_name}-proof.jpg")
+    
+    # 30% chance of random txt/url
+    if random.random() > 0.7:
+        clutter.append(f"{parent_folder}RARBG.txt")
+        
+    return clutter
+
 def generate_movie(title, year):
     quality = random.choice(QUALITIES)
     source = random.choice(SOURCES)
     codec = random.choice(CODECS)
     group = random.choice(GROUPS)
     
-    # Randomize Template
-    templates = [
-        f"{title.replace(' ', '.')}.{year}.{quality}.{source}.{codec}-{group}.mkv",
-        f"{title} ({year}) [{quality}] [{codec}].mp4",
-        f"{title}.{year}.{source}.{codec}.mkv",
-        f"[{group}] {title} ({year}) {quality}.avi",
-        f"Movies/{title} ({year})/{title.replace(' ', '.')}.{quality}.mkv" # Nested
-    ]
+    base_name = f"{title.replace(' ', '.')}.{year}.{quality}.{source}.{codec}-{group}"
     
-    return {
-        "relativePath": random.choice(templates),
-        "expected": {
-            "mediaType": "movie",
-            "title": title,
-            "year": year
-        }
-    }
+    # Templates
+    # 1. Flat file
+    # 2. Scene Folder
+    # 3. Clean Folder
+    
+    strategy = random.choice(["flat", "scene", "clean"])
+    entries = []
+    
+    if strategy == "flat":
+        rel_path = f"{base_name}.mkv"
+        entries.append({
+            "relativePath": rel_path,
+            "expected": { "mediaType": "movie", "title": title, "year": year }
+        })
+    elif strategy == "scene":
+        folder = f"Downloads/{base_name}/"
+        rel_path = f"{folder}{base_name}.mkv"
+        entries.append({
+            "relativePath": rel_path,
+            "expected": { "mediaType": "movie", "title": title, "year": year }
+        })
+        for c in get_clutter(base_name, folder):
+            entries.append({ "relativePath": c, "expected": None }) # Clutter has no expected metadata
+            
+    elif strategy == "clean":
+        folder = f"Movies/{title} ({year})/"
+        rel_path = f"{folder}{title} ({year}) [{quality}].mkv"
+        entries.append({
+            "relativePath": rel_path,
+            "expected": { "mediaType": "movie", "title": title, "year": year }
+        })
+        # Even clean folders have clutter sometimes
+        if random.random() > 0.8:
+             entries.append({ "relativePath": f"{folder}fanart.jpg", "expected": None })
+
+    return entries
 
 def generate_episode(title, season, episode):
     quality = random.choice(QUALITIES)
     group = random.choice(GROUPS)
     
-    # Randomize Template
-    templates = [
-        f"{title.replace(' ', '.')}.S{season:02d}E{episode:02d}.{quality}.mkv",
-        f"{title} - {season}x{episode:02d} - Episode Title [{quality}].mp4",
-        f"{title}.S{season:02d}.E{episode:02d}.{quality}.WEBRip.{random.choice(CODECS)}-{group}.mkv",
-        f"[{group}] {title} - {episode:02d} [{quality}].mkv",
-        f"TV/{title}/Season {season}/{title}.S{season:02d}E{episode:02d}.mkv" # Nested
-    ]
+    base_name = f"{title.replace(' ', '.')}.S{season:02d}E{episode:02d}.{quality}.{random.choice(CODECS)}-{group}"
     
-    return {
-        "relativePath": random.choice(templates),
-        "expected": {
-            "mediaType": "episode",
-            "title": title,
-            "season": season,
-            "episode": episode
-        }
-    }
+    strategy = random.choice(["flat", "scene", "organized"])
+    entries = []
+    
+    if strategy == "flat":
+        rel_path = f"{base_name}.mkv"
+        entries.append({
+            "relativePath": rel_path,
+            "expected": { "mediaType": "episode", "title": title, "season": season, "episode": episode }
+        })
+    elif strategy == "scene":
+        folder = f"TV-Downloads/{base_name}/"
+        rel_path = f"{folder}{base_name}.mkv"
+        entries.append({
+            "relativePath": rel_path,
+            "expected": { "mediaType": "episode", "title": title, "season": season, "episode": episode }
+        })
+        for c in get_clutter(base_name, folder):
+            entries.append({ "relativePath": c, "expected": None })
+            
+    elif strategy == "organized":
+        folder = f"TV/{title}/Season {season}/"
+        rel_path = f"{folder}{title} - S{season:02d}E{episode:02d}.mkv"
+        entries.append({
+            "relativePath": rel_path,
+            "expected": { "mediaType": "episode", "title": title, "season": season, "episode": episode }
+        })
 
-def harvest(count=10000):
+    return entries
+
+def harvest(count=5000):
     entries = []
     all_titles = TITLES + EVIL_TITLES
     
     for _ in range(count):
-        # 60% Movies, 40% Episodes
         if random.random() > 0.4:
-            entries.append(generate_movie(random.choice(all_titles), random.choice(YEARS)))
+            entries.extend(generate_movie(random.choice(all_titles), random.choice(YEARS)))
         else:
-            entries.append(generate_episode(random.choice(all_titles), random.randint(1, 10), random.randint(1, 24)))
+            entries.extend(generate_episode(random.choice(all_titles), random.randint(1, 10), random.randint(1, 24)))
     
     manifest = {
         "schemaVersion": "1.0",
-        "name": "tier-b-synthetic-stress-extreme",
-        "description": f"Extreme stress test dataset with {count} items including logic traps.",
+        "name": "tier-b-synthetic-dirty",
+        "description": f"Dirty dataset with {len(entries)} items including clutter (NFO, samples, etc).",
         "entries": entries
     }
     
-    output_path = Path("datasets/regression/tier-b-synthetic.json")
+    output_path = Path("datasets/regression/tier-b-synthetic-dirty.json")
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
     
-    print(f"Successfully harvested {count} entries to {output_path}")
+    print(f"Successfully harvested {len(entries)} entries to {output_path}")
 
 if __name__ == "__main__":
     import sys
-    count = 10000
+    count = 5000
     if len(sys.argv) > 1:
         count = int(sys.argv[1])
     harvest(count)
