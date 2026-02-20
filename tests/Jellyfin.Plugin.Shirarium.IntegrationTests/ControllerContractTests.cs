@@ -640,7 +640,6 @@ public sealed class ControllerContractTests
             null!,
             applicationPaths,
             NullLogger<ShirariumController>.Instance,
-            Enumerable.Empty<IHostedService>(),
             NullLoggerFactory.Instance);
     }
 
