@@ -43,6 +43,7 @@ public sealed class ShirariumScanner
     /// Internal constructor for testing with delegate override.
     /// </summary>
     internal ShirariumScanner(
+        ILibraryManager libraryManager,
         IApplicationPaths applicationPaths,
         ILogger logger,
         ISourceCandidateProvider sourceCandidateProvider,
@@ -51,7 +52,7 @@ public sealed class ShirariumScanner
     {
         _applicationPaths = applicationPaths;
         _logger = logger;
-        _libraryManager = null!; // Not used in this test constructor flow or needs mock
+        _libraryManager = libraryManager;
         _sourceCandidateProvider = sourceCandidateProvider;
         _configOverride = configOverride;
         _parseFilenameAsync = parseFilenameAsync;

@@ -3,6 +3,8 @@ using Jellyfin.Plugin.Shirarium.Contracts;
 using Jellyfin.Plugin.Shirarium.Models;
 using Jellyfin.Plugin.Shirarium.Services;
 using Microsoft.Extensions.Logging.Abstractions;
+using MediaBrowser.Controller.Library;
+using NSubstitute;
 using Xunit;
 
 namespace Jellyfin.Plugin.Shirarium.IntegrationTests;
@@ -66,7 +68,11 @@ public sealed class ScannerDatasetTests
                     }
                 ]);
 
+            var libraryManager = Substitute.For<ILibraryManager>();
+            libraryManager.FindByPath(Arg.Any<string>(), Arg.Any<bool?>()).Returns((MediaBrowser.Controller.Entities.BaseItem?)null);
+
             var scanner = new ShirariumScanner(
+                libraryManager,
                 applicationPaths,
                 NullLogger.Instance,
                 runtime.Provider,
@@ -114,7 +120,9 @@ public sealed class ScannerDatasetTests
         try
         {
             var applicationPaths = CreateApplicationPaths(root);
+            var libraryManager = Substitute.For<ILibraryManager>();
             var scanner = new ShirariumScanner(
+                libraryManager,
                 applicationPaths,
                 NullLogger.Instance,
                 new ThrowingSourceCandidateProvider(),
