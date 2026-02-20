@@ -73,7 +73,7 @@ Before opening a PR, run what is relevant:
 Hydrate Test Media:
 
 ```powershell
-.\scripts\seed-dev-media.ps1 -DatasetPath datasets/regression/tier-b-synthetic.json -CleanIncoming
+python scripts/manage.py seed --dataset datasets/regression/tier-b-synthetic.json --clean
 ```
 
 Plugin build:
@@ -85,7 +85,7 @@ dotnet build .\src\Jellyfin.Plugin.Shirarium\Jellyfin.Plugin.Shirarium.csproj -c
 Plugin tests:
 
 ```powershell
-.\scripts\test-plugin.ps1
+python scripts/manage.py test --integration
 ```
 
 Direct plugin test commands:
@@ -98,13 +98,13 @@ dotnet test .\tests\Jellyfin.Plugin.Shirarium.IntegrationTests\Jellyfin.Plugin.S
 Local stack smoke test:
 
 ```powershell
-.\scripts\dev-up.ps1
-.\scripts\dev-reload.ps1
-.\scripts\run-dryrun-scan.ps1
-.\scripts\run-organization-plan.ps1
-.\scripts\apply-organization-plan.ps1 -SourcePath "D:\media\incoming\example.mkv"
-.\scripts\show-apply-journal.ps1
-.\scripts\undo-apply-plan.ps1
+python scripts/manage.py up
+python scripts/manage.py reload
+python scripts/manage.py api scan --token YOUR_TOKEN
+python scripts/manage.py api plan --token YOUR_TOKEN
+python scripts/manage.py api apply --fingerprint FINGERPRINT --token YOUR_TOKEN
+python scripts/manage.py api status --token YOUR_TOKEN
+python scripts/manage.py api undo --token YOUR_TOKEN
 ```
 
 ## Coding Expectations

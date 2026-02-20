@@ -61,14 +61,14 @@ Copy-Item .env.example .env
 2. Start Jellyfin dev instance:
 
 ```powershell
-.\scripts\dev-up.ps1
+python scripts/manage.py up
 ```
 
 3. Seed test media (Optional but Recommended):
 
    **Option A: Clean Dataset (Good for basic testing)**
    ```powershell
-   .\scripts\seed-dev-media.ps1 -DatasetPath datasets/regression/tier-b-synthetic.json -CleanIncoming
+   python scripts/manage.py seed --dataset datasets/regression/tier-b-synthetic.json --clean
    ```
 
    **Option B: Dirty "Chaos" Dataset (Realistic)**
@@ -77,13 +77,13 @@ Copy-Item .env.example .env
    python scripts/harvest_synthetic_dataset.py
    
    # Then seed it
-   .\scripts\seed-dev-media.ps1 -DatasetPath datasets/regression/tier-b-synthetic-dirty.json -CleanIncoming
+   python scripts/manage.py seed --dataset datasets/regression/tier-b-synthetic-dirty.json --clean
    ```
 
 4. Build and reload plugin:
 
 ```powershell
-.\scripts\dev-reload.ps1
+python scripts/manage.py reload
 ```
 
 5. Open Jellyfin: `http://localhost:8097`
@@ -99,7 +99,7 @@ Copy-Item .env.example .env
 Run the full suite (Unit + Integration):
 
 ```powershell
-.\scripts\test-plugin.ps1
+python scripts/manage.py test --integration
 ```
 
 Or manually:

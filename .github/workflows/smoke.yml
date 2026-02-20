@@ -32,6 +32,11 @@ jobs:
           cp src/Jellyfin.Plugin.Shirarium/bin/Release/net9.0/Jellyfin.Plugin.Shirarium.pdb artifacts/plugin/
           cp src/Jellyfin.Plugin.Shirarium/bin/Release/net9.0/Jellyfin.Plugin.Shirarium.xml artifacts/plugin/
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Run Jellyfin smoke flow
         shell: bash
         run: |
@@ -45,11 +50,10 @@ jobs:
           export JELLYFIN_PORT=8097
           export JELLYFIN_BASE_URL="http://localhost:${JELLYFIN_PORT}"
 
-          pwsh -File ./scripts/seed-dev-media.ps1 \
-            -CleanIncoming \
-            -MediaRoot "${MEDIA_PATH}" > /tmp/shirarium-seed-summary.json
-          cat /tmp/shirarium-seed-summary.json
-
+          python3 scripts/manage.py seed \
+            --clean \
+            --dataset datasets/regression/tier-b-synthetic.json
+          
           cleanup() {
             docker compose down -v || true
           }
