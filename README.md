@@ -1,5 +1,9 @@
 # Shirarium
 
+<p align="center">
+  <img src="thumb.png" width="160" height="160" alt="Shirarium Logo">
+</p>
+
 Clean up your Jellyfin library.  
 
 Shirarium turns messy file and folder names into a pristine, Jellyfin-friendly structure using advanced heuristics and optional AI-assisted parsing.  
