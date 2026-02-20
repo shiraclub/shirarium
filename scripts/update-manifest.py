@@ -4,11 +4,11 @@ import sys
 from pathlib import Path
 
 def get_checksum(file_path):
-    sha256_hash = hashlib.sha256()
+    md5_hash = hashlib.md5()
     with open(file_path, "rb") as f:
         for byte_block in iter(lambda: f.read(4096), b""):
-            sha256_hash.update(byte_block)
-    return sha256_hash.hexdigest()
+            md5_hash.update(byte_block)
+    return md5_hash.hexdigest()
 
 def update_manifest(version, zip_path):
     manifest_path = Path("manifest.json")

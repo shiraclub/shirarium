@@ -2,17 +2,17 @@
   {
     "guid": "f8f6424f-3316-47ef-bfbe-b8138f7ef3ab",
     "name": "Shirarium",
-    "description": "Elite-tier media organization and semantic parsing engine.",
-    "overview": "Organize your messy files into pristine, Jellyfin-friendly hierarchies using AI-assisted heuristics.",
+    "description": "The ultimate library cleaning and metadata extraction tool.",
+    "overview": "Easily clean up your Jellyfin library by renaming files and folders with high-precision heuristics. No external containers required; 100% native and offline intelligence.",
     "owner": "shiraclub",
     "category": "Organization",
     "versions": [
       {
-        "version": "0.0.1",
-        "changelog": "Release v0.0.1",
+        "version": "0.0.2",
+        "changelog": "Release v0.0.2",
         "targetAbi": "10.11.6.0",
-        "sourceUrl": "https://github.com/shiraclub/shirarium/releases/download/v0.0.1/shirarium-v0.0.1.zip",
-        "checksum": "8ccbb0059a73aa72e64b7b3f8c3ee9d02d24998d24876074284bbdb93d0ea5af"
+        "sourceUrl": "https://github.com/shiraclub/shirarium/releases/download/v0.0.2/shirarium-v0.0.2.zip",
+        "checksum": "b86a4e3a8a719296ede1e1ea9a0081d5"
       }
     ]
   }
