@@ -83,9 +83,9 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     public string LocalModelPath { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the URL used to download the recommended model (Qwen 3 4B GGUF).
+    /// Gets or sets the URL used to download the recommended model (Qwen 2.5 3B GGUF).
     /// </summary>
-    public string ModelUrl { get; set; } = "https://huggingface.co/Qwen/Qwen3-4B-Instruct-GGUF/resolve/main/qwen3-4b-instruct-q5_k_m.gguf";
+    public string ModelUrl { get; set; } = "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf";
 
     /// <summary>
     /// Gets or sets the destination root path used when generating organization plans.

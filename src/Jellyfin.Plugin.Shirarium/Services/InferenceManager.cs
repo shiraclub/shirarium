@@ -105,11 +105,12 @@ public sealed class InferenceManager : IHostedService, IDisposable
         Directory.CreateDirectory(binFolder);
 
         string binaryName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "llama-server.exe" : "llama-server";
-        var binaryPath = Path.Combine(binFolder, binaryName);
-
-        if (File.Exists(binaryPath))
+        
+        // Check if binary exists anywhere in bin folder
+        var existing = Directory.GetFiles(binFolder, binaryName, SearchOption.AllDirectories).FirstOrDefault();
+        if (existing != null)
         {
-            return binaryPath;
+            return existing;
         }
 
         string? downloadUrl = GetBinaryUrl();
@@ -135,16 +136,38 @@ public sealed class InferenceManager : IHostedService, IDisposable
             }
 
             _logger.LogInformation("Extracting binary...");
+            // Clean bin folder before extraction to avoid conflicts/mess
+            if (Directory.Exists(binFolder))
+            {
+                Directory.Delete(binFolder, true);
+                Directory.CreateDirectory(binFolder);
+            }
+            
             ZipFile.ExtractToDirectory(tempZip, binFolder, true);
             
+            var foundBinary = Directory.GetFiles(binFolder, binaryName, SearchOption.AllDirectories).FirstOrDefault();
+            if (foundBinary == null)
+            {
+                _logger.LogError("Binary {Name} not found in extracted zip.", binaryName);
+                return string.Empty;
+            }
+
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 // Set executable permission on Unix
-                Process.Start("chmod", $"+x \"{binaryPath}\"")?.WaitForExit();
+                try
+                {
+                    using var chmod = Process.Start("chmod", $"+x \"{foundBinary}\"");
+                    chmod?.WaitForExit();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to set executable permissions on {Path}", foundBinary);
+                }
             }
 
-            _logger.LogInformation("Binary setup complete.");
-            return binaryPath;
+            _logger.LogInformation("Binary setup complete: {Path}", foundBinary);
+            return foundBinary;
         }
         catch (Exception ex)
         {
@@ -209,7 +232,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
         {
             var folder = Path.Combine(_applicationPaths.DataPath, "plugins", "Shirarium", "models");
             Directory.CreateDirectory(folder);
-            modelPath = Path.Combine(folder, "qwen3-4b-instruct.gguf");
+            modelPath = Path.Combine(folder, "shirarium-model.gguf");
         }
 
         if (File.Exists(modelPath))
