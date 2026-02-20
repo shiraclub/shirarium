@@ -56,13 +56,19 @@ Copy-Item .env.example .env
 .\scripts\dev-up.ps1
 ```
 
-3. Build and reload plugin:
+3. Seed test media (Optional):
+
+```powershell
+.\scripts\seed-dev-media.ps1 -DatasetPath datasets/regression/tier-b-synthetic.json -CleanIncoming
+```
+
+4. Build and reload plugin:
 
 ```powershell
 .\scripts\dev-reload.ps1
 ```
 
-4. Open Jellyfin: `http://localhost:8097`
+5. Open Jellyfin: `http://localhost:8097`
 
 ## Architecture
 
