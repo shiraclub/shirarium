@@ -15,9 +15,9 @@ Shirarium turns messy file and folder names into a pristine, Jellyfin-friendly s
 
 ## Features
 
-- **Native Speed**: Zero-latency heuristic parsing engine (ported from Python to pure C#).
+- **Native Speed**: Zero-latency heuristic C# parsing engine.
 - **Batteries Included**: No external Docker containers required. Just install the plugin.
-- **Managed AI**: Can optionally download and manage a local LLM (Qwen 3 4B via llama-server) for 100% offline intelligence.
+- **Managed AI**: Optionally download and manage a local LLM (Qwen 3 4B via llama-server) for 100% offline intelligence.
 - **Review First**: Generates a detailed organization plan. You approve changes before any file moves.
 - **Safety Net**: Complete Undo/Rollback support.
 
