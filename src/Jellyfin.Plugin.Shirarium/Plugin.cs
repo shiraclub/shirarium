@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading;
 using Jellyfin.Plugin.Shirarium.Configuration;
+using Jellyfin.Plugin.Shirarium.Services;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Shirarium;
 
@@ -13,7 +16,7 @@ namespace Jellyfin.Plugin.Shirarium;
 /// Main Jellyfin plugin entrypoint for Shirarium.
 /// </summary>
 public sealed class Plugin : BasePlugin<PluginConfiguration>
-    , IHasWebPages
+    , IHasWebPages, IDisposable
 {
     /// <summary>
     /// Gets the singleton plugin instance.
@@ -24,6 +27,11 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>
     /// Gets the Jellyfin application paths.
     /// </summary>
     public IApplicationPaths AppPaths { get; }
+
+    /// <summary>
+    /// Gets the managed inference manager.
+    /// </summary>
+    public InferenceManager? InferenceManager { get; private set; }
 
     /// <inheritdoc />
     public override string Name => "Shirarium";
@@ -36,11 +44,14 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>
     /// </summary>
     /// <param name="applicationPaths">Jellyfin application paths.</param>
     /// <param name="xmlSerializer">Serializer used by Jellyfin plugin infrastructure.</param>
-    public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
+    /// <param name="loggerFactory">Logger factory.</param>
+    public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer, ILoggerFactory loggerFactory)
         : base(applicationPaths, xmlSerializer)
     {
         AppPaths = applicationPaths;
         Instance = this;
+        InferenceManager = new InferenceManager(applicationPaths, loggerFactory.CreateLogger<InferenceManager>());
+        _ = InferenceManager.StartAsync(CancellationToken.None);
     }
 
     /// <inheritdoc />
@@ -55,5 +66,12 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>
                 EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", GetType().Namespace)
             }
         ];
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        InferenceManager?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
+        InferenceManager?.Dispose();
     }
 }

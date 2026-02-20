@@ -4,7 +4,7 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>0.0.5</Version>
+    <Version>0.0.6</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <AssemblyName>Jellyfin.Plugin.Shirarium</AssemblyName>
     <RootNamespace>Jellyfin.Plugin.Shirarium</RootNamespace>

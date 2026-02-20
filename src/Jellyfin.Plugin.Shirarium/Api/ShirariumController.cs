@@ -24,7 +24,6 @@ public sealed class ShirariumController : ControllerBase
     private readonly OrganizationPlanner _planner;
     private readonly ShirariumScanner _scanner;
     private readonly OrganizationPlanUndoer _undoer;
-    private readonly InferenceManager? _inferenceManager;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ShirariumController"/> class.
@@ -33,7 +32,6 @@ public sealed class ShirariumController : ControllerBase
         ILibraryManager libraryManager,
         IApplicationPaths applicationPaths,
         ILogger<ShirariumController> logger,
-        IEnumerable<IHostedService> hostedServices,
         ILoggerFactory loggerFactory)
     {
         _applicationPaths = applicationPaths;
@@ -53,7 +51,6 @@ public sealed class ShirariumController : ControllerBase
         _planner = new OrganizationPlanner(applicationPaths, logger);
         _applier = new OrganizationPlanApplier(applicationPaths, logger);
         _undoer = new OrganizationPlanUndoer(applicationPaths, logger);
-        _inferenceManager = hostedServices.OfType<InferenceManager>().FirstOrDefault();
     }
 
     /// <summary>
@@ -62,12 +59,13 @@ public sealed class ShirariumController : ControllerBase
     [HttpGet("inference-status")]
     public ActionResult<InferenceStatusResponse> GetInferenceStatus()
     {
-        if (_inferenceManager == null)
+        var manager = Plugin.Instance?.InferenceManager;
+        if (manager == null)
         {
             return Ok(new InferenceStatusResponse { Status = "NotInitialized" });
         }
 
-        var (status, progress, error) = _inferenceManager.GetStatus();
+        var (status, progress, error) = manager.GetStatus();
         return Ok(new InferenceStatusResponse
         {
             Status = status,

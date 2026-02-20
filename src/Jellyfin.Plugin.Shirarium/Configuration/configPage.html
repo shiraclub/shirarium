@@ -19,6 +19,18 @@
                     flex-wrap: wrap;
                     gap: 8px;
                     align-items: center;
+                    margin-bottom: 16px;
+                }
+
+                #ShirariumReviewPage .shirarium-controls-row {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 16px;
+                    align-items: flex-end;
+                    margin-bottom: 12px;
+                    background: rgba(0, 0, 0, 0.2);
+                    padding: 12px;
+                    border-radius: 8px;
                 }
 
                 #ShirariumReviewPage .shirarium-tabs {
@@ -170,6 +182,24 @@
                     width: 0%;
                     transition: width 0.3s ease;
                 }
+
+                /* Layout helpers for controls */
+                .inputContainer {
+                    flex: 1;
+                    min-width: 150px;
+                    margin: 0 !important;
+                }
+                .selectContainer {
+                    flex: 1;
+                    min-width: 150px;
+                    margin: 0 !important;
+                }
+                .checkboxContainer {
+                    display: flex;
+                    align-items: center;
+                    margin: 0 !important;
+                    min-height: 40px;
+                }
             </style>
 
             <div class="verticalSection verticalSection-extrabottompadding shirarium-grid">
@@ -225,25 +255,39 @@
                             <button is="emby-button" type="button" id="shirariumClearSelection" class="raised">Clear Selection</button>
                         </div>
 
-                        <div class="shirarium-inline">
-                            <label><input type="checkbox" id="shirariumMovesOnly" checked> Moves only</label>
-                            <label><input type="checkbox" id="shirariumOverridesOnly"> Overrides only</label>
-                            <label>Min confidence <input id="shirariumMinConfidence" type="number" min="0" max="1" step="0.01" value="0"></label>
-                            <label>Action
-                                <select id="shirariumActionFilter">
+                        <!-- Filters Row -->
+                        <div class="shirarium-controls-row">
+                            <label class="checkboxContainer">
+                                <input type="checkbox" is="emby-checkbox" id="shirariumMovesOnly" checked>
+                                <span>Moves only</span>
+                            </label>
+                            <label class="checkboxContainer">
+                                <input type="checkbox" is="emby-checkbox" id="shirariumOverridesOnly">
+                                <span>Overrides only</span>
+                            </label>
+                            <div class="inputContainer">
+                                <input is="emby-input" id="shirariumMinConfidence" type="number" min="0" max="1" step="0.01" value="0" label="Min confidence" />
+                            </div>
+                            <div class="selectContainer">
+                                <label class="selectLabel" for="shirariumActionFilter">Action</label>
+                                <select is="emby-select" id="shirariumActionFilter">
                                     <option value="">All</option>
                                     <option value="move">move</option>
                                     <option value="skip">skip</option>
                                     <option value="none">none</option>
                                     <option value="conflict">conflict</option>
                                 </select>
-                            </label>
-                            <label>Path prefix <input id="shirariumPathPrefix" type="text" placeholder="D:\\media\\incoming"></label>
+                            </div>
+                            <div class="inputContainer">
+                                <input is="emby-input" id="shirariumPathPrefix" type="text" label="Path prefix" placeholder="D:\\media\\incoming" />
+                            </div>
                         </div>
 
-                        <div class="shirarium-inline">
-                            <label>Sort
-                                <select id="shirariumSortBy">
+                        <!-- Sort & Page Row -->
+                        <div class="shirarium-controls-row">
+                            <div class="selectContainer">
+                                <label class="selectLabel" for="shirariumSortBy">Sort</label>
+                                <select is="emby-select" id="shirariumSortBy">
                                     <option value="sourcePath">sourcePath</option>
                                     <option value="targetPath">targetPath</option>
                                     <option value="confidence">confidence</option>
@@ -251,36 +295,46 @@
                                     <option value="action">action</option>
                                     <option value="reason">reason</option>
                                 </select>
-                            </label>
-                            <label>Direction
-                                <select id="shirariumSortDirection">
+                            </div>
+                            <div class="selectContainer">
+                                <label class="selectLabel" for="shirariumSortDirection">Direction</label>
+                                <select is="emby-select" id="shirariumSortDirection">
                                     <option value="asc">asc</option>
                                     <option value="desc">desc</option>
                                 </select>
-                            </label>
-                            <label>Page <input id="shirariumPage" type="number" min="1" value="1"></label>
-                            <label>Page size <input id="shirariumPageSize" type="number" min="1" max="500" value="50"></label>
+                            </div>
+                            <div class="inputContainer">
+                                <input is="emby-input" id="shirariumPage" type="number" min="1" value="1" label="Page" />
+                            </div>
+                            <div class="inputContainer">
+                                <input is="emby-input" id="shirariumPageSize" type="number" min="1" max="500" value="50" label="Page size" />
+                            </div>
                         </div>
 
-                        <div class="shirarium-inline">
-                            <label>Bulk action
-                                <select id="shirariumBulkAction">
+                        <!-- Bulk Actions Row -->
+                        <div class="shirarium-controls-row">
+                            <div class="selectContainer">
+                                <label class="selectLabel" for="shirariumBulkAction">Bulk action</label>
+                                <select is="emby-select" id="shirariumBulkAction">
                                     <option value="move">move</option>
                                     <option value="skip">skip</option>
                                     <option value="none">none</option>
                                     <option value="conflict">conflict</option>
                                 </select>
-                            </label>
-                            <button is="emby-button" type="button" id="shirariumApplyBulkAction">Apply Action to Selected</button>
-                            <label>Bulk target prefix <input id="shirariumBulkTargetPrefix" type="text" placeholder="D:\\media\\organized"></label>
-                            <button is="emby-button" type="button" id="shirariumApplyBulkTargetPrefix">Apply Target Prefix</button>
+                            </div>
+                            <button is="emby-button" type="button" id="shirariumApplyBulkAction" class="raised">Apply Action</button>
+                            
+                            <div class="inputContainer" style="flex: 2;">
+                                <input is="emby-input" id="shirariumBulkTargetPrefix" type="text" label="Bulk target prefix" placeholder="D:\\media\\organized" />
+                            </div>
+                            <button is="emby-button" type="button" id="shirariumApplyBulkTargetPrefix" class="raised">Apply Target</button>
                         </div>
 
                         <div class="shirarium-table-wrap">
                             <table>
                                 <thead>
                                     <tr>
-                                        <th><input type="checkbox" id="shirariumSelectAll"></th>
+                                        <th><label class="checkboxContainer"><input type="checkbox" is="emby-checkbox" id="shirariumSelectAll"><span></span></label></th>
                                         <th>Source</th>
                                         <th>Target</th>
                                         <th>Effective</th>
@@ -321,7 +375,9 @@
                     <div class="shirarium-grid">
                         <div class="shirarium-toolbar">
                             <button is="emby-button" type="button" id="shirariumReloadLocks" class="raised">Reload Locks</button>
-                            <label>Limit <input id="shirariumLocksLimit" type="number" min="1" max="200" value="20"></label>
+                            <div class="inputContainer" style="max-width: 100px;">
+                                <input is="emby-input" id="shirariumLocksLimit" type="number" min="1" max="200" value="20" label="Limit" />
+                            </div>
                         </div>
                         <div class="shirarium-table-wrap">
                             <table>
@@ -345,7 +401,9 @@
                     <div class="shirarium-grid">
                         <div class="shirarium-toolbar">
                             <button is="emby-button" type="button" id="shirariumReloadHistory" class="raised">Reload History</button>
-                            <label>Limit <input id="shirariumHistoryLimit" type="number" min="1" max="200" value="20"></label>
+                            <div class="inputContainer" style="max-width: 100px;">
+                                <input is="emby-input" id="shirariumHistoryLimit" type="number" min="1" max="200" value="20" label="Limit" />
+                            </div>
                         </div>
                         <div class="shirarium-inline">
                             <div class="shirarium-w100">
@@ -467,17 +525,22 @@
                     var detailEl = el("shirariumStatusDetail");
                     var barEl = el("shirariumProgressBar");
 
-                    if (status.status === "Ready" || status.status === "Disabled") {
+                    // Handle potential casing issues
+                    var currentStatus = status.status || status.Status || "Unknown";
+                    var currentProgress = (status.progress !== undefined ? status.progress : status.Progress) || 0;
+                    var currentError = status.error || status.Error || "";
+
+                    if (currentStatus === "Ready" || currentStatus === "Disabled") {
                         statusEl.style.display = "none";
                         return;
                     }
 
                     statusEl.style.display = "block";
-                    labelEl.textContent = "AI Engine: " + status.status;
-                    detailEl.textContent = status.error ? status.error : (status.progress.toFixed(1) + "% complete");
-                    barEl.style.width = status.progress + "%";
+                    labelEl.textContent = "AI Engine: " + currentStatus;
+                    detailEl.textContent = currentError ? currentError : (Number(currentProgress).toFixed(1) + "% complete");
+                    barEl.style.width = currentProgress + "%";
 
-                    if (status.status === "Error") {
+                    if (currentStatus === "Error") {
                         statusEl.style.borderColor = "#ff9e9e";
                         statusEl.style.background = "rgba(255, 158, 158, 0.1)";
                     }
@@ -751,7 +814,7 @@
 
                     return ""
                         + "<tr>"
-                        + '<td><input type="checkbox" data-select-source="' + escapeHtml(sourcePath) + '"' + checked + selectDisabled + "></td>"
+                        + '<td><label class="checkboxContainer"><input type="checkbox" is="emby-checkbox" data-select-source="' + escapeHtml(sourcePath) + '"' + checked + selectDisabled + "><span></span></label></td>'
                         + "<td><code>" + escapeHtml(sourcePath) + "</code></td>"
                         + "<td><code>" + escapeHtml(entry.effectiveTargetPath || "") + "</code></td>"
                         + "<td>"
@@ -762,8 +825,8 @@
                         + "<td>" + Number(entry.confidence || 0).toFixed(3) + "</td>"
                         + "<td>"
                         + '<div class="shirarium-grid">'
-                        + '<label>Action <select data-override-action="' + escapeHtml(sourcePath) + '">' + actionOptions + '</select></label>'
-                        + '<label>Target <input type="text" data-override-target="' + escapeHtml(sourcePath) + '" value="' + escapeHtml(targetValue) + '"></label>'
+                        + '<div class="selectContainer"><select is="emby-select" data-override-action="' + escapeHtml(sourcePath) + '">' + actionOptions + '</select></div>'
+                        + '<div class="inputContainer"><input is="emby-input" type="text" data-override-target="' + escapeHtml(sourcePath) + '" value="' + escapeHtml(targetValue) + '"></div>'
                         + '<div class="shirarium-inline">'
                         + '<button is="emby-button" type="button" data-override-save="' + escapeHtml(sourcePath) + '">Save</button>'
                         + '<button is="emby-button" type="button" data-override-clear="' + escapeHtml(sourcePath) + '">Clear</button>'
