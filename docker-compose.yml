@@ -9,3 +9,15 @@ services:
       - ./data/jellyfin/cache:/cache
       - ./data/media:/media
       - ./artifacts/plugin:/config/plugins/Shirarium
+
+  jellyfin-prod:
+    image: jellyfin/jellyfin:10.11.6
+    container_name: shirarium-jellyfin-prod
+    profiles:
+      - prod
+    ports:
+      - "8098:8096"
+    volumes:
+      - ./data/jellyfin-prod/config:/config
+      - ./data/jellyfin-prod/cache:/cache
+      - ./data/media:/media

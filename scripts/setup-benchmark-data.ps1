@@ -47,4 +47,3 @@ foreach ($ds in $Datasets) {
 }
 
 Write-Host "`nSetup Complete." -ForegroundColor Cyan
-Write-Host "You can now run benchmarks against these files using engine/tests/benchmark.py"

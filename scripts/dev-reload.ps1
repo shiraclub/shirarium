@@ -15,7 +15,6 @@ if (-not $NoBuild) {
     dotnet build $pluginProject -c Debug -o $pluginOutDir
 }
 
-docker compose -f "$repoRoot/docker-compose.yml" up -d --build engine
 docker compose -f "$repoRoot/docker-compose.yml" up -d jellyfin-dev
 docker compose -f "$repoRoot/docker-compose.yml" restart jellyfin-dev
 
