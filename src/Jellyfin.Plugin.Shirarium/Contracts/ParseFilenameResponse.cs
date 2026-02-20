@@ -44,4 +44,12 @@ public sealed record class ParseFilenameResponse
     /// Gets raw tokenized fragments extracted from the filename.
     /// </summary>
     public IReadOnlyList<string> RawTokens { get; init; } = Array.Empty<string>();
+
+    public string? Resolution { get; init; }
+    public string? VideoCodec { get; init; }
+    public string? AudioCodec { get; init; }
+    public string? AudioChannels { get; init; }
+    public string? ReleaseGroup { get; init; }
+    public string? MediaSource { get; init; }
+    public string? Edition { get; init; }
 }

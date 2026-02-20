@@ -14,6 +14,7 @@ public sealed class ShirariumScanner
 {
     private readonly IApplicationPaths _applicationPaths;
     private readonly ILogger _logger;
+    private readonly ILibraryManager _libraryManager;
     private readonly PluginConfiguration? _configOverride;
     private readonly ISourceCandidateProvider _sourceCandidateProvider;
     private readonly EngineClient? _engineClient;
@@ -31,7 +32,8 @@ public sealed class ShirariumScanner
         : this(
             applicationPaths,
             logger,
-            new JellyfinLibraryCandidateProvider(libraryManager),
+            libraryManager,
+            new FilesystemCandidateProvider(libraryManager, logger),
             engineClient,
             configOverride)
     {
@@ -49,6 +51,7 @@ public sealed class ShirariumScanner
     {
         _applicationPaths = applicationPaths;
         _logger = logger;
+        _libraryManager = null!; // Not used in this test constructor flow or needs mock
         _sourceCandidateProvider = sourceCandidateProvider;
         _configOverride = configOverride;
         _parseFilenameAsync = parseFilenameAsync;
@@ -58,12 +61,14 @@ public sealed class ShirariumScanner
     private ShirariumScanner(
         IApplicationPaths applicationPaths,
         ILogger logger,
+        ILibraryManager libraryManager,
         ISourceCandidateProvider sourceCandidateProvider,
         EngineClient engineClient,
         PluginConfiguration? configOverride)
     {
         _applicationPaths = applicationPaths;
         _logger = logger;
+        _libraryManager = libraryManager;
         _sourceCandidateProvider = sourceCandidateProvider;
         _engineClient = engineClient;
         _configOverride = configOverride;
@@ -102,14 +107,14 @@ public sealed class ShirariumScanner
         var parserSourceCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var confidenceBucketCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        IEnumerable<object> items;
+        IEnumerable<string> items;
         try
         {
             items = _sourceCandidateProvider.GetCandidates(cancellationToken).ToArray();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Shirarium failed to enumerate Jellyfin library items.");
+            _logger.LogError(ex, "Shirarium failed to enumerate filesystem items.");
             return new ScanResultSnapshot
             {
                 GeneratedAtUtc = DateTimeOffset.UtcNow,
@@ -117,30 +122,33 @@ public sealed class ShirariumScanner
             };
         }
 
-        foreach (var item in items)
+        foreach (var sourcePath in items)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var path = ScanLogic.GetStringProperty(item, "Path");
-            if (!ScanLogic.IsSupportedPath(path, extensions))
+            if (!ScanLogic.IsSupportedPath(sourcePath, extensions))
             {
                 continue;
             }
-
-            var sourcePath = path!;
 
             examinedCount++;
 
-            var reasons = ScanLogic.GetCandidateReasons(item);
-            if (reasons.Length == 0 && !config.EnableFileOrganizationPlanning)
+            // Cross-reference with Jellyfin
+            object? jellyfinItem = null;
+            var reasonsList = new List<string> { "Reorganization" };
+            if (_libraryManager != null)
             {
-                continue;
+                jellyfinItem = _libraryManager.FindByPath(sourcePath, false);
+                if (jellyfinItem == null)
+                {
+                    reasonsList.Add("Unrecognized");
+                }
+                else if (!ScanLogic.HasAnyProviderIds(jellyfinItem))
+                {
+                    reasonsList.Add("MissingMetadata");
+                }
             }
-
-            if (reasons.Length == 0)
-            {
-                reasons = ["ReorganizationAudit"];
-            }
+            var reasons = reasonsList.ToArray();
 
             candidateCount++;
             IncrementBuckets(candidateReasonCounts, reasons);
@@ -153,61 +161,39 @@ public sealed class ShirariumScanner
 
             parseAttemptCount++;
             ParseFilenameResponse? parsed = null;
-            if (reasons.Contains("ReorganizationAudit"))
+            
+            if (_parseFilenameAsync != null)
             {
-                var title = ScanLogic.GetStringProperty(item, "Name");
-                var year = ScanLogic.GetIntProperty(item, "ProductionYear");
-                var mediaType = ScanLogic.GetStringProperty(item, "Type")?.ToLowerInvariant();
-                
-                int? season = null;
-                int? episode = null;
-                if (string.Equals(mediaType, "episode", StringComparison.OrdinalIgnoreCase))
-                {
-                    season = ScanLogic.GetIntProperty(item, "ParentIndexNumber");
-                    episode = ScanLogic.GetIntProperty(item, "IndexNumber");
-                }
-                else if (string.Equals(mediaType, "movie", StringComparison.OrdinalIgnoreCase))
-                {
-                    mediaType = "movie";
-                }
-                else
-                {
-                    mediaType = "unknown";
-                }
-
-                parsed = new ParseFilenameResponse
-                {
-                    Title = title ?? Path.GetFileNameWithoutExtension(sourcePath),
-                    Year = year,
-                    MediaType = mediaType == "movie" ? "movie" : (mediaType == "episode" ? "episode" : "unknown"),
-                    Season = season,
-                    Episode = episode,
-                    Confidence = 1.0,
-                    Source = "jellyfin-metadata",
-                    RawTokens = []
-                };
+                parsed = await _parseFilenameAsync(sourcePath, cancellationToken);
+            }
+            else if (_engineClient != null)
+            {
+                parsed = await _engineClient.ParseFilenameAsync(sourcePath, cancellationToken);
             }
             else
             {
-                if (_parseFilenameAsync != null)
-                {
-                    parsed = await _parseFilenameAsync(sourcePath, cancellationToken);
-                }
-                else if (_engineClient != null)
-                {
-                    parsed = await _engineClient.ParseFilenameAsync(sourcePath, cancellationToken);
-                }
-                else
-                {
-                    // Should not happen if constructed correctly
-                    _logger.LogError("ShirariumScanner misconfigured: No parser available.");
-                }
+                _logger.LogError("ShirariumScanner misconfigured: No parser available.");
             }
 
             if (parsed is null)
             {
                 engineFailureCount++;
                 continue;
+            }
+
+            // If we found a matching Jellyfin item, prefer its metadata (Probe) over heuristics (Filename)
+            if (jellyfinItem != null)
+            {
+                parsed = parsed with
+                {
+                    Resolution = ScanLogic.GetResolution(jellyfinItem) ?? parsed.Resolution,
+                    VideoCodec = ScanLogic.GetVideoCodec(jellyfinItem) ?? parsed.VideoCodec,
+                    AudioCodec = ScanLogic.GetAudioCodec(jellyfinItem) ?? parsed.AudioCodec,
+                    AudioChannels = ScanLogic.GetAudioChannels(jellyfinItem) ?? parsed.AudioChannels,
+                    MediaSource = ScanLogic.GetMediaSource(jellyfinItem) ?? parsed.MediaSource,
+                    ReleaseGroup = ScanLogic.GetReleaseGroup(jellyfinItem) ?? parsed.ReleaseGroup,
+                    Edition = ScanLogic.GetEdition(jellyfinItem) ?? parsed.Edition
+                };
             }
 
             if (!string.IsNullOrWhiteSpace(parsed.Source))
@@ -227,8 +213,8 @@ public sealed class ShirariumScanner
 
             var suggestion = new ScanSuggestion
             {
-                ItemId = GetPropertyAsString(item, "Id"),
-                Name = ScanLogic.GetStringProperty(item, "Name") ?? Path.GetFileNameWithoutExtension(sourcePath),
+                ItemId = Guid.NewGuid().ToString("N"),
+                Name = Path.GetFileNameWithoutExtension(sourcePath),
                 Path = sourcePath,
                 SuggestedTitle = parsed.Title,
                 SuggestedMediaType = parsed.MediaType,
@@ -240,14 +226,14 @@ public sealed class ShirariumScanner
                 CandidateReasons = reasons,
                 RawTokens = parsed.RawTokens.ToArray(),
                 ScannedAtUtc = DateTimeOffset.UtcNow,
-                Resolution = ScanLogic.GetResolution(item),
-                VideoCodec = ScanLogic.GetVideoCodec(item),
-                VideoBitDepth = ScanLogic.GetVideoBitDepth(item),
-                AudioCodec = ScanLogic.GetAudioCodec(item),
-                AudioChannels = ScanLogic.GetAudioChannels(item),
-                ReleaseGroup = ScanLogic.GetReleaseGroup(item),
-                MediaSource = ScanLogic.GetMediaSource(item),
-                Edition = ScanLogic.GetEdition(item)
+                Resolution = parsed.Resolution,
+                VideoCodec = parsed.VideoCodec,
+                VideoBitDepth = null,
+                AudioCodec = parsed.AudioCodec,
+                AudioChannels = parsed.AudioChannels,
+                ReleaseGroup = parsed.ReleaseGroup,
+                MediaSource = parsed.MediaSource,
+                Edition = parsed.Edition
             };
 
             suggestions.Add(suggestion);

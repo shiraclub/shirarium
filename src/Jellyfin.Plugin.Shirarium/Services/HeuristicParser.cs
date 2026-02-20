@@ -33,6 +33,22 @@ public sealed class HeuristicParser
         @"(?:^|[\W_])(1080p|720p|2160p|4k|bluray|web-?dl|brrip|webrip|hdtv|divx|xvid|dvdr|dvdrip)(?:$|[\W_])",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    private static readonly Regex VideoCodecRe = new(
+        @"(?:^|[\W_])(x264|x265|h264|h265|hevc|av1|divx|xvid|mpeg2|vp9)(?:$|[\W_])",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex AudioCodecRe = new(
+        @"(?:^|[\W_])(aac|ac3|dts(?:-hd)?|truehd|atmos|mp3|flac|eac3|vorbis|opus)(?:$|[\W_])",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex AudioChannelsRe = new(
+        @"(?:^|[\W_])(2\.0|5\.1|7\.1)(?:$|[\W_])",
+        RegexOptions.Compiled);
+
+    private static readonly Regex ReleaseGroupRe = new(
+        @"-([a-zA-Z0-9]+)(?:$|\.[a-zA-Z0-9]{2,4}$)",
+        RegexOptions.Compiled);
+
     private static readonly Regex CrcRe = new(@"\[[0-9a-fA-F]{8}\]", RegexOptions.Compiled);
     private static readonly Regex LeadingTagRe = new(@"^[\[\({]([^}\)\]]+)[\]\)}]\s*", RegexOptions.Compiled);
     private static readonly Regex SplitRe = new(@"[.\-_()\[\]\s]+", RegexOptions.Compiled);
@@ -118,6 +134,28 @@ public sealed class HeuristicParser
         string mediaType = "unknown";
         double confidence = 0.4;
         string titleStem = stem;
+
+        // Extract Metadata
+        string? resolution = null;
+        string? videoCodec = null;
+        string? audioCodec = null;
+        string? audioChannels = null;
+        string? releaseGroup = null;
+
+        var qualMatch = QualRe.Match(stem);
+        if (qualMatch.Success) resolution = qualMatch.Groups[1].Value.ToLower();
+
+        var vCodecMatch = VideoCodecRe.Match(stem);
+        if (vCodecMatch.Success) videoCodec = vCodecMatch.Groups[1].Value.ToLower();
+
+        var aCodecMatch = AudioCodecRe.Match(stem);
+        if (aCodecMatch.Success) audioCodec = aCodecMatch.Groups[1].Value.ToLower();
+
+        var channelMatch = AudioChannelsRe.Match(stem);
+        if (channelMatch.Success) audioChannels = channelMatch.Groups[1].Value;
+
+        var groupMatch = ReleaseGroupRe.Match(stem);
+        if (groupMatch.Success) releaseGroup = groupMatch.Groups[1].Value;
 
         // Match Season/Episode
         var seMatch = SeasonEpisodeRe.Match(stem);
@@ -251,7 +289,12 @@ public sealed class HeuristicParser
             Episode = episode,
             Confidence = Math.Min(Math.Round(confidence, 3), 1.0),
             Source = "heuristic",
-            RawTokens = tokens
+            RawTokens = tokens,
+            Resolution = resolution,
+            VideoCodec = videoCodec,
+            AudioCodec = audioCodec,
+            AudioChannels = audioChannels,
+            ReleaseGroup = releaseGroup
         };
     }
 

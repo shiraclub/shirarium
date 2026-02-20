@@ -9,7 +9,7 @@ internal interface ISourceCandidateProvider
     /// Returns candidate items for scanning.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Candidate item sequence.</returns>
-    IEnumerable<object> GetCandidates(CancellationToken cancellationToken = default);
+    /// <returns>Candidate file paths.</returns>
+    IEnumerable<string> GetCandidates(CancellationToken cancellationToken = default);
 }
 

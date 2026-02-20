@@ -31,26 +31,44 @@ internal static class ScanLogic
         return extensions.Contains(extension);
     }
 
-    internal static string[] GetCandidateReasons(object item)
+    internal static bool PassesConfidenceThreshold(double confidence, double minConfidence)
     {
-        var reasons = new List<string>();
+        return confidence >= minConfidence;
+    }
 
-        if (!HasAnyProviderIds(item))
+    internal static string GetPropertyAsString(object item, string propertyName)
+    {
+        var property = item.GetType().GetProperty(propertyName);
+        var value = property?.GetValue(item);
+        return value?.ToString() ?? string.Empty;
+    }
+
+    internal static string? GetStringProperty(object item, string propertyName)
+    {
+        var property = item.GetType().GetProperty(propertyName);
+        return property?.GetValue(item) as string;
+    }
+
+    internal static bool HasAnyProviderIds(object item)
+    {
+        var providerIds = item.GetType().GetProperty("ProviderIds")?.GetValue(item);
+        if (providerIds is null)
         {
-            reasons.Add("MissingProviderIds");
+            return false;
         }
 
-        if (string.IsNullOrWhiteSpace(GetStringProperty(item, "Overview")))
+        if (providerIds is ICollection collection)
         {
-            reasons.Add("MissingOverview");
+            return collection.Count > 0;
         }
 
-        if (!HasValue(item, "ProductionYear"))
+        if (providerIds is IEnumerable enumerable)
         {
-            reasons.Add("MissingProductionYear");
+            var enumerator = enumerable.GetEnumerator();
+            return enumerator.MoveNext();
         }
 
-        return reasons.ToArray();
+        return false;
     }
 
     internal static string? GetResolution(object item)
@@ -82,23 +100,6 @@ internal static class ScanLogic
             {
                 var codec = GetStringProperty(stream!, "Codec");
                 return codec?.ToUpperInvariant();
-            }
-        }
-        return null;
-    }
-
-    internal static string? GetVideoBitDepth(object item)
-    {
-        var mediaStreams = GetProperty(item, "MediaStreams") as IEnumerable;
-        if (mediaStreams is null) return null;
-
-        foreach (var stream in mediaStreams)
-        {
-            var type = GetStringProperty(stream!, "Type");
-            if (string.Equals(type, "Video", StringComparison.OrdinalIgnoreCase))
-            {
-                var bitDepth = GetIntProperty(stream!, "BitDepth");
-                return bitDepth.HasValue ? $"{bitDepth}bit" : null;
             }
         }
         return null;
@@ -146,15 +147,12 @@ internal static class ScanLogic
 
     internal static string? GetReleaseGroup(object item)
     {
-        // Often stored in a tag or extra field, but we can try parsing the path if it's not explicitly in metadata.
-        // For now, let's look at "Tags" property if available.
         var tags = GetProperty(item, "Tags") as string[];
         if (tags != null)
         {
             foreach (var tag in tags)
             {
-                // Heuristic: If it looks like a group (e.g., RARBG, YTS), return it.
-                // This is a bit simplified.
+                // Very basic heuristic for tags
                 if (tag.Equals("RARBG", StringComparison.OrdinalIgnoreCase)) return "RARBG";
                 if (tag.Equals("YTS", StringComparison.OrdinalIgnoreCase)) return "YTS";
             }
@@ -170,8 +168,6 @@ internal static class ScanLogic
 
     internal static string? GetEdition(object item)
     {
-        // Edition is often part of the name or a specific property in some versions of Jellyfin.
-        // We'll look for common edition keywords in the name if a dedicated property isn't obvious.
         var name = GetStringProperty(item, "Name");
         if (string.IsNullOrWhiteSpace(name)) return null;
 
@@ -194,57 +190,5 @@ internal static class ScanLogic
         if (value is int intValue) return intValue;
         if (value is long longValue) return (int)longValue;
         return null;
-    }
-
-    internal static bool PassesConfidenceThreshold(double confidence, double minConfidence)
-    {
-        return confidence >= minConfidence;
-    }
-
-    internal static string GetPropertyAsString(object item, string propertyName)
-    {
-        var property = item.GetType().GetProperty(propertyName);
-        var value = property?.GetValue(item);
-        return value?.ToString() ?? string.Empty;
-    }
-
-    internal static string? GetStringProperty(object item, string propertyName)
-    {
-        var property = item.GetType().GetProperty(propertyName);
-        return property?.GetValue(item) as string;
-    }
-
-    private static bool HasAnyProviderIds(object item)
-    {
-        var providerIds = item.GetType().GetProperty("ProviderIds")?.GetValue(item);
-        if (providerIds is null)
-        {
-            return false;
-        }
-
-        if (providerIds is ICollection collection)
-        {
-            return collection.Count > 0;
-        }
-
-        if (providerIds is IEnumerable enumerable)
-        {
-            var enumerator = enumerable.GetEnumerator();
-            return enumerator.MoveNext();
-        }
-
-        return false;
-    }
-
-    private static bool HasValue(object item, string propertyName)
-    {
-        var property = item.GetType().GetProperty(propertyName);
-        if (property is null)
-        {
-            return false;
-        }
-
-        var value = property.GetValue(item);
-        return value is not null;
     }
 }

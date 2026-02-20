@@ -97,7 +97,7 @@ if (-not (Test-Path -LiteralPath $DatasetPath)) {
     throw "Dataset file not found: $DatasetPath"
 }
 
-$manifest = Get-Content -LiteralPath $DatasetPath -Raw | ConvertFrom-Json -Depth 16
+$manifest = Get-Content -LiteralPath $DatasetPath -Raw | ConvertFrom-Json
 if ($null -eq $manifest.entries -or $manifest.entries.Count -eq 0) {
     throw "Dataset manifest has no entries: $DatasetPath"
 }
