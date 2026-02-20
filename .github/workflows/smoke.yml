@@ -54,6 +54,8 @@ jobs:
             --clean \
             --dataset datasets/regression/tier-b-synthetic.json
           
+          mkdir -p "${MEDIA_PATH}/incoming"
+          
           cleanup() {
             docker compose down -v || true
           }

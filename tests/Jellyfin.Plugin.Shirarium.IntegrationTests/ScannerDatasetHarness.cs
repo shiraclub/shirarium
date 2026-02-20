@@ -49,7 +49,7 @@ internal static class ScannerDatasetHarness
 
         return new ScannerDatasetRuntime
         {
-            Provider = new StaticSourceCandidateProvider(items),
+            Provider = new StaticSourceCandidateProvider(responses.Keys),
             ParseFilenameAsync = (path, _) =>
             {
                 if (invocationCounts.ContainsKey(path))
@@ -96,14 +96,14 @@ internal static class ScannerDatasetHarness
 
     private sealed class StaticSourceCandidateProvider : ISourceCandidateProvider
     {
-        private readonly object[] _items;
+        private readonly string[] _items;
 
-        public StaticSourceCandidateProvider(IEnumerable<object> items)
+        public StaticSourceCandidateProvider(IEnumerable<string> items)
         {
             _items = items.ToArray();
         }
 
-        public IEnumerable<object> GetCandidates(CancellationToken cancellationToken = default)
+        public IEnumerable<string> GetCandidates(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return _items;

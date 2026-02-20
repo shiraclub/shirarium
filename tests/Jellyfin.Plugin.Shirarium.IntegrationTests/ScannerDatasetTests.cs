@@ -219,7 +219,7 @@ public sealed class ScannerDatasetTests
 
     private sealed class ThrowingSourceCandidateProvider : ISourceCandidateProvider
     {
-        public IEnumerable<object> GetCandidates(CancellationToken cancellationToken = default)
+        public IEnumerable<string> GetCandidates(CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException("Synthetic source failure.");
         }
