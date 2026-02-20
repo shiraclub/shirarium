@@ -9,10 +9,10 @@
     "imageUrl": "https://raw.githubusercontent.com/shiraclub/shirarium/master/thumb.png",
     "versions": [
       {
-        "version": "0.0.2",
-        "changelog": "Release v0.0.2",
+        "version": "0.0.3",
+        "changelog": "Release v0.0.3: New plugin logo and improved metadata.",
         "targetAbi": "10.11.6.0",
-        "sourceUrl": "https://github.com/shiraclub/shirarium/releases/download/v0.0.2/shirarium-v0.0.2.zip",
+        "sourceUrl": "https://github.com/shiraclub/shirarium/releases/download/v0.0.3/shirarium-v0.0.3.zip",
         "checksum": "5d2936ec2c63dc6e2d20c20e1ce57f7f"
       }
     ]
