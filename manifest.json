@@ -6,6 +6,7 @@
     "overview": "Easily clean up your Jellyfin library by renaming files and folders with high-precision heuristics. No external containers required; 100% native and offline intelligence.",
     "owner": "Shiraclub",
     "category": "Organization",
+    "imageUrl": "https://raw.githubusercontent.com/shiraclub/shirarium/master/thumb.png",
     "versions": [
       {
         "version": "0.0.2",
