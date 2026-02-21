@@ -28,26 +28,124 @@ def run_command(cmd, cwd=REPO_ROOT, env=None):
         sys.exit(e.returncode)
 
 def call_api(path, method="GET", body=None, args=None):
-    """Call Jellyfin/Shirarium API."""
-    url = f"{args.url.rstrip('/')}/shirarium/{path}"
-    headers = {"X-Emby-Token": args.token} if args.token else {}
-    data = json.dumps(body).encode("utf-8") if body else None
+    """Call Shirarium API."""
+    resp = call_jf_api(f"shirarium/{path}", method=method, body=body, args=args)
+    if resp:
+        print(json.dumps(resp, indent=2))
+    return resp
+
+def call_jf_api(path, method="GET", body=None, args=None, token=None):
+    """Call Jellyfin API."""
+    url = f"{args.url.rstrip('/')}/{path}"
     
+    # Use provided token, or token from args, or nothing
+    effective_token = token or (args.token if hasattr(args, "token") else None)
+    
+    # Jellyfin requires a specific Authorization header for many endpoints
+    auth_header = f'MediaBrowser Client="Shirarium-CLI", Device="CLI", DeviceId="shirarium-cli", Version="0.0.14"'
+    if effective_token:
+        auth_header += f', Token="{effective_token}"'
+    
+    headers = {
+        "X-Emby-Authorization": auth_header,
+        "Accept": "application/json"
+    }
+    
+    data = json.dumps(body).encode("utf-8") if body else None
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     if body:
         req.add_header("Content-Type", "application/json")
     
     try:
         with urllib.request.urlopen(req) as f:
-            resp = json.loads(f.read().decode("utf-8"))
-            print(json.dumps(resp, indent=2))
+            content = f.read().decode("utf-8")
+            if not content:
+                return None
+            resp = json.loads(content)
             return resp
     except urllib.error.HTTPError as e:
-        print(f"API Error ({e.code}): {e.read().decode('utf-8')}")
-        sys.exit(1)
+        error_msg = e.read().decode('utf-8')
+        print(f"API Error ({e.code}): {error_msg}")
+        return None
     except Exception as e:
         print(f"Failed to connect: {e}")
         sys.exit(1)
+
+def cmd_login(args):
+    """Authenticate with Jellyfin and print the token."""
+    print(f"Logging into {args.url} as {args.username}...")
+    payload = {
+        "Username": args.username,
+        "Pw": args.password or ""
+    }
+    
+    resp = call_jf_api("Users/AuthenticateByName", method="POST", body=payload, args=args)
+    if resp and "AccessToken" in resp:
+        token = resp["AccessToken"]
+        print(f"\nAuthentication Successful!")
+        print(f"Token: {token}")
+        
+        # Save token locally for convenience
+        token_file = REPO_ROOT / ".jf_token"
+        token_file.write_text(token)
+        print(f"Token saved to {token_file}")
+    else:
+        print("Authentication failed.")
+        sys.exit(1)
+
+def cmd_quick_setup(args):
+    """Automate the Jellyfin setup wizard."""
+    print(f"Performing quick setup for {args.url}...")
+    
+    # 1. Create the initial admin user
+    user_payload = {
+        "Name": args.username,
+        "Password": args.password or ""
+    }
+    print(f"Creating admin user: {args.username}...")
+    call_jf_api("Startup/User", method="POST", body=user_payload, args=args)
+    
+    # 2. Complete the setup
+    print("Finalizing setup...")
+    call_jf_api("Startup/Complete", method="POST", args=args)
+    
+    print("\nQuick setup complete! Now logging in...")
+    cmd_login(args)
+
+def get_saved_token():
+    """Retrieve the token from the local cache file."""
+    token_file = REPO_ROOT / ".jf_token"
+    if token_file.exists():
+        return token_file.read_text().strip()
+    return None
+
+def cmd_setup_libraries(args):
+    """Create default libraries in Jellyfin."""
+    token = args.token or get_saved_token()
+    if not token:
+        print("Error: No token provided. Use 'login' first or provide --token.")
+        sys.exit(1)
+
+    # Use the retrieved token for subsequent calls
+    args.token = token
+
+    libraries = [
+        {"Name": "Movies", "CollectionType": "movies", "Paths": ["/media/Movies"]},
+        {"Name": "TV Shows", "CollectionType": "tvshows", "Paths": ["/media/TV"]},
+        {"Name": "Downloads", "CollectionType": "movies", "Paths": ["/media/Downloads"]}
+    ]
+
+    for lib in libraries:
+        print(f"Creating library: {lib['Name']}...")
+        # Jellyfin API: POST /Library/VirtualFolders
+        import urllib.parse
+        name = urllib.parse.quote(lib['Name'])
+        c_type = urllib.parse.quote(lib['CollectionType'])
+        path_param = urllib.parse.quote(lib['Paths'][0])
+        path = f"Library/VirtualFolders?name={name}&collectionType={c_type}&paths={path_param}"
+        call_jf_api(path, method="POST", args=args)
+    
+    print("Library setup complete.")
 
 def cmd_up(args):
     """Start the dev environment."""
@@ -143,7 +241,6 @@ def cmd_seed(args):
         expected = entry.get("expected") or {}
 
         # Determine logical size for media files
-        # 1MB is enough to distinguish it from clutter without exploding disk usage
         logical_size = random.randint(1, 5) * 1024 * 1024 if ext in [".mkv", ".mp4", ".avi", ".mov"] else 0
 
         try:
@@ -206,6 +303,9 @@ def cmd_clean(args):
 
 def cmd_api(args):
     """Execute API commands."""
+    if not args.token:
+        args.token = get_saved_token()
+    
     if args.api_command == "scan":
         call_api("scan", method="POST", args=args)
     elif args.api_command == "plan":
@@ -232,6 +332,15 @@ def cmd_api(args):
     elif args.api_command == "undo":
         body = {"runId": args.run_id} if args.run_id else {}
         call_api("undo-apply", method="POST", body=body, args=args)
+    elif args.api_command == "test-template":
+        body = {
+            "Path": args.path,
+            "MoviePathTemplate": args.movie_template,
+            "EpisodePathTemplate": args.episode_template,
+            "RootPath": args.root_path,
+            "NormalizePathSegments": not args.no_normalize
+        }
+        call_api("test-template", method="POST", body=body, args=args)
 
 def main():
     parser = argparse.ArgumentParser(description="Shirarium Developer CLI")
@@ -271,10 +380,30 @@ def main():
     p_clean.add_argument("--prod", action="store_true", help="Wipe production data")
     p_clean.set_defaults(func=cmd_clean)
 
+    # setup-libraries
+    p_setup_libs = subparsers.add_parser("setup-libraries", help="Create default libraries in Jellyfin")
+    p_setup_libs.add_argument("--url", default="http://localhost:8097", help="Jellyfin URL")
+    p_setup_libs.add_argument("--token", help="Jellyfin Admin Token (optional if logged in)")
+    p_setup_libs.set_defaults(func=cmd_setup_libraries)
+
+    # login
+    p_login = subparsers.add_parser("login", help="Authenticate with Jellyfin")
+    p_login.add_argument("username", help="Jellyfin Username")
+    p_login.add_argument("password", nargs="?", default="", help="Jellyfin Password")
+    p_login.add_argument("--url", default="http://localhost:8097", help="Jellyfin URL")
+    p_login.set_defaults(func=cmd_login)
+
+    # quick-setup
+    p_quick = subparsers.add_parser("quick-setup", help="Automate initial Jellyfin setup")
+    p_quick.add_argument("username", help="Admin Username")
+    p_quick.add_argument("password", nargs="?", default="", help="Admin Password")
+    p_quick.add_argument("--url", default="http://localhost:8097", help="Jellyfin URL")
+    p_quick.set_defaults(func=cmd_quick_setup)
+
     # api
     p_api = subparsers.add_parser("api", help="Call Shirarium API")
     p_api.add_argument("--url", default="http://localhost:8097", help="Jellyfin URL (default: dev port 8097)")
-    p_api.add_argument("--token", help="API Access Token (Admin)")
+    p_api.add_argument("--token", help="API Access Token (optional if logged in)")
     api_subs = p_api.add_subparsers(dest="api_command", required=True)
     
     api_subs.add_parser("scan", help="Trigger dry-run scan")
@@ -291,6 +420,13 @@ def main():
     
     p_undo = api_subs.add_parser("undo", help="Undo last apply run")
     p_undo.add_argument("--run-id", help="Specific run ID to undo (optional)")
+
+    p_test_tmp = api_subs.add_parser("test-template", help="Test a path template")
+    p_test_tmp.add_argument("--path", required=True, help="Sample path to test")
+    p_test_tmp.add_argument("--movie-template", help="Movie path template")
+    p_test_tmp.add_argument("--episode-template", help="Episode path template")
+    p_test_tmp.add_argument("--root-path", help="Root organization path")
+    p_test_tmp.add_argument("--no-normalize", action="store_true", help="Disable segment normalization")
 
     p_api.set_defaults(func=cmd_api)
 

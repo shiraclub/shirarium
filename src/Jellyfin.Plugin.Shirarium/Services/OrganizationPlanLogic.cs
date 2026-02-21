@@ -314,8 +314,19 @@ internal static class OrganizationPlanLogic
             var files = Directory.GetFiles(directoryPath);
             var videoFileCount = files.Count(f => videoExtensions.Contains(Path.GetExtension(f)));
             
-            // If there's only one video file, we assume the folder is "owned" by that video.
-            return videoFileCount == 1;
+            if (videoFileCount == 1)
+            {
+                return true;
+            }
+
+            if (videoFileCount == 0)
+            {
+                // Check if it contains Season folders, which suggests it's a private series folder
+                return Directory.GetDirectories(directoryPath)
+                    .Any(d => Path.GetFileName(d).StartsWith("Season", StringComparison.OrdinalIgnoreCase));
+            }
+
+            return false;
         }
         catch
         {
