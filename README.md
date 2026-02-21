@@ -46,7 +46,7 @@ Shirarium is distributed via a managed plugin repository for seamless updates.
 
 ### Prerequisites
 
-- Docker Desktop (for testing/smoke tests only)
+- Docker (Engine or Desktop) with Compose v2 (for testing/smoke tests only)
 - .NET SDK 9.0+
 - Python 3.10+
 
