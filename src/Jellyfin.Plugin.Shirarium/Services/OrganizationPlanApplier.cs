@@ -1,5 +1,6 @@
 using Jellyfin.Plugin.Shirarium.Models;
 using MediaBrowser.Common.Configuration;
+using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Shirarium.Services;
@@ -11,16 +12,22 @@ public sealed class OrganizationPlanApplier
 {
     private readonly IApplicationPaths _applicationPaths;
     private readonly ILogger _logger;
+    private readonly ILibraryManager? _libraryManager;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OrganizationPlanApplier"/> class.
     /// </summary>
     /// <param name="applicationPaths">Jellyfin application paths.</param>
     /// <param name="logger">Logger instance.</param>
-    public OrganizationPlanApplier(IApplicationPaths applicationPaths, ILogger logger)
+    /// <param name="libraryManager">Optional Jellyfin library manager.</param>
+    public OrganizationPlanApplier(
+        IApplicationPaths applicationPaths, 
+        ILogger logger, 
+        ILibraryManager? libraryManager = null)
     {
         _applicationPaths = applicationPaths;
         _logger = logger;
+        _libraryManager = libraryManager;
     }
 
     /// <summary>
@@ -79,6 +86,25 @@ public sealed class OrganizationPlanApplier
             cancellationToken);
 
         await ApplyJournalStore.AppendApplyAsync(_applicationPaths, result, cancellationToken);
+
+        // If library manager is available, we try to update Jellyfin's knowledge of these files.
+        if (_libraryManager != null && result.AppliedCount > 0)
+        {
+            _ = Task.Run(() => 
+            {
+                try 
+                {
+                    _logger.LogInformation("Triggering Jellyfin library scan for {Count} moved items.", result.AppliedCount);
+                    // A full scan is the safest way to ensure path changes are picked up correctly
+                    // without causing 'missing file' duplicates in the database during transition.
+                    _libraryManager.ValidateMediaLibrary(new Progress<double>(), cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to trigger Jellyfin library scan after apply.");
+                }
+            }, cancellationToken);
+        }
 
         _logger.LogInformation(
             "Shirarium apply plan complete. RunId={RunId} Fingerprint={PlanFingerprint} Requested={Requested} Applied={Applied} Skipped={Skipped} Failed={Failed}",

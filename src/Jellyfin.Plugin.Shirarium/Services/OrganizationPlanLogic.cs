@@ -179,12 +179,15 @@ internal static class OrganizationPlanLogic
         entry.Action = "move";
         entry.Reason = "Planned";
 
-        entry.AssociatedFiles = DiscoverAssociatedFiles(suggestion.Path, targetPath);
+        entry.AssociatedFiles = DiscoverAssociatedFiles(suggestion.Path, targetPath, suggestion.SuggestedMediaType);
 
         return entry;
     }
 
-    private static AssociatedFileMove[] DiscoverAssociatedFiles(string sourceVideoPath, string targetVideoPath)
+    private static AssociatedFileMove[] DiscoverAssociatedFiles(
+        string sourceVideoPath, 
+        string targetVideoPath, 
+        string? mediaType)
     {
         var sourceDir = Path.GetDirectoryName(sourceVideoPath);
         var targetDir = Path.GetDirectoryName(targetVideoPath);
@@ -214,22 +217,10 @@ internal static class OrganizationPlanLogic
             }
         }
 
-        // 2. Common assets if this is likely a private folder
+        // 2. Common assets if this is likely a private folder (Movie or Season folder)
         if (IsLikelyPrivateFolder(sourceDir))
         {
-            var commonNames = new[] { "movie.nfo", "poster.jpg", "fanart.jpg", "logo.png", "folder.jpg", "landscape.jpg", "backdrop.jpg", "clearlogo.png" };
-            foreach (var commonName in commonNames)
-            {
-                var sourcePath = Path.Combine(sourceDir, commonName);
-                if (File.Exists(sourcePath) && !associatedMoves.Any(m => PathEquals(m.SourcePath, sourcePath)))
-                {
-                    associatedMoves.Add(new AssociatedFileMove
-                    {
-                        SourcePath = sourcePath,
-                        TargetPath = Path.Combine(targetDir, commonName)
-                    });
-                }
-            }
+            AddCommonAssets(sourceDir, targetDir, associatedMoves);
 
             // 3. Known subdirectories (e.g. Subs, extras)
             var commonDirs = new[] { "Subs", "extras", "featurettes", "Specials", "behind the scenes", "Featurettes" };
@@ -238,8 +229,6 @@ internal static class OrganizationPlanLogic
                 var sourcePath = Path.Combine(sourceDir, commonDir);
                 if (Directory.Exists(sourcePath))
                 {
-                    // For directories, we'll need to handle them carefully in the apply logic.
-                    // For now, we record the top-level directory move.
                     associatedMoves.Add(new AssociatedFileMove
                     {
                         SourcePath = sourcePath,
@@ -247,9 +236,57 @@ internal static class OrganizationPlanLogic
                     });
                 }
             }
+
+            // 4. Series-level aggregation (for TV shows)
+            if (mediaType?.Equals("episode", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                var seasonDirName = Path.GetFileName(sourceDir);
+                if (seasonDirName?.StartsWith("Season", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    var seriesSourceDir = Path.GetDirectoryName(sourceDir);
+                    var seriesTargetDir = Path.GetDirectoryName(targetDir);
+                    
+                    if (!string.IsNullOrWhiteSpace(seriesSourceDir) && 
+                        !string.IsNullOrWhiteSpace(seriesTargetDir) && 
+                        IsLikelyPrivateFolder(seriesSourceDir))
+                    {
+                        // Add tvshow.nfo and other series-level assets
+                        var seriesAssets = new[] { "tvshow.nfo", "poster.jpg", "fanart.jpg", "banner.jpg", "logo.png", "clearlogo.png", "landscape.jpg" };
+                        foreach (var asset in seriesAssets)
+                        {
+                            var sPath = Path.Combine(seriesSourceDir, asset);
+                            if (File.Exists(sPath) && !associatedMoves.Any(m => PathEquals(m.SourcePath, sPath)))
+                            {
+                                associatedMoves.Add(new AssociatedFileMove
+                                {
+                                    SourcePath = sPath,
+                                    TargetPath = Path.Combine(seriesTargetDir, asset)
+                                });
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         return associatedMoves.ToArray();
+    }
+
+    private static void AddCommonAssets(string sourceDir, string targetDir, List<AssociatedFileMove> list)
+    {
+        var commonNames = new[] { "movie.nfo", "poster.jpg", "fanart.jpg", "logo.png", "folder.jpg", "landscape.jpg", "backdrop.jpg", "clearlogo.png" };
+        foreach (var commonName in commonNames)
+        {
+            var sourcePath = Path.Combine(sourceDir, commonName);
+            if (File.Exists(sourcePath) && !list.Any(m => PathEquals(m.SourcePath, sourcePath)))
+            {
+                list.Add(new AssociatedFileMove
+                {
+                    SourcePath = sourcePath,
+                    TargetPath = Path.Combine(targetDir, commonName)
+                });
+            }
+        }
     }
 
     private static bool IsLikelyPrivateFolder(string directoryPath)

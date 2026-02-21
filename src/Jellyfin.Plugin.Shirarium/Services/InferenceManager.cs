@@ -235,12 +235,13 @@ public sealed class InferenceManager : IHostedService, IDisposable
 
         _logger.LogInformation("Starting local inference server on port {Port}...", port);
 
-        // n-gpu-layers: 0 (CPU) for stability, but we can try 1 if we detect common GPU platforms 
-        // in a more advanced version. For now, we'll stick to 0 but make it explicit.
+        int gpuLayers = DetectGpuLayers();
+        _logger.LogInformation("Detected GPU availability. Setting n-gpu-layers to {Layers}.", gpuLayers);
+
         var startInfo = new ProcessStartInfo
         {
             FileName = binaryPath,
-            Arguments = $"--model \"{modelPath}\" --port {port} --n-gpu-layers 0", 
+            Arguments = $"--model \"{modelPath}\" --port {port} --n-gpu-layers {gpuLayers}", 
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = true,
@@ -257,6 +258,38 @@ public sealed class InferenceManager : IHostedService, IDisposable
         {
             _logger.LogError(ex, "Failed to start local inference server.");
         }
+    }
+
+    private int DetectGpuLayers()
+    {
+        try
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                // Check for common GPU drivers/runtimes
+                var system32 = Environment.GetFolderPath(Environment.SpecialFolder.System);
+                if (File.Exists(Path.Combine(system32, "nvcuda.dll")) || 
+                    File.Exists(Path.Combine(system32, "vulkan-1.dll")))
+                {
+                    return 32; // Enable GPU layers
+                }
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                // Basic check for Vulkan or NVIDIA on Linux
+                if (File.Exists("/usr/lib/x86_64-linux-gnu/libvulkan.so.1") || 
+                    File.Exists("/usr/lib/x86_64-linux-gnu/libcuda.so"))
+                {
+                    return 32;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GPU detection failed, falling back to CPU.");
+        }
+
+        return 0; // Fallback to CPU
     }
 
     private async Task<string> EnsureModelExistsAsync(PluginConfiguration config, CancellationToken cancellationToken)

@@ -263,16 +263,12 @@ public sealed class OrganizationApplyLogicTests
     }
 
     [Fact]
-    public void ApplySelected_Fails_WhenCrossVolumeMoveWouldBeRequired()
+    public void ApplySelected_Succeeds_WhenCrossVolumeMoveIsRequired()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        const string sourcePath = @"C:\incoming\noroi.mkv";
-        const string targetPath = @"D:\organized\Noroi (2005)\Noroi (2005).mkv";
-        const string rootPath = @"D:\organized";
+        // Mock cross-volume move on any platform using different roots
+        var sourcePath = OperatingSystem.IsWindows() ? @"C:\incoming\noroi.mkv" : "/mnt/a/incoming/noroi.mkv";
+        var targetPath = OperatingSystem.IsWindows() ? @"D:\organized\Noroi (2005)\Noroi (2005).mkv" : "/mnt/b/organized/Noroi (2005)/Noroi (2005).mkv";
+        var rootPath = OperatingSystem.IsWindows() ? @"D:\organized" : "/mnt/b/organized";
 
         var plan = CreatePlan(rootPath, new OrganizationPlanEntry
         {
@@ -291,10 +287,9 @@ public sealed class OrganizationApplyLogicTests
             (_, _) => { });
 
         Assert.Equal(1, result.RequestedCount);
-        Assert.Equal(0, result.AppliedCount);
-        Assert.Equal(0, result.SkippedCount);
-        Assert.Equal(1, result.FailedCount);
-        Assert.Equal("CrossVolumeMoveNotAllowed", result.Results[0].Reason);
+        Assert.Equal(1, result.AppliedCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Equal("applied", result.Results[0].Status);
     }
 
     private static OrganizationPlanSnapshot CreatePlan(string rootPath, params OrganizationPlanEntry[] entries)

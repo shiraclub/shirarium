@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.14]
+
+### Added
+- Cross-volume move support: implemented "Copy + Delete" fallback when direct filesystem moves between volumes/mounts fail.
+- Smart Acronym Preservation: heuristic parser now preserves the original casing for acronyms (e.g., NASA, S.H.I.E.L.D.) instead of applying title casing.
+- Template Preview API: added `POST /shirarium/test-template` for real-time preview of path templates in the UI.
+- GPU-Accelerated Inference: implemented automatic detection of NVIDIA (CUDA) and Vulkan drivers to enable GPU layers in the managed inference engine.
+- Jellyfin Metadata Hand-off: automatic triggering of library validation after successful organization runs to sync the Jellyfin database with the new file paths.
+- Series-Level Asset Aggregation: organization plans now automatically include show-level metadata (tvshow.nfo, series-level posters) when moving episodes.
+
 ## [0.0.13]
 
 ### Added

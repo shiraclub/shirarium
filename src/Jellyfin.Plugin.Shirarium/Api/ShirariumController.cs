@@ -49,7 +49,7 @@ public sealed class ShirariumController : ControllerBase
             engineClient);
 
         _planner = new OrganizationPlanner(applicationPaths, logger);
-        _applier = new OrganizationPlanApplier(applicationPaths, logger);
+        _applier = new OrganizationPlanApplier(applicationPaths, logger, libraryManager);
         _undoer = new OrganizationPlanUndoer(applicationPaths, logger);
     }
 
@@ -135,6 +135,65 @@ public sealed class ShirariumController : ControllerBase
     {
         var plan = OrganizationPlanStore.Read(_applicationPaths);
         return Ok(OrganizationPlanSummaryLogic.Build(plan));
+    }
+
+    /// <summary>
+    /// Renders a sample path against a template to preview the result.
+    /// </summary>
+    /// <param name="request">Template test request.</param>
+    /// <returns>The rendered target path preview.</returns>
+    [HttpPost("test-template")]
+    public ActionResult<object> TestTemplate([FromBody] TestTemplateRequest request)
+    {
+        if (request is null || string.IsNullOrWhiteSpace(request.Path))
+        {
+            return BadRequestError("PathRequired", "Sample path is required.");
+        }
+
+        var parsed = new HeuristicParser().Parse(request.Path);
+        var suggestion = new ScanSuggestion
+        {
+            Path = request.Path,
+            SuggestedTitle = parsed.Title,
+            SuggestedMediaType = parsed.MediaType,
+            SuggestedYear = parsed.Year,
+            SuggestedSeason = parsed.Season,
+            SuggestedEpisode = parsed.Episode,
+            Resolution = parsed.Resolution,
+            VideoCodec = parsed.VideoCodec,
+            AudioCodec = parsed.AudioCodec,
+            AudioChannels = parsed.AudioChannels,
+            ReleaseGroup = parsed.ReleaseGroup
+        };
+
+        var entry = OrganizationPlanLogic.BuildEntry(
+            suggestion,
+            request.RootPath ?? "/media",
+            request.NormalizePathSegments ?? true,
+            request.MoviePathTemplate,
+            request.EpisodePathTemplate);
+
+        return Ok(new
+        {
+            SourcePath = request.Path,
+            TargetPath = entry.TargetPath,
+            Action = entry.Action,
+            Reason = entry.Reason,
+            Strategy = entry.Strategy,
+            Metadata = new
+            {
+                parsed.Title,
+                parsed.MediaType,
+                parsed.Year,
+                parsed.Season,
+                parsed.Episode,
+                parsed.Resolution,
+                parsed.VideoCodec,
+                parsed.AudioCodec,
+                parsed.AudioChannels,
+                parsed.ReleaseGroup
+            }
+        });
     }
 
     /// <summary>

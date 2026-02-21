@@ -319,13 +319,43 @@ public sealed class HeuristicParser
 
         if (cleaned.Count == 0) return "Unknown Title";
 
-        string title = string.Join(" ", cleaned).Trim();
-        
-        // Simple Title Case
+        // Simple Title Case with Acronym Preservation
         TextInfo textInfo = CultureInfo.CurrentCulture.TextInfo;
-        title = textInfo.ToTitleCase(title.ToLower());
+        var builder = new List<string>(cleaned.Count);
+        
+        foreach (var token in cleaned)
+        {
+            if (IsAcronym(token))
+            {
+                builder.Add(token);
+            }
+            else
+            {
+                builder.Add(textInfo.ToTitleCase(token.ToLowerInvariant()));
+            }
+        }
 
+        string title = string.Join(" ", builder).Trim();
         return StripAccents(title);
+    }
+
+    private static bool IsAcronym(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return false;
+
+        // 1. All uppercase (e.g. NASA, FBI) - at least 2 chars
+        if (token.Length >= 2 && token.All(c => char.IsUpper(c) || char.IsDigit(c)))
+        {
+            return true;
+        }
+
+        // 2. Dots between letters (e.g. S.H.I.E.L.D.)
+        if (token.Contains('.') && token.Split('.', StringSplitOptions.RemoveEmptyEntries).All(part => part.Length == 1))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static string StripAccents(string s)
