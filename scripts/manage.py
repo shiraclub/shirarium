@@ -308,11 +308,21 @@ def cmd_seed(args):
     sample_mkv = target_root / ".sample.mkv"
     sample_mp4 = target_root / ".sample.mp4"
 
-    if not sample_mkv.exists() or not sample_mp4.exists():
+    container_name = "shirarium-jellyfin-dev"
+    container_running = False
+    try:
+        # Check if container is running
+        check_cmd = ["docker", "inspect", "-f", "{{.State.Running}}", container_name]
+        result = subprocess.run(check_cmd, capture_output=True, text=True)
+        container_running = result.returncode == 0 and result.stdout.strip() == "true"
+    except Exception:
+        pass
+
+    if (not sample_mkv.exists() or not sample_mp4.exists()) and container_running:
         print("Generating golden samples via container ffmpeg...")
         ffmpeg = "/usr/lib/jellyfin-ffmpeg/ffmpeg"
         # 5 seconds duration, standard 16:9 aspect ratio, libx264
-        base_cmd = ["docker", "exec", "shirarium-jellyfin-dev", ffmpeg, "-f", "lavfi", "-i", "color=c=black:s=640x360:d=5", "-f", "lavfi", "-i", "anullsrc=cl=mono:d=5", "-c:v", "libx264", "-t", "5", "-preset", "ultrafast", "-c:a", "aac", "-shortest"]
+        base_cmd = ["docker", "exec", container_name, ffmpeg, "-f", "lavfi", "-i", "color=c=black:s=640x360:d=5", "-f", "lavfi", "-i", "anullsrc=cl=mono:d=5", "-c:v", "libx264", "-t", "5", "-preset", "ultrafast", "-c:a", "aac", "-shortest"]
         try:
             run_command(base_cmd + ["/media/.sample.mkv", "-y"])
             run_command(base_cmd + ["/media/.sample.mp4", "-y"])

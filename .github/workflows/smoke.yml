@@ -46,24 +46,27 @@ jobs:
           mkdir -p data/jellyfin/config
           mkdir -p data/jellyfin/cache
 
-          export MEDIA_PATH="${GITHUB_WORKSPACE}/data/media"
-          export JELLYFIN_PORT=8097
-          export JELLYFIN_BASE_URL="http://localhost:${JELLYFIN_PORT}"
-
-          python3 scripts/manage.py seed \
-            --clean \
-            --dataset datasets/regression/tier-b-synthetic.json
+                    export MEDIA_PATH="${GITHUB_WORKSPACE}/data/media"
+                    export JELLYFIN_PORT=8097
+                    export JELLYFIN_BASE_URL="http://localhost:${JELLYFIN_PORT}"
           
-          mkdir -p "${MEDIA_PATH}"
+                    mkdir -p "${MEDIA_PATH}"
+                    
+                    cleanup() {
+                      docker logs shirarium-jellyfin-dev || true
+                      docker compose down -v || true
+                    }
+                    trap cleanup EXIT
           
-          cleanup() {
-            docker compose down -v || true
-          }
-          trap cleanup EXIT
-
-          docker compose up -d jellyfin-dev
-
-          # Wait until the public endpoint returns real JSON payload (not startup/migration HTML).
+                    docker compose up -d jellyfin-dev
+          
+                    # Seed after container is up so we can use its ffmpeg for golden samples
+                    python3 scripts/manage.py seed \
+                      --clean \
+                      --dataset datasets/regression/tier-b-synthetic.json
+          
+                    # Wait until the public endpoint returns real JSON payload
+           (not startup/migration HTML).
           for i in {1..180}; do
             code="$(curl -s -o /tmp/jellyfin-public.json -w "%{http_code}" "http://localhost:8097/System/Info/Public" || true)"
             if [[ "${code}" == "200" ]] && grep -q '"Version"' /tmp/jellyfin-public.json; then
