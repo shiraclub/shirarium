@@ -25,4 +25,4 @@ TestResults/
 # Ephemeral / Harvested Data
 datasets/benchmark/
 datasets/regression/*-harvested.json
-datasets/regression/*-synthetic*.json
+datasets/regression/tier-b-synthetic-dirty.json
