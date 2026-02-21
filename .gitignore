@@ -19,6 +19,7 @@ artifacts/
 TestResults/
 
 .env
+.jf_token
 
 # Benchmarking Data (Tier C)
 datasets/benchmark/

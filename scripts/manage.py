@@ -94,22 +94,62 @@ def cmd_login(args):
         sys.exit(1)
 
 def cmd_quick_setup(args):
-    """Automate the Jellyfin setup wizard."""
-    print(f"Performing quick setup for {args.url}...")
+    """Automate the Jellyfin setup wizard using root/root."""
+    print(f"Waiting for Jellyfin to be ready at {args.url}...")
     
-    # 1. Create the initial admin user
-    user_payload = {
-        "Name": args.username,
-        "Password": args.password or ""
-    }
-    print(f"Creating admin user: {args.username}...")
-    call_jf_api("Startup/User", method="POST", body=user_payload, args=args)
+    # Wait for server to be responsive
+    max_retries = 30
+    for i in range(max_retries):
+        try:
+            resp = call_jf_api("System/Info/Public", args=args)
+            if resp: break
+        except: pass
+        time.sleep(2)
+        if i == max_retries - 1:
+            print("Error: Server did not become ready in time.")
+            sys.exit(1)
+
+    print("Server is ready. Starting automated setup...")
     
-    # 2. Complete the setup
+    startup_auth = 'MediaBrowser Client="Shirarium-CLI", Device="CLI", DeviceId="shirarium-cli", Version="0.0.14"'
+    
+    def call_setup(path, body=None):
+        url = f"{args.url.rstrip('/')}/{path}"
+        headers = {
+            "X-Emby-Authorization": startup_auth,
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        }
+        data = json.dumps(body).encode("utf-8") if body else None
+        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req) as f:
+                return True
+        except urllib.error.HTTPError as e:
+            print(f"Setup Step {path} status: {e.code}")
+            return False
+
+    # 1. Create the initial admin user FIRST (root/root)
+    print("Creating admin user: root...")
+    call_setup("Startup/User", {"Name": "root", "Password": "root"})
+    
+    # 2. Set initial configuration
+    print("Setting initial configuration...")
+    call_setup("Startup/Configuration", {
+        "UICulture": "en-US",
+        "MetadataCountryCode": "US",
+        "PreferredMetadataLanguage": "en"
+    })
+
+    # 3. Complete the setup
     print("Finalizing setup...")
-    call_jf_api("Startup/Complete", method="POST", args=args)
+    call_setup("Startup/Complete")
     
-    print("\nQuick setup complete! Now logging in...")
+    print("\nQuick setup complete! Attempting login as root...")
+    time.sleep(2)
+    
+    args.username = "root"
+    args.password = "root"
     cmd_login(args)
 
 def get_saved_token():
