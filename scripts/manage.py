@@ -225,6 +225,57 @@ def cmd_setup_libraries(args):
         call_jf_api(path, method="POST", args=args)
     
     print("Library setup complete.")
+    
+    if getattr(args, "wait", False):
+        cmd_wait_for_scan(args)
+
+def cmd_scan(args):
+    """Trigger a Jellyfin library scan."""
+    print("Triggering library scan...")
+    call_jf_api("Library/Refresh", method="POST", args=args)
+    if getattr(args, "wait", False):
+        cmd_wait_for_scan(args)
+
+def cmd_wait_for_scan(args):
+    """Poll Jellyfin for library scan progress."""
+    print("Waiting for library scan to start...")
+    
+    import time
+    last_pct = -1
+    start_time = time.time()
+    
+    while True:
+        tasks = call_jf_api("ScheduledTasks", args=args)
+        if not tasks:
+            print("Warning: Could not retrieve tasks, retrying...")
+            time.sleep(2)
+            continue
+            
+        scan_task = next((t for t in tasks if t.get("Key") == "RefreshLibrary"), None)
+        if not scan_task:
+            print("Error: Library scan task not found.")
+            return
+
+        state = scan_task.get("State", "Idle")
+        progress = scan_task.get("CurrentProgressPercentage", 0)
+        
+        if state == "Running":
+            if progress != last_pct:
+                print(f"Scan in progress: {progress:.1f}%")
+                last_pct = progress
+        elif state == "Idle":
+            # If we just started and it's idle, give it a few seconds to actually start
+            if last_pct == -1 and time.time() - start_time < 10:
+                time.sleep(1)
+                continue
+                
+            if last_pct != -1:
+                print("Scan complete: 100%")
+            else:
+                print("Scan is idle (finished or not started).")
+            break
+            
+        time.sleep(2)
 
 def cmd_up(args):
     """Start the dev environment."""
@@ -289,20 +340,9 @@ def cmd_seed(args):
         print("Cleaning existing media...")
         for item in target_root.iterdir():
             if item.name == ".gitkeep": continue
+            if item.name.startswith(".sample."): continue
             if item.is_dir(): shutil.rmtree(item)
             else: item.unlink()
-
-    # Binary templates for common extensions to satisfy basic magic-byte checks
-    EXT_TEMPLATES = {
-        ".mkv": b"\x1A\x45\xDF\xA3\x01\x00\x00\x00", # EBML/Matroska
-        ".mp4": b"\x00\x00\x00\x18ftypisom\x00\x00\x00\x00isomiso2avc1mp41", # MP4 header
-        ".avi": b"RIFF\x00\x00\x00\x00AVI LIST",
-        ".mov": b"\x00\x00\x00\x14ftypqt  ",
-        ".jpg": b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x01",
-        ".png": b"\x89PNG\r\n\x1a\n",
-        ".nfo": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<movie>\n  <title>{title}</title>\n  <year>{year}</year>\n  <video>\n    <resolution>{resolution}</resolution>\n    <codec>{codec}</codec>\n  </video>\n</movie>",
-        ".srt": "1\n00:00:01,000 --> 00:00:04,000\nShirarium Test Subtitle\n\n2\n00:00:05,000 --> 00:00:08,000\nSynthetic Media for Development",
-    }
 
     # Try to find or generate golden samples for video files
     sample_mkv = target_root / ".sample.mkv"
@@ -329,6 +369,18 @@ def cmd_seed(args):
             time.sleep(2) # Ensure files are synced
         except Exception as e:
             print(f"Warning: Failed to generate golden samples: {e}")
+
+    # Binary templates for common extensions to satisfy basic magic-byte checks
+    EXT_TEMPLATES = {
+        ".mkv": b"\x1A\x45\xDF\xA3\x01\x00\x00\x00", # EBML/Matroska
+        ".mp4": b"\x00\x00\x00\x18ftypisom\x00\x00\x00\x00isomiso2avc1mp41", # MP4 header
+        ".avi": b"RIFF\x00\x00\x00\x00AVI LIST",
+        ".mov": b"\x00\x00\x00\x14ftypqt  ",
+        ".jpg": b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x01",
+        ".png": b"\x89PNG\r\n\x1a\n",
+        ".nfo": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<movie>\n  <title>{title}</title>\n  <year>{year}</year>\n  <video>\n    <resolution>{resolution}</resolution>\n    <codec>{codec}</codec>\n  </video>\n</movie>",
+        ".srt": "1\n00:00:01,000 --> 00:00:04,000\nShirarium Test Subtitle\n\n2\n00:00:05,000 --> 00:00:08,000\nSynthetic Media for Development",
+    }
 
     count = 0
     for entry in entries:
@@ -490,7 +542,21 @@ def main():
     p_setup_libs = subparsers.add_parser("setup-libraries", help="Create default libraries in Jellyfin")
     p_setup_libs.add_argument("--url", default="http://localhost:8097", help="Jellyfin URL")
     p_setup_libs.add_argument("--token", help="Jellyfin Admin Token (optional if logged in)")
+    p_setup_libs.add_argument("--wait", action="store_true", help="Wait for initial scan to complete")
     p_setup_libs.set_defaults(func=cmd_setup_libraries)
+
+    # scan
+    p_scan = subparsers.add_parser("scan", help="Trigger Jellyfin library scan")
+    p_scan.add_argument("--url", default="http://localhost:8097", help="Jellyfin URL")
+    p_scan.add_argument("--token", help="Jellyfin Admin Token (optional if logged in)")
+    p_scan.add_argument("--wait", action="store_true", help="Wait for scan to complete")
+    p_scan.set_defaults(func=cmd_scan)
+
+    # wait-for-scan
+    p_wait = subparsers.add_parser("wait-for-scan", help="Wait for active library scan to complete")
+    p_wait.add_argument("--url", default="http://localhost:8097", help="Jellyfin URL")
+    p_wait.add_argument("--token", help="Jellyfin Admin Token (optional if logged in)")
+    p_wait.set_defaults(func=cmd_wait_for_scan)
 
     # login
     p_login = subparsers.add_parser("login", help="Authenticate with Jellyfin")
