@@ -191,6 +191,38 @@ public sealed class OrganizationPlanLogicTests
     }
 
     [Fact]
+    public void BuildEntry_PlansSeriesLevelAssets_WhenInSeasonFolder()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var seriesRoot = Path.Combine(root, "incoming", "MyShow");
+            var seasonRoot = Path.Combine(seriesRoot, "Season 01");
+            var organized = Path.Combine(root, "organized");
+            Directory.CreateDirectory(seasonRoot);
+            
+            var videoPath = Path.Combine(seasonRoot, "S01E01.mkv");
+            var seriesNfoPath = Path.Combine(seriesRoot, "tvshow.nfo");
+            var seriesPosterPath = Path.Combine(seriesRoot, "poster.jpg");
+            
+            File.WriteAllText(videoPath, "video");
+            File.WriteAllText(seriesNfoPath, "series nfo");
+            File.WriteAllText(seriesPosterPath, "series poster");
+
+            var suggestion = CreateSuggestion(videoPath, "MyShow", "episode", suggestedSeason: 1, suggestedEpisode: 1);
+            var entry = OrganizationPlanLogic.BuildEntry(suggestion, organized, true);
+
+            // Should contain the episode's parent folder assets because the parent of "Season 01" is "MyShow"
+            Assert.Contains(entry.AssociatedFiles, m => m.SourcePath == seriesNfoPath && m.TargetPath.EndsWith("tvshow.nfo"));
+            Assert.Contains(entry.AssociatedFiles, m => m.SourcePath == seriesPosterPath && m.TargetPath.EndsWith("poster.jpg"));
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
     public void BuildEntry_ForMovie_UsesConfiguredTemplate()
     {
         var root = CreateTempRoot();

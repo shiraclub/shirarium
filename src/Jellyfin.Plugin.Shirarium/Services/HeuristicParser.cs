@@ -204,7 +204,11 @@ public sealed class HeuristicParser
                                        stem.Contains("subs", StringComparison.OrdinalIgnoreCase) ||
                                        stem.Contains("raws", StringComparison.OrdinalIgnoreCase);
 
-                    if (stem.Contains(" - ") || (!isYearLike && hasKeywords))
+                    // If followed by common junk like 1080p, it's likely an episode
+                    string after = stem.Substring(absMatch.Index + absMatch.Length).ToLowerInvariant();
+                    bool followedByJunk = CommonJunk.Any(j => after.Contains(j));
+
+                    if (stem.Contains(" - ") || (!isYearLike && (hasKeywords || followedByJunk)))
                     {
                         mediaType = "episode";
                         confidence += 0.25;
@@ -319,11 +323,33 @@ public sealed class HeuristicParser
 
         if (cleaned.Count == 0) return "Unknown Title";
 
+        // Merge single-letter tokens (S H I E L D -> S.H.I.E.L.D.)
+        var merged = new List<string>();
+        for (int i = 0; i < cleaned.Count; i++)
+        {
+            if (cleaned[i].Length == 1 && i + 1 < cleaned.Count && cleaned[i + 1].Length == 1)
+            {
+                var acronym = new StringBuilder();
+                while (i < cleaned.Count && cleaned[i].Length == 1)
+                {
+                    acronym.Append(cleaned[i].ToUpperInvariant());
+                    acronym.Append('.');
+                    i++;
+                }
+                merged.Add(acronym.ToString());
+                i--;
+            }
+            else
+            {
+                merged.Add(cleaned[i]);
+            }
+        }
+
         // Simple Title Case with Acronym Preservation
         TextInfo textInfo = CultureInfo.CurrentCulture.TextInfo;
-        var builder = new List<string>(cleaned.Count);
+        var builder = new List<string>(merged.Count);
         
-        foreach (var token in cleaned)
+        foreach (var token in merged)
         {
             if (IsAcronym(token))
             {

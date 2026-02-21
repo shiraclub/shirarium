@@ -634,6 +634,41 @@ public sealed class ControllerContractTests
         return Assert.IsType<PreflightReviewedPlanResponse>(ok.Value);
     }
 
+    [Fact]
+    public void TestTemplate_ReturnsRenderedPath()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var applicationPaths = CreateApplicationPaths(root);
+            var controller = CreateController(applicationPaths);
+
+            var request = new TestTemplateRequest
+            {
+                Path = "/media/Downloads/The.Matrix.1999.1080p.mkv",
+                MoviePathTemplate = "{Title} ({Year})/{Title}",
+                RootPath = "/organized"
+            };
+
+            var actionResult = controller.TestTemplate(request);
+            var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
+            
+            // Using dynamic or reflection to access anonymous object properties in test
+            var json = JsonSerializer.Serialize(okResult.Value);
+            using var doc = JsonDocument.Parse(json);
+            var rootEl = doc.RootElement;
+
+            Assert.Equal("/media/Downloads/The.Matrix.1999.1080p.mkv", rootEl.GetProperty("SourcePath").GetString());
+            Assert.Equal(Path.Combine("/organized", "The Matrix (1999)", "The Matrix.mkv").Replace("\\", "/"), 
+                         rootEl.GetProperty("TargetPath").GetString()?.Replace("\\", "/"));
+            Assert.Equal("The Matrix", rootEl.GetProperty("Metadata").GetProperty("Title").GetString());
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
     private static ShirariumController CreateController(TestApplicationPaths applicationPaths)
     {
         return new ShirariumController(
