@@ -170,8 +170,8 @@ public sealed class ShirariumController : ControllerBase
             suggestion,
             request.RootPath ?? "/media",
             request.NormalizePathSegments ?? true,
-            request.MoviePathTemplate,
-            request.EpisodePathTemplate);
+            request.MoviePathTemplate ?? string.Empty,
+            request.EpisodePathTemplate ?? string.Empty);
 
         return Ok(new
         {
