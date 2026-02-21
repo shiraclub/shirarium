@@ -60,7 +60,7 @@ def generate_movie(title, year):
     entries = []
     
     if strategy == "flat":
-        rel_path = f"{base_name}.mkv"
+        rel_path = f"Downloads/{base_name}.mkv"
         entries.append({
             "relativePath": rel_path,
             "expected": { 
@@ -123,7 +123,7 @@ def generate_episode(title, season, episode):
     entries = []
     
     if strategy == "flat":
-        rel_path = f"{base_name}.mkv"
+        rel_path = f"TV-Downloads/{base_name}.mkv"
         entries.append({
             "relativePath": rel_path,
             "expected": { 

@@ -210,7 +210,8 @@ def cmd_setup_libraries(args):
     libraries = [
         {"Name": "Movies", "CollectionType": "movies", "Paths": ["/media/Movies"]},
         {"Name": "TV Shows", "CollectionType": "tvshows", "Paths": ["/media/TV"]},
-        {"Name": "Downloads", "CollectionType": "movies", "Paths": ["/media/Downloads"]}
+        {"Name": "Downloads (Movies)", "CollectionType": "movies", "Paths": ["/media/Downloads"]},
+        {"Name": "Downloads (TV)", "CollectionType": "tvshows", "Paths": ["/media/TV-Downloads"]}
     ]
 
     for lib in libraries:
@@ -218,8 +219,9 @@ def cmd_setup_libraries(args):
         import urllib.parse
         name = urllib.parse.quote(lib['Name'])
         c_type = urllib.parse.quote(lib['CollectionType'])
-        path_param = urllib.parse.quote(lib['Paths'][0])
-        path = f"Library/VirtualFolders?name={name}&collectionType={c_type}&paths={path_param}"
+        paths = ",".join([urllib.parse.quote(p) for p in lib['Paths']])
+        
+        path = f"Library/VirtualFolders?name={name}&collectionType={c_type}&paths={paths}"
         call_jf_api(path, method="POST", args=args)
     
     print("Library setup complete.")
@@ -302,6 +304,22 @@ def cmd_seed(args):
         ".srt": "1\n00:00:01,000 --> 00:00:04,000\nShirarium Test Subtitle\n\n2\n00:00:05,000 --> 00:00:08,000\nSynthetic Media for Development",
     }
 
+    # Try to find or generate golden samples for video files
+    sample_mkv = target_root / ".sample.mkv"
+    sample_mp4 = target_root / ".sample.mp4"
+
+    if not sample_mkv.exists() or not sample_mp4.exists():
+        print("Generating golden samples via container ffmpeg...")
+        ffmpeg = "/usr/lib/jellyfin-ffmpeg/ffmpeg"
+        # 5 seconds duration, standard 16:9 aspect ratio, libx264
+        base_cmd = ["docker", "exec", "shirarium-jellyfin-dev", ffmpeg, "-f", "lavfi", "-i", "color=c=black:s=640x360:d=5", "-f", "lavfi", "-i", "anullsrc=cl=mono:d=5", "-c:v", "libx264", "-t", "5", "-preset", "ultrafast", "-c:a", "aac", "-shortest"]
+        try:
+            run_command(base_cmd + ["/media/.sample.mkv", "-y"])
+            run_command(base_cmd + ["/media/.sample.mp4", "-y"])
+            time.sleep(2) # Ensure files are synced
+        except Exception as e:
+            print(f"Warning: Failed to generate golden samples: {e}")
+
     count = 0
     for entry in entries:
         rel_path = entry.get("relativePath")
@@ -317,15 +335,16 @@ def cmd_seed(args):
         template = EXT_TEMPLATES.get(ext)
         expected = entry.get("expected") or {}
 
-        # Determine logical size for media files
-        logical_size = random.randint(1, 5) * 1024 * 1024 if ext in [".mkv", ".mp4", ".avi", ".mov"] else 0
-
         try:
-            if isinstance(template, bytes):
+            if ext == ".mkv" and sample_mkv.exists():
+                shutil.copy(sample_mkv, full_path)
+            elif ext == ".mp4" and sample_mp4.exists():
+                shutil.copy(sample_mp4, full_path)
+            elif isinstance(template, bytes):
                 with open(full_path, "wb") as f:
                     f.write(template)
-                    if logical_size > 0:
-                        f.truncate(logical_size)
+                    # Add some random padding to make the file look "non-empty" to basic probes
+                    f.write(os.urandom(1024))
             else:
                 content = template if template else f"Shirarium synthetic file\nSource: {rel_path}"
                 if "{title}" in content:
