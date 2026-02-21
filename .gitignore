@@ -20,6 +20,9 @@ TestResults/
 
 .env
 .jf_token
+.dotnet_cli/
 
-# Benchmarking Data (Tier C)
+# Ephemeral / Harvested Data
 datasets/benchmark/
+datasets/regression/*-harvested.json
+datasets/regression/*-synthetic*.json
