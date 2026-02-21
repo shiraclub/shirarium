@@ -58,14 +58,16 @@ jobs:
                     }
                     trap cleanup EXIT
           
-                    docker compose up -d jellyfin-dev
-          
-                    # Seed after container is up so we can use its ffmpeg for golden samples
-                    python3 scripts/manage.py seed \
-                      --clean \
-                      --dataset datasets/regression/tier-b-synthetic.json
-          
-                    # Wait until the public endpoint returns real JSON payload
+                              docker compose up -d jellyfin-dev
+                    
+                              # Generate the dataset since it's untracked in git
+                              python3 scripts/harvest_synthetic_dataset.py 50 datasets/regression/tier-b-synthetic.json
+                    
+                              # Seed after container is up so we can use its ffmpeg for golden samples
+                              python3 scripts/manage.py seed \
+                                --clean \
+                                --dataset datasets/regression/tier-b-synthetic.json
+                                        # Wait until the public endpoint returns real JSON payload
            (not startup/migration HTML).
           for i in {1..180}; do
             code="$(curl -s -o /tmp/jellyfin-public.json -w "%{http_code}" "http://localhost:8097/System/Info/Public" || true)"

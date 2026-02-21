@@ -172,7 +172,7 @@ def generate_episode(title, season, episode):
 
     return entries
 
-def harvest(count=5000):
+def harvest(count=5000, output_path=None):
     entries = []
     all_titles = TITLES + EVIL_TITLES
     
@@ -189,15 +189,18 @@ def harvest(count=5000):
         "entries": entries
     }
     
-    output_path = Path("datasets/regression/tier-b-synthetic-dirty.json")
-    with open(output_path, "w", encoding="utf-8") as f:
+    final_path = Path(output_path) if output_path else Path("datasets/regression/tier-b-synthetic-dirty.json")
+    with open(final_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
     
-    print(f"Successfully harvested {len(entries)} entries to {output_path}")
+    print(f"Successfully harvested {len(entries)} entries to {final_path}")
 
 if __name__ == "__main__":
     import sys
     count = 5000
+    out = None
     if len(sys.argv) > 1:
         count = int(sys.argv[1])
-    harvest(count)
+    if len(sys.argv) > 2:
+        out = sys.argv[2]
+    harvest(count, out)
