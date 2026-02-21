@@ -2,7 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.10.0] - 2026-02-16
+## [0.0.13]
+
+### Added
+- Configurable inference port in plugin configuration.
+- Support for TV show asset discovery in season and special folders.
+- XML documentation for all public API contracts and services.
+
+### Changed
+- Performance: Optimized scanner candidate discovery to use streaming enumeration for reduced memory overhead.
+- Robustness: Inference engine binary extraction is now safer and handles "file in use" errors gracefully.
+- Logging: Store logic now correctly uses the plugin's logger for persistence warnings.
+
+## [0.10.0]
 
 ### Added
 - Jellyfin plugin dashboard page: `Shirarium Review` with Review, Preflight, Locks, and History tabs.

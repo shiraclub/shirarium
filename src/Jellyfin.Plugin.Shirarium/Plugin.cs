@@ -24,6 +24,11 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>
     public static Plugin? Instance { get; private set; }
 
     /// <summary>
+    /// Gets the plugin logger.
+    /// </summary>
+    public static ILogger? Logger { get; private set; }
+
+    /// <summary>
     /// Gets the Jellyfin application paths.
     /// </summary>
     public IApplicationPaths AppPaths { get; }
@@ -50,6 +55,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>
     {
         AppPaths = applicationPaths;
         Instance = this;
+        Logger = loggerFactory.CreateLogger("Shirarium");
         InferenceManager = new InferenceManager(applicationPaths, loggerFactory.CreateLogger<InferenceManager>());
         _ = InferenceManager.StartAsync(CancellationToken.None);
     }

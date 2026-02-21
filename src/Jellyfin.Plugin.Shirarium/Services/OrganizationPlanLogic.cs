@@ -256,6 +256,23 @@ internal static class OrganizationPlanLogic
     {
         try
         {
+            var dirName = Path.GetFileName(directoryPath);
+            if (string.IsNullOrWhiteSpace(dirName))
+            {
+                return false;
+            }
+
+            // Common TV subfolders are always considered private to the parent show's hierarchy.
+            if (dirName.StartsWith("Season", StringComparison.OrdinalIgnoreCase)
+                || dirName.Equals("Specials", StringComparison.OrdinalIgnoreCase)
+                || dirName.Equals("Extras", StringComparison.OrdinalIgnoreCase)
+                || dirName.Equals("Subs", StringComparison.OrdinalIgnoreCase)
+                || dirName.Equals("Featurettes", StringComparison.OrdinalIgnoreCase)
+                || dirName.Equals("Behind the Scenes", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
             var videoExtensions = new HashSet<string>(new[] { ".mkv", ".mp4", ".avi", ".mov", ".wmv", ".m4v" }, StringComparer.OrdinalIgnoreCase);
             var files = Directory.GetFiles(directoryPath);
             var videoFileCount = files.Count(f => videoExtensions.Contains(Path.GetExtension(f)));

@@ -71,6 +71,11 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     public bool EnableManagedLocalInference { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets the port number used by the managed local inference engine.
+    /// </summary>
+    public int InferencePort { get; set; } = 11434;
+
+    /// <summary>
     /// Gets or sets a value indicating whether the plugin should automatically download 
     /// the recommended LLM model if it is missing.
     /// </summary>
@@ -101,7 +106,7 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the relative movie path template under <see cref="OrganizationRootPath"/>.
     /// </summary>
     /// <remarks>
-    /// Available tokens: {Title}, {TitleWithYear}, {Year}, {Resolution}, {VideoCodec}, etc.
+    /// Available tokens: {Title}, {TitleWithYear}, {Year}, {Resolution}, {VideoCodec}, {VideoBitDepth}, {AudioCodec}, {AudioChannels}, {ReleaseGroup}, {MediaSource}, {Edition}.
     /// </remarks>
     public string MoviePathTemplate { get; set; } = "{TitleWithYear} [{Resolution}]/{TitleWithYear} [{Resolution}]";
 
@@ -109,7 +114,7 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the relative episode path template under <see cref="OrganizationRootPath"/>.
     /// </summary>
     /// <remarks>
-    /// Available tokens: {Title}, {Season}, {Season2}, {Episode}, {Episode2}, {Resolution}, etc.
+    /// Available tokens: {Title}, {Season}, {Season2}, {Episode}, {Episode2}, {Resolution}, {VideoCodec}, {VideoBitDepth}, {AudioCodec}, {AudioChannels}, {ReleaseGroup}, {MediaSource}, {Edition}.
     /// </remarks>
     public string EpisodePathTemplate { get; set; } = "{Title}/Season {Season2}/{Title} S{Season2}E{Episode2} [{Resolution}]";
 
@@ -117,7 +122,12 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the plan-time target conflict policy.
     /// </summary>
     /// <remarks>
-    /// Valid values: <c>fail</c>, <c>skip</c>, <c>suffix</c>.
+    /// Valid values: 
+    /// <list type="bullet">
+    ///   <item><description><c>fail</c>: Mark duplicate targets as conflicts.</description></item>
+    ///   <item><description><c>skip</c>: Skip items that would result in a duplicate target.</description></item>
+    ///   <item><description><c>suffix</c>: Append a numeric suffix (e.g., " (2)") to the target filename.</description></item>
+    /// </list>
     /// </remarks>
     public string TargetConflictPolicy { get; set; } = "fail";
 }

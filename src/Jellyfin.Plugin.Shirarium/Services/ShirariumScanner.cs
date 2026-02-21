@@ -111,7 +111,7 @@ public sealed class ShirariumScanner
         IEnumerable<string> items;
         try
         {
-            items = _sourceCandidateProvider.GetCandidates(cancellationToken).ToArray();
+            items = _sourceCandidateProvider.GetCandidates(cancellationToken);
         }
         catch (Exception ex)
         {

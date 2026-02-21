@@ -160,6 +160,37 @@ public sealed class OrganizationPlanLogicTests
     }
 
     [Fact]
+    public void BuildEntry_PlansAssociatedFiles_InTVSeasonFolder_EvenWithMultipleVideos()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var incoming = Path.Combine(root, "incoming", "Show", "Season 01");
+            var organized = Path.Combine(root, "organized");
+            Directory.CreateDirectory(incoming);
+            
+            var video1Path = Path.Combine(incoming, "S01E01.mkv");
+            var video2Path = Path.Combine(incoming, "S01E02.mkv");
+            var posterPath = Path.Combine(incoming, "folder.jpg");
+            
+            File.WriteAllText(video1Path, "video1");
+            File.WriteAllText(video2Path, "video2");
+            File.WriteAllText(posterPath, "poster");
+
+            var suggestion = CreateSuggestion(video1Path, "Show", "episode", suggestedSeason: 1, suggestedEpisode: 1);
+            var entry = OrganizationPlanLogic.BuildEntry(suggestion, organized, true);
+
+            // Previously this would have 0 because videoFileCount == 2.
+            // Now it should have 1 because folder is "Season 01".
+            Assert.Contains(entry.AssociatedFiles, m => m.SourcePath == posterPath && m.TargetPath.EndsWith("folder.jpg"));
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
+    }
+
+    [Fact]
     public void BuildEntry_ForMovie_UsesConfiguredTemplate()
     {
         var root = CreateTempRoot();

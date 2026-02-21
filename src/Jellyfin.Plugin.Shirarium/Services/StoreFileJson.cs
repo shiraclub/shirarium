@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Shirarium.Services;
 
@@ -166,12 +167,19 @@ internal static class StoreFileJson
 
     private static void LogWarning(string message)
     {
-        try
+        if (Plugin.Logger != null)
         {
-            Console.Error.WriteLine($"[{DateTimeOffset.UtcNow:O}] [Shirarium.StoreFileJson] {message}");
+            Plugin.Logger.LogWarning("StoreFileJson: {Message}", message);
         }
-        catch
+        else
         {
+            try
+            {
+                Console.Error.WriteLine($"[{DateTimeOffset.UtcNow:O}] [Shirarium.StoreFileJson] {message}");
+            }
+            catch
+            {
+            }
         }
     }
 }

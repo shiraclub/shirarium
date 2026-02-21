@@ -34,6 +34,10 @@ SCHEMA:
   ""confidence"": float
 }";
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="OllamaService"/> class.
+    /// </summary>
+    /// <param name="logger">Logger instance.</param>
     public OllamaService(ILogger<OllamaService> logger)
     {
         _logger = logger;
@@ -48,9 +52,22 @@ SCHEMA:
     /// </summary>
     public async Task<ParseFilenameResponse?> ParseAsync(string path, CancellationToken cancellationToken)
     {
-        // TODO: Get port/url from config if customizable. For now, default to managed port.
+        var config = Plugin.Instance?.Configuration;
         var baseUrl = "http://localhost:11434";
-        var url = $"{baseUrl}/v1/chat/completions";
+
+        if (config != null)
+        {
+            if (!string.IsNullOrWhiteSpace(config.ExternalOllamaUrl))
+            {
+                baseUrl = config.ExternalOllamaUrl.TrimEnd('/');
+            }
+            else
+            {
+                baseUrl = $"http://localhost:{config.InferencePort}";
+            }
+        }
+
+        var url = baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
 
         var payload = new
         {

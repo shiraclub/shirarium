@@ -45,11 +45,38 @@ public sealed record class ParseFilenameResponse
     /// </summary>
     public IReadOnlyList<string> RawTokens { get; init; } = Array.Empty<string>();
 
+    /// <summary>
+    /// Gets the inferred video resolution (e.g., 1080p, 720p).
+    /// </summary>
     public string? Resolution { get; init; }
+
+    /// <summary>
+    /// Gets the inferred video codec (e.g., x264, h265).
+    /// </summary>
     public string? VideoCodec { get; init; }
+
+    /// <summary>
+    /// Gets the inferred audio codec (e.g., AAC, DTS).
+    /// </summary>
     public string? AudioCodec { get; init; }
+
+    /// <summary>
+    /// Gets the inferred audio channels (e.g., 5.1, 2.0).
+    /// </summary>
     public string? AudioChannels { get; init; }
+
+    /// <summary>
+    /// Gets the inferred release group.
+    /// </summary>
     public string? ReleaseGroup { get; init; }
+
+    /// <summary>
+    /// Gets the inferred media source (e.g., BluRay, WEB-DL).
+    /// </summary>
     public string? MediaSource { get; init; }
+
+    /// <summary>
+    /// Gets the inferred edition (e.g., Extended, Director's Cut).
+    /// </summary>
     public string? Edition { get; init; }
 }

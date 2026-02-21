@@ -23,6 +23,11 @@ public sealed class InferenceManager : IHostedService, IDisposable
     private string _error = string.Empty;
     private double _downloadProgress;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="InferenceManager"/> class.
+    /// </summary>
+    /// <param name="applicationPaths">Jellyfin application paths.</param>
+    /// <param name="logger">Logger instance.</param>
     public InferenceManager(IApplicationPaths applicationPaths, ILogger<InferenceManager> logger)
     {
         _applicationPaths = applicationPaths;
@@ -44,7 +49,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
     }
 
     /// <inheritdoc />
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("InferenceManager starting...");
         
@@ -52,7 +57,13 @@ public sealed class InferenceManager : IHostedService, IDisposable
         if (config == null || !config.EnableManagedLocalInference)
         {
             _status = "Disabled";
-            return;
+            return Task.CompletedTask;
+        }
+
+        if (_runnerProcess != null && !_runnerProcess.HasExited)
+        {
+            _status = "Ready";
+            return Task.CompletedTask;
         }
 
         // We run the heavy setup in a separate task to not block server startup
@@ -79,7 +90,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
                     return;
                 }
 
-                StartServer(binaryPath, modelPath);
+                StartServer(binaryPath, modelPath, config.InferencePort);
                 _status = "Ready";
             }
             catch (Exception ex)
@@ -89,13 +100,25 @@ public sealed class InferenceManager : IHostedService, IDisposable
                 _logger.LogError(ex, "Error initializing local inference engine.");
             }
         }, cancellationToken);
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc />
     public Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("InferenceManager stopping...");
-        _runnerProcess?.Kill();
+        try
+        {
+            if (_runnerProcess != null && !_runnerProcess.HasExited)
+            {
+                _runnerProcess.Kill();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to kill inference runner process.");
+        }
         return Task.CompletedTask;
     }
 
@@ -136,11 +159,20 @@ public sealed class InferenceManager : IHostedService, IDisposable
             }
 
             _logger.LogInformation("Extracting binary...");
-            // Clean bin folder before extraction to avoid conflicts/mess
-            if (Directory.Exists(binFolder))
+            
+            // Safer extraction: only delete if possible, otherwise overwrite.
+            try 
             {
-                Directory.Delete(binFolder, true);
-                Directory.CreateDirectory(binFolder);
+                if (Directory.Exists(binFolder))
+                {
+                    // Attempt to delete. If it fails (file in use), we'll try to just extract over it.
+                    Directory.Delete(binFolder, true);
+                    Directory.CreateDirectory(binFolder);
+                }
+            }
+            catch (IOException ex)
+            {
+                _logger.LogWarning("Could not clean bin folder (likely in use), attempting to extract over existing files. Error: {Message}", ex.Message);
             }
             
             ZipFile.ExtractToDirectory(tempZip, binFolder, true);
@@ -194,19 +226,21 @@ public sealed class InferenceManager : IHostedService, IDisposable
         return null;
     }
 
-    private void StartServer(string binaryPath, string modelPath)
+    private void StartServer(string binaryPath, string modelPath, int port)
     {
         if (_runnerProcess != null && !_runnerProcess.HasExited)
         {
             return;
         }
 
-        _logger.LogInformation("Starting local inference server...");
+        _logger.LogInformation("Starting local inference server on port {Port}...", port);
 
+        // n-gpu-layers: 0 (CPU) for stability, but we can try 1 if we detect common GPU platforms 
+        // in a more advanced version. For now, we'll stick to 0 but make it explicit.
         var startInfo = new ProcessStartInfo
         {
             FileName = binaryPath,
-            Arguments = $"--model \"{modelPath}\" --port 11434 --n-gpu-layers 0", // Default to CPU for maximum compatibility
+            Arguments = $"--model \"{modelPath}\" --port {port} --n-gpu-layers 0", 
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = true,
@@ -283,6 +317,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_isDisposed) return;
