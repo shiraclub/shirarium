@@ -121,3 +121,13 @@ python scripts/manage.py api undo --token YOUR_TOKEN
   - `feat/scan-observability`
   - `fix/null-provider-ids`
   - `docs/contributing-guide`
+
+## Release Workflow
+
+To prepare a new release:
+
+1.  **Bump Version**: Update the `<Version>` tag in `src/Jellyfin.Plugin.Shirarium/Jellyfin.Plugin.Shirarium.csproj`.
+2.  **Update Changelog**: Add the new version header and summary of changes to `CHANGELOG.md`.
+3.  **Clean Manifest**: Ensure `manifest.json` has an empty `"versions": []` array (if cleaning up) or simply trust the CI.
+
+**Note on `manifest.json`**: This file is automatically populated by the GitHub Actions release workflow. Upon creating a new GitHub Release with a tag (e.g., `v0.0.13`), the CI will calculate the checksum, generate the download URL, and update the manifest in the `master` branch. Manual edits to the `versions` array in this file are typically not required.
