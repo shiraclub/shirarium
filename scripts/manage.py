@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import random
 import shutil
 import subprocess
 import sys
@@ -91,7 +92,7 @@ def cmd_test(args):
     run_command(cmd)
 
 def cmd_seed(args):
-    """Seed the media directory with synthetic files."""
+    """Seed the media directory with realistic-looking synthetic files."""
     dataset_path = Path(args.dataset)
     if not dataset_path.exists():
         dataset_path = REPO_ROOT / args.dataset
@@ -114,6 +115,18 @@ def cmd_seed(args):
             if item.is_dir(): shutil.rmtree(item)
             else: item.unlink()
 
+    # Binary templates for common extensions to satisfy basic magic-byte checks
+    EXT_TEMPLATES = {
+        ".mkv": b"\x1A\x45\xDF\xA3\x01\x00\x00\x00", # EBML/Matroska
+        ".mp4": b"\x00\x00\x00\x18ftypisom\x00\x00\x00\x00isomiso2avc1mp41", # MP4 header
+        ".avi": b"RIFF\x00\x00\x00\x00AVI LIST",
+        ".mov": b"\x00\x00\x00\x14ftypqt  ",
+        ".jpg": b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x01",
+        ".png": b"\x89PNG\r\n\x1a\n",
+        ".nfo": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<movie>\n  <title>{title}</title>\n  <year>{year}</year>\n  <video>\n    <resolution>{resolution}</resolution>\n    <codec>{codec}</codec>\n  </video>\n</movie>",
+        ".srt": "1\n00:00:01,000 --> 00:00:04,000\nShirarium Test Subtitle\n\n2\n00:00:05,000 --> 00:00:08,000\nSynthetic Media for Development",
+    }
+
     count = 0
     for entry in entries:
         rel_path = entry.get("relativePath")
@@ -121,10 +134,39 @@ def cmd_seed(args):
         rel_path = rel_path.replace("\\", "/")
         full_path = target_root / rel_path
         full_path.parent.mkdir(parents=True, exist_ok=True)
-        if not full_path.exists() or args.force:
-            with open(full_path, "w", encoding="utf-8") as f:
-                f.write(f"Shirarium synthetic file\nSource: {rel_path}\nManifest: {manifest.get('name')}")
+        
+        if full_path.exists() and not args.force:
+            continue
+
+        ext = full_path.suffix.lower()
+        template = EXT_TEMPLATES.get(ext)
+        expected = entry.get("expected") or {}
+
+        # Determine logical size for media files
+        # 1MB is enough to distinguish it from clutter without exploding disk usage
+        logical_size = random.randint(1, 5) * 1024 * 1024 if ext in [".mkv", ".mp4", ".avi", ".mov"] else 0
+
+        try:
+            if isinstance(template, bytes):
+                with open(full_path, "wb") as f:
+                    f.write(template)
+                    if logical_size > 0:
+                        f.truncate(logical_size)
+            else:
+                content = template if template else f"Shirarium synthetic file\nSource: {rel_path}"
+                if "{title}" in content:
+                    content = content.format(
+                        title=expected.get("title", "Unknown"), 
+                        year=expected.get("year", ""),
+                        resolution=expected.get("resolution", "Unknown"),
+                        codec=expected.get("codec", "Unknown")
+                    )
+                with open(full_path, "w", encoding="utf-8") as f:
+                    f.write(content)
             count += 1
+        except Exception as e:
+            print(f"Warning: Failed to seed {rel_path}: {e}")
+
     print(f"Seeded {count} files to {target_root}")
 
 def cmd_benchmark_setup(args):

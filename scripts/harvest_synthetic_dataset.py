@@ -63,14 +63,30 @@ def generate_movie(title, year):
         rel_path = f"{base_name}.mkv"
         entries.append({
             "relativePath": rel_path,
-            "expected": { "mediaType": "movie", "title": title, "year": year }
+            "expected": { 
+                "mediaType": "movie", 
+                "title": title, 
+                "year": year,
+                "resolution": quality,
+                "source": source,
+                "codec": codec,
+                "group": group
+            }
         })
     elif strategy == "scene":
         folder = f"Downloads/{base_name}/"
         rel_path = f"{folder}{base_name}.mkv"
         entries.append({
             "relativePath": rel_path,
-            "expected": { "mediaType": "movie", "title": title, "year": year }
+            "expected": { 
+                "mediaType": "movie", 
+                "title": title, 
+                "year": year,
+                "resolution": quality,
+                "source": source,
+                "codec": codec,
+                "group": group
+            }
         })
         for c in get_clutter(base_name, folder):
             entries.append({ "relativePath": c, "expected": None }) # Clutter has no expected metadata
@@ -80,7 +96,15 @@ def generate_movie(title, year):
         rel_path = f"{folder}{title} ({year}) [{quality}].mkv"
         entries.append({
             "relativePath": rel_path,
-            "expected": { "mediaType": "movie", "title": title, "year": year }
+            "expected": { 
+                "mediaType": "movie", 
+                "title": title, 
+                "year": year,
+                "resolution": quality,
+                "source": source,
+                "codec": codec,
+                "group": group
+            }
         })
         # Even clean folders have clutter sometimes
         if random.random() > 0.8:
@@ -91,8 +115,9 @@ def generate_movie(title, year):
 def generate_episode(title, season, episode):
     quality = random.choice(QUALITIES)
     group = random.choice(GROUPS)
+    codec = random.choice(CODECS)
     
-    base_name = f"{title.replace(' ', '.')}.S{season:02d}E{episode:02d}.{quality}.{random.choice(CODECS)}-{group}"
+    base_name = f"{title.replace(' ', '.')}.S{season:02d}E{episode:02d}.{quality}.{codec}-{group}"
     
     strategy = random.choice(["flat", "scene", "organized"])
     entries = []
@@ -101,14 +126,30 @@ def generate_episode(title, season, episode):
         rel_path = f"{base_name}.mkv"
         entries.append({
             "relativePath": rel_path,
-            "expected": { "mediaType": "episode", "title": title, "season": season, "episode": episode }
+            "expected": { 
+                "mediaType": "episode", 
+                "title": title, 
+                "season": season, 
+                "episode": episode,
+                "resolution": quality,
+                "codec": codec,
+                "group": group
+            }
         })
     elif strategy == "scene":
         folder = f"TV-Downloads/{base_name}/"
         rel_path = f"{folder}{base_name}.mkv"
         entries.append({
             "relativePath": rel_path,
-            "expected": { "mediaType": "episode", "title": title, "season": season, "episode": episode }
+            "expected": { 
+                "mediaType": "episode", 
+                "title": title, 
+                "season": season, 
+                "episode": episode,
+                "resolution": quality,
+                "codec": codec,
+                "group": group
+            }
         })
         for c in get_clutter(base_name, folder):
             entries.append({ "relativePath": c, "expected": None })
@@ -118,7 +159,15 @@ def generate_episode(title, season, episode):
         rel_path = f"{folder}{title} - S{season:02d}E{episode:02d}.mkv"
         entries.append({
             "relativePath": rel_path,
-            "expected": { "mediaType": "episode", "title": title, "season": season, "episode": episode }
+            "expected": { 
+                "mediaType": "episode", 
+                "title": title, 
+                "season": season, 
+                "episode": episode,
+                "resolution": quality,
+                "codec": codec,
+                "group": group
+            }
         })
 
     return entries
