@@ -88,6 +88,15 @@ python scripts/manage.py reload
 
 5. Open Jellyfin: `http://localhost:8097`
 
+### Dev vs Prod Stacks
+
+The local environment supports two distinct profiles managed via `docker-compose.yml`:
+
+- **Jellyfin Dev (Port 8097)**: Designed for rapid iteration. It maps the `./artifacts/plugin` directory directly into the container. Run `python scripts/manage.py reload` to rebuild the C# code and restart this container to see changes immediately.
+- **Jellyfin Prod (Port 8098)**: Simulates a clean production environment. It does not map local build artifacts, allowing you to test the official installation and update flows via the plugin repository.
+
+Both stacks share the same `./data/media` directory but maintain separate configuration and database folders under `./data/jellyfin` and `./data/jellyfin-prod` respectively.
+
 ## Architecture
 
 - **Core**: `src/Jellyfin.Plugin.Shirarium` - A native .NET plugin.
