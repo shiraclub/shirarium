@@ -51,25 +51,25 @@ def call_jf_api(path, method="GET", body=None, args=None, token=None):
         "Accept": "application/json"
     }
     
-    data = json.dumps(body).encode("utf-8") if body else None
+    if body is not None:
+        data = json.dumps(body).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    else:
+        data = None
+    
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    if body:
-        req.add_header("Content-Type", "application/json")
     
     try:
         with urllib.request.urlopen(req) as f:
             content = f.read().decode("utf-8")
             if not content:
-                return None
-            resp = json.loads(content)
-            return resp
+                return {}
+            return json.loads(content)
     except urllib.error.HTTPError as e:
-        error_msg = e.read().decode('utf-8')
-        print(f"API Error ({e.code}): {error_msg}")
+        # Silently fail for expected errors during probing
         return None
     except Exception as e:
-        print(f"Failed to connect: {e}")
-        sys.exit(1)
+        return None
 
 def cmd_login(args):
     """Authenticate with Jellyfin and print the token."""
@@ -94,29 +94,41 @@ def cmd_login(args):
         sys.exit(1)
 
 def cmd_quick_setup(args):
-    """Automate the Jellyfin setup wizard using root/root."""
+    """Automate the Jellyfin setup wizard using the default root user."""
     print(f"Waiting for Jellyfin to be ready at {args.url}...")
     
-    # Wait for server to be responsive
-    max_retries = 30
+    # Wait for server to be fully started
+    max_retries = 60
+    server_info = None
     for i in range(max_retries):
         try:
-            resp = call_jf_api("System/Info/Public", args=args)
-            if resp: break
+            # Info/Public is always available
+            url = f"{args.url.rstrip('/')}/System/Info/Public"
+            with urllib.request.urlopen(url) as f:
+                server_info = json.loads(f.read().decode("utf-8"))
+                if server_info and server_info.get("Version"): 
+                    break
         except: pass
         time.sleep(2)
         if i == max_retries - 1:
             print("Error: Server did not become ready in time.")
             sys.exit(1)
 
-    print("Server is ready. Starting automated setup...")
+    print(f"Server is ready (Version {server_info.get('Version')}). Starting automated setup...")
     
-    startup_auth = 'MediaBrowser Client="Shirarium-CLI", Device="CLI", DeviceId="shirarium-cli", Version="0.0.14"'
-    
+    # Check if a user already exists (Jellyfin 10.11+ often pre-creates 'root')
+    existing_user = None
+    try:
+        url = f"{args.url.rstrip('/')}/Startup/User"
+        with urllib.request.urlopen(url) as f:
+            existing_user = json.loads(f.read().decode("utf-8"))
+            print(f"Found existing startup user: {existing_user.get('Name')}")
+    except: pass
+
     def call_setup(path, body=None):
         url = f"{args.url.rstrip('/')}/{path}"
         headers = {
-            "X-Emby-Authorization": startup_auth,
+            "X-Emby-Authorization": 'MediaBrowser Client="Jellyfin Web", Device="CLI", DeviceId="shirarium-cli", Version="10.11.6"',
             "Accept": "application/json",
             "Content-Type": "application/json"
         }
@@ -124,16 +136,13 @@ def cmd_quick_setup(args):
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req) as f:
+                print(f"Setup Step {path} succeeded")
                 return True
         except urllib.error.HTTPError as e:
             print(f"Setup Step {path} status: {e.code}")
             return False
 
-    # 1. Create the initial admin user FIRST (root/root)
-    print("Creating admin user: root...")
-    call_setup("Startup/User", {"Name": "root", "Password": "root"})
-    
-    # 2. Set initial configuration
+    # 1. Set initial configuration
     print("Setting initial configuration...")
     call_setup("Startup/Configuration", {
         "UICulture": "en-US",
@@ -141,16 +150,45 @@ def cmd_quick_setup(args):
         "PreferredMetadataLanguage": "en"
     })
 
-    # 3. Complete the setup
+    # 2. Create or update the admin user
+    if existing_user and existing_user.get("Name") == "root":
+        print("Root user exists, skipping creation.")
+    else:
+        print("Creating admin user: root...")
+        call_setup("Startup/User", {"Name": "root", "Password": "root"})
+    
+    # 3. Finalize setup
     print("Finalizing setup...")
     call_setup("Startup/Complete")
     
     print("\nQuick setup complete! Attempting login as root...")
-    time.sleep(2)
+    time.sleep(3)
     
-    args.username = "root"
-    args.password = "root"
-    cmd_login(args)
+    # Try login with empty password first (standard default for root in this setup)
+    print("Attempting login with empty password...")
+    payload = {"Username": "root", "Pw": ""}
+    resp = call_jf_api("Users/AuthenticateByName", method="POST", body=payload, args=args)
+    
+    if not resp:
+        print("Login with empty password failed, trying 'root'...")
+        payload["Pw"] = "root"
+        resp = call_jf_api("Users/AuthenticateByName", method="POST", body=payload, args=args)
+
+    if resp and "AccessToken" in resp:
+        token = resp["AccessToken"]
+        print(f"Authentication Successful! Token: {token}")
+        REPO_ROOT.joinpath(".jf_token").write_text(token)
+        
+        # Ensure password is set to 'root' for consistency
+        user_id = resp["User"]["Id"]
+        # Try to set password if it was empty
+        if not payload["Pw"]:
+            print("Setting password to 'root' for consistency...")
+            pw_payload = {"CurrentPassword": "", "NewPassword": "root"}
+            call_jf_api(f"Users/{user_id}/Password", method="POST", body=pw_payload, args=args, token=token)
+    else:
+        print("Authentication failed.")
+        sys.exit(1)
 
 def get_saved_token():
     """Retrieve the token from the local cache file."""
@@ -177,7 +215,6 @@ def cmd_setup_libraries(args):
 
     for lib in libraries:
         print(f"Creating library: {lib['Name']}...")
-        # Jellyfin API: POST /Library/VirtualFolders
         import urllib.parse
         name = urllib.parse.quote(lib['Name'])
         c_type = urllib.parse.quote(lib['CollectionType'])
@@ -435,8 +472,8 @@ def main():
 
     # quick-setup
     p_quick = subparsers.add_parser("quick-setup", help="Automate initial Jellyfin setup")
-    p_quick.add_argument("username", help="Admin Username")
-    p_quick.add_argument("password", nargs="?", default="", help="Admin Password")
+    p_quick.add_argument("username", nargs="?", default="root", help="Admin Username")
+    p_quick.add_argument("password", nargs="?", default="root", help="Admin Password")
     p_quick.add_argument("--url", default="http://localhost:8097", help="Jellyfin URL")
     p_quick.set_defaults(func=cmd_quick_setup)
 
