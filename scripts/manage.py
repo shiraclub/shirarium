@@ -15,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = REPO_ROOT / "data"
 MEDIA_DIR = DATA_DIR / "media"
 PLUGIN_SRC = REPO_ROOT / "src" / "Jellyfin.Plugin.Shirarium"
-PLUGIN_ARTIFACTS = REPO_ROOT / "artifacts" / "plugin" / "Shirarium"
+PLUGIN_ARTIFACTS = REPO_ROOT / "artifacts" / "plugin"
 BENCHMARK_DIR = REPO_ROOT / "datasets" / "benchmark"
 
 def run_command(cmd, cwd=REPO_ROOT, env=None):

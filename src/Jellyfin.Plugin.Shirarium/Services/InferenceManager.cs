@@ -236,7 +236,14 @@ public sealed class InferenceManager : IHostedService, IDisposable
         _logger.LogInformation("Starting local inference server on port {Port}...", port);
 
         int gpuLayers = DetectGpuLayers();
-        _logger.LogInformation("Detected GPU availability. Setting n-gpu-layers to {Layers}.", gpuLayers);
+        if (gpuLayers > 0)
+        {
+            _logger.LogInformation("Detected GPU availability. Setting n-gpu-layers to {Layers}.", gpuLayers);
+        }
+        else
+        {
+            _logger.LogInformation("No compatible GPU detected. Falling back to CPU-only inference.");
+        }
 
         var startInfo = new ProcessStartInfo
         {
