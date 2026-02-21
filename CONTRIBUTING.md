@@ -72,32 +72,32 @@ Before opening a PR, run what is relevant:
 
 Hydrate Test Media:
 
-```powershell
+```bash
 python scripts/manage.py seed --dataset datasets/regression/tier-b-synthetic.json --clean
 ```
 
 Plugin build:
 
-```powershell
+```bash
 dotnet build .\src\Jellyfin.Plugin.Shirarium\Jellyfin.Plugin.Shirarium.csproj -c Release
 ```
 
 Plugin tests:
 
-```powershell
+```bash
 python scripts/manage.py test --integration
 ```
 
 Direct plugin test commands:
 
-```powershell
+```bash
 dotnet test .\tests\Jellyfin.Plugin.Shirarium.Tests\Jellyfin.Plugin.Shirarium.Tests.csproj -c Release
 dotnet test .\tests\Jellyfin.Plugin.Shirarium.IntegrationTests\Jellyfin.Plugin.Shirarium.IntegrationTests.csproj -c Release
 ```
 
 Local stack smoke test:
 
-```powershell
+```bash
 python scripts/manage.py up
 python scripts/manage.py reload
 python scripts/manage.py api scan --token YOUR_TOKEN

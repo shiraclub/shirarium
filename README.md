@@ -48,31 +48,31 @@ Shirarium is distributed via a managed plugin repository for seamless updates.
 
 - Docker Desktop (for testing/smoke tests only)
 - .NET SDK 9.0+
-- PowerShell 7+
+- Python 3.10+
 
 ### Setup
 
 1. Copy env file:
 
-```powershell
-Copy-Item .env.example .env
+```bash
+cp .env.example .env
 ```
 
 2. Start Jellyfin dev instance:
 
-```powershell
+```bash
 python scripts/manage.py up
 ```
 
 3. Seed test media (Optional but Recommended):
 
    **Option A: Clean Dataset (Good for basic testing)**
-   ```powershell
+   ```bash
    python scripts/manage.py seed --dataset datasets/regression/tier-b-synthetic.json --clean
    ```
 
    **Option B: Dirty "Chaos" Dataset (Realistic)**
-   ```powershell
+   ```bash
    # First generate the dataset (requires python)
    python scripts/harvest_synthetic_dataset.py
    
@@ -82,7 +82,7 @@ python scripts/manage.py up
 
 4. Build and reload plugin:
 
-```powershell
+```bash
 python scripts/manage.py reload
 ```
 
@@ -98,13 +98,13 @@ python scripts/manage.py reload
 
 Run the full suite (Unit + Integration):
 
-```powershell
+```bash
 python scripts/manage.py test --integration
 ```
 
 Or manually:
 
-```powershell
+```bash
 dotnet test tests/Jellyfin.Plugin.Shirarium.Tests/Jellyfin.Plugin.Shirarium.Tests.csproj -c Release
 ```
 
