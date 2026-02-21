@@ -221,7 +221,8 @@ def cmd_setup_libraries(args):
         c_type = urllib.parse.quote(lib['CollectionType'])
         paths = ",".join([urllib.parse.quote(p) for p in lib['Paths']])
         
-        path = f"Library/VirtualFolders?name={name}&collectionType={c_type}&paths={paths}"
+        # Explicitly ask Jellyfin to refresh the library upon creation
+        path = f"Library/VirtualFolders?name={name}&collectionType={c_type}&paths={paths}&refreshLibrary=true"
         call_jf_api(path, method="POST", args=args)
     
     print("Library setup complete.")
@@ -231,8 +232,18 @@ def cmd_setup_libraries(args):
 
 def cmd_scan(args):
     """Trigger a Jellyfin library scan."""
-    print("Triggering library scan...")
-    call_jf_api("Library/Refresh", method="POST", args=args)
+    print("Finding library scan task...")
+    tasks = call_jf_api("ScheduledTasks", args=args)
+    scan_task = next((t for t in tasks if t.get("Key") == "RefreshLibrary"), None)
+    
+    if not scan_task:
+        print("Error: Could not find library scan task.")
+        return
+
+    task_id = scan_task["Id"]
+    print(f"Triggering library scan (Task: {task_id})...")
+    call_jf_api(f"ScheduledTasks/Running/{task_id}", method="POST", args=args)
+    
     if getattr(args, "wait", False):
         cmd_wait_for_scan(args)
 
