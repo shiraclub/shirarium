@@ -17,7 +17,7 @@ Shirarium turns messy file and folder names into a pristine, Jellyfin-friendly s
 
 Shirarium has two core missions:
 
-1.  **Tidy Up (Filesystem Organizer):** Recursively scans your media folders directly (bypassing Jellyfin's DB) to find every file, even those Jellyfin missed. It proposes a clean, standardized folder structure (e.g., `Movies/Title (Year) [Resolution]/Title.mkv`) based on filename parsing.
+1.  **Tidy Up (Filesystem Organizer):** Recursively scans your media folders directly (bypassing Jellyfin's DB) to find every file, even those Jellyfin missed. It proposes a clean, standardized folder structure (e.g., `Movies/Title (Year)/Title (Year) [Resolution].mkv`) based on filename parsing. Templates are fully customizable.
 2.  **Identify "Unjellied" Content:** Cross-references the filesystem against Jellyfin's database to flag items that are **Unrecognized** (missing from Jellyfin) or **Missing Metadata** (recognized but unidentified).
 
 ## Features

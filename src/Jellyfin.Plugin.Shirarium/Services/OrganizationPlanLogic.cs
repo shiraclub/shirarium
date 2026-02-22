@@ -5,7 +5,7 @@ namespace Jellyfin.Plugin.Shirarium.Services;
 
 internal static class OrganizationPlanLogic
 {
-    internal const string DefaultMoviePathTemplate = "{TitleWithYear} [{Resolution}]/{TitleWithYear} [{Resolution}]";
+    internal const string DefaultMoviePathTemplate = "{TitleWithYear}/{TitleWithYear} [{Resolution}]";
     internal const string DefaultEpisodePathTemplate = "{Title}/Season {Season2}/{Title} S{Season2}E{Episode2} [{Resolution}]";
     internal const string DefaultTargetConflictPolicy = "fail";
 

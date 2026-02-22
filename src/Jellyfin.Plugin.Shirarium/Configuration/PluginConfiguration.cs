@@ -102,7 +102,7 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     /// <remarks>
     /// Available tokens: {Title}, {TitleWithYear}, {Year}, {Resolution}, {VideoCodec}, {VideoBitDepth}, {AudioCodec}, {AudioChannels}, {ReleaseGroup}, {MediaSource}, {Edition}.
     /// </remarks>
-    public string MoviePathTemplate { get; set; } = "{TitleWithYear} [{Resolution}]/{TitleWithYear} [{Resolution}]";
+    public string MoviePathTemplate { get; set; } = "{TitleWithYear}/{TitleWithYear} [{Resolution}]";
 
     /// <summary>
     /// Gets or sets the relative episode path template under <see cref="OrganizationRootPath"/>.
