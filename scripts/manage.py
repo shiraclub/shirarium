@@ -511,6 +511,18 @@ def cmd_api(args):
         }
         call_api("test-template", method="POST", body=body, args=args)
 
+def cmd_bench(args):
+    """Run ShirariumBench LLM evaluator."""
+    runner = REPO_ROOT / "benchmarks" / "runner.py"
+    cmd = [sys.executable, str(runner), "--dataset", args.dataset]
+    if args.limit > 0:
+        cmd.extend(["--limit", str(args.limit)])
+    if args.model:
+        cmd.extend(["--model", args.model])
+    if args.binary:
+        cmd.extend(["--binary", args.binary])
+    run_command(cmd)
+
 def main():
     parser = argparse.ArgumentParser(description="Shirarium Developer CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -540,9 +552,17 @@ def main():
     p_seed.set_defaults(func=cmd_seed)
 
     # benchmark-setup
-    p_bench = subparsers.add_parser("benchmark-setup", help="Download benchmark datasets")
-    p_bench.add_argument("--force", action="store_true", help="Force re-download")
-    p_bench.set_defaults(func=cmd_benchmark_setup)
+    p_bench_setup = subparsers.add_parser("benchmark-setup", help="Download benchmark datasets")
+    p_bench_setup.add_argument("--force", action="store_true", help="Force re-download")
+    p_bench_setup.set_defaults(func=cmd_benchmark_setup)
+
+    # bench
+    p_bench = subparsers.add_parser("bench", help="Run LLM accuracy/latency benchmark")
+    p_bench.add_argument("--dataset", default="datasets/regression/tier-a-golden.json", help="Path to JSON dataset")
+    p_bench.add_argument("--model", help="Run only one specific model ID (from benchmarks/models.json)")
+    p_bench.add_argument("--limit", type=int, default=0, help="Limit number of items to test (0 for all)")
+    p_bench.add_argument("--binary", help="Path to llama-server binary")
+    p_bench.set_defaults(func=cmd_bench)
 
     # clean
     p_clean = subparsers.add_parser("clean", help="Wipe Jellyfin data volumes")

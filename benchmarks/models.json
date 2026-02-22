@@ -1,0 +1,52 @@
+{
+  "models": [
+    {
+      "id": "qwen2.5-coder-3b",
+      "name": "Qwen 2.5 Coder 3B Instruct",
+      "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q6_k.gguf",
+      "filename": "qwen2.5-coder-3b-q6_k.gguf",
+      "parameters": "3B",
+      "quant": "Q6_K"
+    },
+    {
+      "id": "nuextract-1.5-smol",
+      "name": "NuExtract 1.5 Smol (1.7B)",
+      "url": "https://huggingface.co/bartowski/NuExtract-1.5-smol-GGUF/resolve/main/NuExtract-1.5-smol-IQ4_XS.gguf",
+      "filename": "nuextract-1.5-smol-iq4_xs.gguf",
+      "parameters": "1.7B",
+      "quant": "IQ4_XS"
+    },
+    {
+      "id": "qwen2.5-coder-1.5b",
+      "name": "Qwen 2.5 Coder 1.5B",
+      "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q6_k.gguf",
+      "filename": "qwen2.5-coder-1.5b-q6_k.gguf",
+      "parameters": "1.5B",
+      "quant": "Q6_K"
+    },
+    {
+      "id": "phi-4-mini",
+      "name": "Phi-4 Mini Instruct",
+      "url": "https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF/resolve/main/microsoft_Phi-4-mini-instruct-IQ4_XS.gguf",
+      "filename": "phi-4-mini-iq4_xs.gguf",
+      "parameters": "3.8B",
+      "quant": "IQ4_XS"
+    },
+    {
+      "id": "granite-3.3-2b",
+      "name": "IBM Granite 3.3 2B Instruct",
+      "url": "https://huggingface.co/bartowski/ibm-granite_granite-3.3-2b-instruct-GGUF/resolve/main/ibm-granite_granite-3.3-2b-instruct-IQ4_XS.gguf",
+      "filename": "granite-3.3-2b-iq4_xs.gguf",
+      "parameters": "2.5B",
+      "quant": "IQ4_XS"
+    },
+    {
+      "id": "deepseek-r1-1.5b",
+      "name": "DeepSeek R1 Distill Qwen 1.5B",
+      "url": "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B-Q6_K.gguf",
+      "filename": "deepseek-r1-1.5b-q6_k.gguf",
+      "parameters": "1.5B",
+      "quant": "Q6_K"
+    }
+  ]
+}
