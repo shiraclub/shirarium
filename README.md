@@ -11,7 +11,6 @@ Shirarium turns messy file and folder names into a pristine, Jellyfin-friendly s
 ![.NET](https://img.shields.io/badge/.NET-9-512BD4?logo=dotnet&logoColor=white)
 ![Native C#](https://img.shields.io/badge/Architecture-Native%20C%23-28a745?logo=csharp&logoColor=white)
 [![CI](https://github.com/shiraclub/shirarium/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/shiraclub/shirarium/actions/workflows/ci.yml?query=branch%3Amaster)
-![Safety](https://img.shields.io/badge/safety-dry--run%20by%20default-orange)
 
 ## Missions
 
