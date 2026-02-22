@@ -129,6 +129,7 @@ internal static class OrganizationApplyLogic
 
         var itemResults = new List<ApplyOrganizationPlanItemResult>(normalizedSelections.Count);
         var undoOperations = new List<ApplyUndoMoveOperation>(normalizedSelections.Count);
+        var deletedDirectories = new HashSet<string>(PathComparison.Comparer);
         var appliedCount = 0;
         var skippedCount = 0;
         var failedCount = 0;
@@ -360,7 +361,7 @@ internal static class OrganizationApplyLogic
                 });
 
                 // Cleanup empty parent directories, excluding protected paths (roots)
-                CleanupEmptyParentDirectories(Path.GetDirectoryName(sourcePath), protectedPaths);
+                CleanupEmptyParentDirectories(Path.GetDirectoryName(sourcePath), protectedPaths, deletedDirectories);
             }
             catch (Exception ex)
             {
@@ -385,11 +386,12 @@ internal static class OrganizationApplyLogic
             SkippedCount = skippedCount,
             FailedCount = failedCount,
             Results = itemResults.ToArray(),
-            UndoOperations = undoOperations.ToArray()
+            UndoOperations = undoOperations.ToArray(),
+            DeletedDirectories = deletedDirectories.OrderBy(d => d, PathComparison.Comparer).ToArray()
         };
     }
 
-    private static void CleanupEmptyParentDirectories(string? directoryPath, IEnumerable<string>? protectedPaths)
+    private static void CleanupEmptyParentDirectories(string? directoryPath, IEnumerable<string>? protectedPaths, HashSet<string> deletedDirectories)
     {
         if (string.IsNullOrWhiteSpace(directoryPath) || !Directory.Exists(directoryPath))
         {
@@ -410,7 +412,8 @@ internal static class OrganizationApplyLogic
             if (!Directory.EnumerateFileSystemEntries(directoryPath).Any())
             {
                 Directory.Delete(directoryPath);
-                CleanupEmptyParentDirectories(Path.GetDirectoryName(directoryPath), protectedPaths);
+                deletedDirectories.Add(directoryPath);
+                CleanupEmptyParentDirectories(Path.GetDirectoryName(directoryPath), protectedPaths, deletedDirectories);
             }
         }
         catch

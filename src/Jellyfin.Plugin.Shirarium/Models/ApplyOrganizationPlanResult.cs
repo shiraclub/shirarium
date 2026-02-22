@@ -56,6 +56,11 @@ public sealed class ApplyOrganizationPlanResult
     public ApplyUndoMoveOperation[] UndoOperations { get; init; } = [];
 
     /// <summary>
+    /// Gets the paths of empty parent directories that were cleaned up.
+    /// </summary>
+    public string[] DeletedDirectories { get; init; } = [];
+
+    /// <summary>
     /// Gets the undo run id that restored this apply run, when available.
     /// </summary>
     public string? UndoneByRunId { get; set; }

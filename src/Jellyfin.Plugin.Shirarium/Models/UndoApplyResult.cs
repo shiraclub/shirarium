@@ -49,4 +49,9 @@ public sealed class UndoApplyResult
     /// Gets per-item undo results.
     /// </summary>
     public UndoApplyItemResult[] Results { get; init; } = [];
+
+    /// <summary>
+    /// Gets the paths of empty parent directories that were cleaned up.
+    /// </summary>
+    public string[] DeletedDirectories { get; init; } = [];
 }

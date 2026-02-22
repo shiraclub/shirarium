@@ -248,6 +248,22 @@ public class JellyfinClient
     public async Task<SuggestionsDto> GetSuggestionsAsync() => (await _client.ExecuteAsync<SuggestionsDto>(new RestRequest("shirarium/suggestions", Method.Get))).Data!;
     public async Task<PlanSnapshotDto> GeneratePlanAsync() => (await _client.ExecuteAsync<PlanSnapshotDto>(new RestRequest("shirarium/plan-organize", Method.Post))).Data!;
     public async Task<OpsStatusDto> GetOpsStatusAsync() => (await _client.ExecuteAsync<OpsStatusDto>(new RestRequest("shirarium/ops-status", Method.Get))).Data!;
+    
+    public async Task<InferenceStatusDto> GetInferenceStatusAsync() 
+    {
+        var resp = await _client.ExecuteAsync<InferenceStatusDto>(new RestRequest("shirarium/inference-status", Method.Get));
+        return resp.Data!;
+    }
+
+    public async Task<TestTemplateResponseDto> TestTemplateAsync(string path)
+    {
+        var req = new RestRequest("shirarium/test-template", Method.Post);
+        req.AddJsonBody(new { path });
+        var resp = await _client.ExecuteAsync<TestTemplateResponseDto>(req);
+        if (!resp.IsSuccessful) throw new Exception($"TestTemplate failed: {resp.StatusCode} {resp.Content}");
+        return resp.Data!;
+    }
+
     public async Task<ApplyResultDto> ApplyPlanAsync(string fingerprint, string[]? sourcePaths = null)
     {
         var req = new RestRequest("shirarium/apply-plan", Method.Post);
@@ -280,6 +296,31 @@ public class JellyfinClient
     private class SessionInfo { public string UserId { get; set; } = ""; }
     private class UserInfo { public string Id { get; set; } = ""; }
     private class ScheduledTaskDto { public string Id { get; set; } = ""; public string Key { get; set; } = ""; public string State { get; set; } = ""; }
+    
+    public class InferenceStatusDto
+    {
+        public string Status { get; set; } = "";
+        public double Progress { get; set; }
+        public string? Error { get; set; }
+    }
+
+    public class TestTemplateResponseDto
+    {
+        public string SourcePath { get; set; } = "";
+        public string TargetPath { get; set; } = "";
+        public string Action { get; set; } = "";
+        public MetadataDto Metadata { get; set; } = new();
+    }
+
+    public class MetadataDto
+    {
+        public string Title { get; set; } = "";
+        public string MediaType { get; set; } = "";
+        public int? Year { get; set; }
+        public string Source { get; set; } = "";
+        public double Confidence { get; set; }
+    }
+
     public class ScanSnapshotDto { public int CandidateCount { get; set; } public int ParseFailureCount { get; set; } }
     public class SuggestionsDto { public List<SuggestionItem> Suggestions { get; set; } = new(); }
     public class SuggestionItem 

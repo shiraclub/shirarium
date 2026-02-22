@@ -24,6 +24,7 @@ public sealed class ShirariumController : ControllerBase
     private readonly OrganizationPlanner _planner;
     private readonly ShirariumScanner _scanner;
     private readonly OrganizationPlanUndoer _undoer;
+    private readonly EngineClient _engineClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ShirariumController"/> class.
@@ -40,13 +41,13 @@ public sealed class ShirariumController : ControllerBase
         // Ideally we would register these in DI, but for a plugin this is robust.
         var heuristicParser = new HeuristicParser();
         var ollamaService = new OllamaService(loggerFactory.CreateLogger<OllamaService>());
-        var engineClient = new EngineClient(heuristicParser, ollamaService);
+        _engineClient = new EngineClient(heuristicParser, ollamaService);
 
         _scanner = new ShirariumScanner(
             libraryManager,
             applicationPaths,
             logger, // Controller logger is fine here, or use factory
-            engineClient);
+            _engineClient);
 
         _planner = new OrganizationPlanner(applicationPaths, logger);
         _applier = new OrganizationPlanApplier(applicationPaths, logger, libraryManager);
@@ -72,6 +73,18 @@ public sealed class ShirariumController : ControllerBase
             Progress = progress,
             Error = error
         });
+    }
+
+    /// <summary>
+    /// Performs a benchmark of the parsing engines.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Benchmark results.</returns>
+    [HttpPost("benchmark")]
+    public async Task<ActionResult<object>> RunBenchmark(CancellationToken cancellationToken)
+    {
+        var result = await _engineClient.BenchmarkAsync(cancellationToken);
+        return Ok(result);
     }
 
     /// <summary>
@@ -141,16 +154,24 @@ public sealed class ShirariumController : ControllerBase
     /// Renders a sample path against a template to preview the result.
     /// </summary>
     /// <param name="request">Template test request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The rendered target path preview.</returns>
     [HttpPost("test-template")]
-    public ActionResult<object> TestTemplate([FromBody] TestTemplateRequest request)
+    public async Task<ActionResult<object>> TestTemplate(
+        [FromBody] TestTemplateRequest request,
+        CancellationToken cancellationToken)
     {
         if (request is null || string.IsNullOrWhiteSpace(request.Path))
         {
             return BadRequestError("PathRequired", "Sample path is required.");
         }
 
-        var parsed = new HeuristicParser().Parse(request.Path);
+        var parsed = await _engineClient.ParseFilenameAsync(request.Path, cancellationToken);
+        if (parsed is null)
+        {
+            return BadRequestError("ParseFailed", "Failed to parse sample path.");
+        }
+
         var suggestion = new ScanSuggestion
         {
             Path = request.Path,
@@ -163,7 +184,9 @@ public sealed class ShirariumController : ControllerBase
             VideoCodec = parsed.VideoCodec,
             AudioCodec = parsed.AudioCodec,
             AudioChannels = parsed.AudioChannels,
-            ReleaseGroup = parsed.ReleaseGroup
+            ReleaseGroup = parsed.ReleaseGroup,
+            Source = parsed.Source,
+            Confidence = parsed.Confidence
         };
 
         var entry = OrganizationPlanLogic.BuildEntry(
@@ -191,7 +214,9 @@ public sealed class ShirariumController : ControllerBase
                 parsed.VideoCodec,
                 parsed.AudioCodec,
                 parsed.AudioChannels,
-                parsed.ReleaseGroup
+                parsed.ReleaseGroup,
+                parsed.Source,
+                parsed.Confidence
             }
         });
     }

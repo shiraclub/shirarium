@@ -635,7 +635,7 @@ public sealed class ControllerContractTests
     }
 
     [Fact]
-    public void TestTemplate_ReturnsRenderedPath()
+    public async Task TestTemplate_ReturnsRenderedPath()
     {
         var root = CreateTempRoot();
         try
@@ -650,7 +650,7 @@ public sealed class ControllerContractTests
                 RootPath = "/organized"
             };
 
-            var actionResult = controller.TestTemplate(request);
+            var actionResult = await controller.TestTemplate(request, CancellationToken.None);
             var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
             
             // Using dynamic or reflection to access anonymous object properties in test
