@@ -43,7 +43,7 @@ public sealed class ScanResultSnapshot
     /// <summary>
     /// Gets the number of candidates skipped because parse calls failed.
     /// </summary>
-    public int EngineFailureCount { get; init; }
+    public int ParseFailureCount { get; init; }
 
     /// <summary>
     /// Gets accepted suggestion entries for this run.

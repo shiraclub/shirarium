@@ -1,7 +1,7 @@
 namespace Jellyfin.Plugin.Shirarium.Contracts;
 
 /// <summary>
-/// Request payload for filename parsing in the engine service.
+/// Request payload for filename parsing.
 /// </summary>
 public sealed class ParseFilenameRequest
 {

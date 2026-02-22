@@ -21,7 +21,7 @@ internal static class OpsStatusLogic
             SuggestionCount = scanSnapshot.Suggestions.Length,
             SkippedByLimitCount = scanSnapshot.SkippedByLimitCount,
             SkippedByConfidenceCount = scanSnapshot.SkippedByConfidenceCount,
-            EngineFailureCount = scanSnapshot.EngineFailureCount,
+            ParseFailureCount = scanSnapshot.ParseFailureCount,
             CandidateReasonCounts = BuildCountBuckets(scanSnapshot.CandidateReasonCounts),
             ParserSourceCounts = BuildCountBuckets(scanSnapshot.ParserSourceCounts),
             ConfidenceBucketCounts = BuildCountBuckets(scanSnapshot.ConfidenceBucketCounts)
@@ -114,7 +114,7 @@ internal static class OpsStatusLogic
             || snapshot.ParsedCount > 0
             || snapshot.SkippedByLimitCount > 0
             || snapshot.SkippedByConfidenceCount > 0
-            || snapshot.EngineFailureCount > 0
+            || snapshot.ParseFailureCount > 0
             || snapshot.Suggestions.Length > 0
             || snapshot.CandidateReasonCounts.Length > 0
             || snapshot.ParserSourceCounts.Length > 0

@@ -5,7 +5,7 @@ Plugin component for Shirarium's local-first metadata and file-organization plan
 ## Current Functionality
 
 - Plugin metadata and configuration surface.
-- Engine HTTP client for filename parsing.
+- Hybrid metadata parsing (Native Heuristics + Managed Local AI).
 - Post-library-scan dry-run task that generates:
   - metadata suggestions
   - organization plan snapshot

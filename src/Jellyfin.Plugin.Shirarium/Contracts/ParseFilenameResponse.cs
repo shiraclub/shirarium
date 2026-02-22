@@ -1,7 +1,7 @@
 namespace Jellyfin.Plugin.Shirarium.Contracts;
 
 /// <summary>
-/// Structured parse result returned by the engine service.
+/// Structured parse result.
 /// </summary>
 public sealed record class ParseFilenameResponse
 {

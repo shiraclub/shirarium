@@ -280,7 +280,7 @@ public class JellyfinClient
     private class SessionInfo { public string UserId { get; set; } = ""; }
     private class UserInfo { public string Id { get; set; } = ""; }
     private class ScheduledTaskDto { public string Id { get; set; } = ""; public string Key { get; set; } = ""; public string State { get; set; } = ""; }
-    public class ScanSnapshotDto { public int CandidateCount { get; set; } public int EngineFailureCount { get; set; } }
+    public class ScanSnapshotDto { public int CandidateCount { get; set; } public int ParseFailureCount { get; set; } }
     public class SuggestionsDto { public List<SuggestionItem> Suggestions { get; set; } = new(); }
     public class SuggestionItem 
     { 
@@ -307,7 +307,6 @@ public class JellyfinClient
     public class VirtualFolderDto { public string Name { get; set; } = ""; public List<string> Locations { get; set; } = new(); }
     public class PluginConfigurationDto
     {
-        public string EngineBaseUrl { get; set; } = "http://engine:8787";
         public string ExternalOllamaUrl { get; set; } = string.Empty;
         public bool EnableAiParsing { get; set; } = true;
         public bool DryRunMode { get; set; } = true;

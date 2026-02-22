@@ -8,12 +8,6 @@ namespace Jellyfin.Plugin.Shirarium.Configuration;
 public sealed class PluginConfiguration : BasePluginConfiguration
 {
     /// <summary>
-    /// Gets or sets the base URL of the Shirarium engine service.
-    /// </summary>
-    [Obsolete("Use ExternalOllamaUrl or EnableManagedLocalInference instead.")]
-    public string EngineBaseUrl { get; set; } = "http://engine:8787";
-
-    /// <summary>
     /// Gets or sets the external Ollama (or OpenAI compatible) base URL.
     /// </summary>
     public string ExternalOllamaUrl { get; set; } = string.Empty;

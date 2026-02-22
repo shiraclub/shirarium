@@ -30,7 +30,7 @@ public sealed class OpsStatusLogicTests
             ParsedCount = 5,
             SkippedByLimitCount = 1,
             SkippedByConfidenceCount = 1,
-            EngineFailureCount = 1,
+            ParseFailureCount = 1,
             Suggestions =
             [
                 new ScanSuggestion { ItemId = "scan-1", Path = @"D:\in\scan-a.mkv" },

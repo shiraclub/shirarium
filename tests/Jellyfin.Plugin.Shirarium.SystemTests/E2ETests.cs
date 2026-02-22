@@ -38,7 +38,7 @@ public class E2ETests
         var scanResult = await client.RunShirariumScanAsync();
         
         Assert.True(scanResult.CandidateCount > 0, "Should find candidates on filesystem");
-        Assert.Equal(0, scanResult.EngineFailureCount);
+        Assert.Equal(0, scanResult.ParseFailureCount);
 
         // 6. Verify Suggestions
         var suggestions = await client.GetSuggestionsAsync();

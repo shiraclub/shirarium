@@ -53,7 +53,7 @@ public sealed class OpsStatusScanStatus
     /// <summary>
     /// Gets the number of parse failures.
     /// </summary>
-    public int EngineFailureCount { get; init; }
+    public int ParseFailureCount { get; init; }
 
     /// <summary>
     /// Gets candidate reason counts.

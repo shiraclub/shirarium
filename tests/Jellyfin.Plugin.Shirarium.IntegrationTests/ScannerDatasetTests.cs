@@ -92,7 +92,7 @@ public sealed class ScannerDatasetTests
             Assert.Equal(1, snapshot.ParsedCount);
             Assert.Equal(4, snapshot.SkippedByLimitCount);
             Assert.Equal(1, snapshot.SkippedByConfidenceCount);
-            Assert.Equal(0, snapshot.EngineFailureCount);
+            Assert.Equal(0, snapshot.ParseFailureCount);
 
             Assert.Single(snapshot.Suggestions);
             Assert.Contains(snapshot.Suggestions, suggestion => suggestion.SuggestedTitle == "Movie One");

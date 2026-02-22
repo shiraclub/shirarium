@@ -103,7 +103,7 @@ public sealed class ShirariumScanner
         var parseAttemptCount = 0;
         var skippedByLimitCount = 0;
         var skippedByConfidenceCount = 0;
-        var engineFailureCount = 0;
+        var parseFailureCount = 0;
         var candidateReasonCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var parserSourceCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var confidenceBucketCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -178,7 +178,7 @@ public sealed class ShirariumScanner
 
             if (parsed is null)
             {
-                engineFailureCount++;
+                parseFailureCount++;
                 continue;
             }
 
@@ -249,7 +249,7 @@ public sealed class ShirariumScanner
             ParsedCount = parsedCount,
             SkippedByLimitCount = skippedByLimitCount,
             SkippedByConfidenceCount = skippedByConfidenceCount,
-            EngineFailureCount = engineFailureCount,
+            ParseFailureCount = parseFailureCount,
             Suggestions = suggestions.ToArray(),
             CandidateReasonCounts = BuildBuckets(candidateReasonCounts),
             ParserSourceCounts = BuildBuckets(parserSourceCounts),
@@ -259,13 +259,13 @@ public sealed class ShirariumScanner
         await SuggestionStore.WriteAsync(_applicationPaths, snapshot, cancellationToken);
 
         _logger.LogInformation(
-            "Shirarium dry-run complete. Examined={Examined} Candidates={Candidates} Parsed={Parsed} SkippedLimit={SkippedLimit} SkippedConfidence={SkippedConfidence} EngineFailures={EngineFailures}",
+            "Shirarium dry-run complete. Examined={Examined} Candidates={Candidates} Parsed={Parsed} SkippedLimit={SkippedLimit} SkippedConfidence={SkippedConfidence} ParseFailures={ParseFailures}",
             examinedCount,
             candidateCount,
             parsedCount,
             skippedByLimitCount,
             skippedByConfidenceCount,
-            engineFailureCount);
+            parseFailureCount);
 
         return snapshot;
     }
