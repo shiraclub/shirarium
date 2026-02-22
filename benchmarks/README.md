@@ -47,15 +47,23 @@ Use a specific dataset:
 python scripts/manage.py bench --dataset datasets/regression/arr-suite-curated.json
 ```
 
-## Methodology
+## SOTA Comparison (GPU Accelerated)
 
-### Scoring
-- **Exact Match (EM)**: The extracted Title, Year, Season, and Episode must exactly match the Ground Truth.
-- **Schema Compliance**: The model must output valid JSON without conversational filler.
-- **Latency**: Measured in milliseconds per filename.
+Evaluated on 100 items from the **Tier B Synthetic** dataset using an NVIDIA RTX 5070 (ngl=99, flash-attn=on).
 
-### Performance Tiers
-We evaluate models using the **Q6_K (6-bit)** quantization level. This provides a "near-lossless" accuracy profile compared to FP16, while keeping the memory footprint under 3GB—ideal for NAS and home server environments.
+| Model | Accuracy | Latency | Params | Quant |
+| :--- | :--- | :--- | :--- | :--- |
+| IBM Granite 3.3 2B Instruct | 77.0% | 2464ms | 2.5B | IQ4_XS |
+| Qwen 3 4B Thinking 2507 | 76.0% | 3683ms | 4B | Q6_K |
+| Qwen 2.5 Coder 3B Instruct | 72.4% | 2683ms | 3B | Q6_K |
+| Phi-4 Mini Instruct | 70.8% | 3991ms | 3.8B | IQ4_XS |
+| Qwen 2.5 Coder 1.5B | 66.0% | 2317ms | 1.5B | Q6_K |
+| DeepSeek R1 Distill Qwen 1.5B | 56.2% | 2653ms | 1.5B | Q6_K |
+| NuExtract 1.5 Smol (1.7B) | 48.0% | 7784ms | 1.7B | IQ4_XS |
 
-## Reports
-Summary reports (Markdown) and detailed results (JSON) are saved to the `benchmarks/reports/` directory after every run.
+### Analysis
+- **Granite 3.3 2B** is the current price/performance champion, beating larger models in both accuracy and speed.
+- **Thinking Models**: While `Qwen 3 Thinking` is accurate, its latency is higher due to internal reasoning steps.
+- **Coder Models**: Still highly reliable for syntax, but enterprise-tuned models (Granite) are catching up.
+
+## How to Run Benchmarks

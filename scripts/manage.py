@@ -521,6 +521,8 @@ def cmd_bench(args):
         cmd.extend(["--model", args.model])
     if args.binary:
         cmd.extend(["--binary", args.binary])
+    if args.ngl is not None:
+        cmd.extend(["--ngl", str(args.ngl)])
     run_command(cmd)
 
 def main():
@@ -562,6 +564,7 @@ def main():
     p_bench.add_argument("--model", help="Run only one specific model ID (from benchmarks/models.json)")
     p_bench.add_argument("--limit", type=int, default=0, help="Limit number of items to test (0 for all)")
     p_bench.add_argument("--binary", help="Path to llama-server binary")
+    p_bench.add_argument("--ngl", type=int, default=99, help="Number of GPU layers (0 to disable)")
     p_bench.set_defaults(func=cmd_bench)
 
     # clean

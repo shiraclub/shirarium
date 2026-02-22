@@ -34,16 +34,19 @@ class ShirariumBench:
     def ensure_llama_server(self) -> str:
         binary_name = "llama-server.exe" if os.name == 'nt' else "llama-server"
         local_binary = self.bin_dir / binary_name
-        if local_binary.exists(): return str(local_binary)
+        if local_binary.exists(): 
+            return str(local_binary)
+        
         try:
             subprocess.check_call([binary_name, "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return binary_name
         except: pass
 
         print(f"INFO: llama-server not found. Downloading...")
-        base_url = "https://github.com/ggml-org/llama.cpp/releases/download/b5092/"
+        # Use b8123+ for SOTA architecture support and optimizations
+        base_url = "https://github.com/ggml-org/llama.cpp/releases/download/b8123/"
         if os.name == 'nt':
-            url = base_url + "llama-b5092-bin-win-vulkan-x64.zip"
+            url = base_url + "llama-b8123-bin-win-vulkan-x64.zip"
             zip_path = self.bin_dir / "llama.zip"
             subprocess.check_call(["curl", "-L", url, "-o", str(zip_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -62,8 +65,18 @@ class ShirariumBench:
         subprocess.run(cmd)
         return target
 
-    def start_server(self, model_path: Path, binary_path: str):
-        cmd = [binary_path, "-m", str(model_path), "--port", str(self.port), "--n-gpu-layers", "0", "--ctx-size", "2048"]
+    def start_server(self, model_path: Path, binary_path: str, n_gpu_layers: int = 0):
+        # UPGRADE: Force f16 KV cache to ensure everything stays on GPU
+        cmd = [
+            binary_path, 
+            "-m", str(model_path), 
+            "--port", str(self.port), 
+            "--n-gpu-layers", str(n_gpu_layers), 
+            "--ctx-size", "2048",
+            "--flash-attn", "on",
+            "--cache-type-k", "f16",
+            "--cache-type-v", "f16"
+        ]
         self.server_logs = []
         process = subprocess.Popen(
             cmd, 
@@ -144,11 +157,11 @@ class ShirariumBench:
                 correct += 1
         return correct / len(fields)
 
-    def run_benchmark(self, model_info: Dict[str, Any], dataset_path: str, limit: int = 0):
+    def run_benchmark(self, model_info: Dict[str, Any], dataset_path: str, n_gpu_layers: int = 0, limit: int = 0):
         print(f"\n>>> Model: {model_info['name']}")
         binary_path = self.ensure_llama_server()
         model_path = self.download_model(model_info)
-        server_process = self.start_server(model_path, binary_path)
+        server_process = self.start_server(model_path, binary_path, n_gpu_layers)
         
         try:
             with open(dataset_path, 'r', encoding='utf-8') as f:
@@ -180,6 +193,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", default="datasets/regression/tier-a-golden.json")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--model", help="Specific model ID")
+    parser.add_argument("--ngl", type=int, default=99, help="Number of GPU layers")
     args = parser.parse_args()
     
     with open("benchmarks/models.json", 'r') as f: manifest = json.load(f)
@@ -189,7 +203,7 @@ if __name__ == "__main__":
     
     for m in models:
         try:
-            res = bench.run_benchmark(m, args.dataset, limit=args.limit)
+            res = bench.run_benchmark(m, args.dataset, n_gpu_layers=args.ngl, limit=args.limit)
             if res: summaries.append(res)
         except Exception as e:
             print(f"!! Failed {m['name']}: {e}")
