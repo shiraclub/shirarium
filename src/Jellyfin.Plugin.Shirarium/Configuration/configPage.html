@@ -1307,8 +1307,26 @@
                 el("shirariumApplyBulkTargetPrefix").addEventListener("click", applyBulkTargetPrefix);
                 el("shirariumReloadLocks").addEventListener("click", loadLocks);
                 el("shirariumReloadHistory").addEventListener("click", loadHistory);
-                el("shirariumRunBenchmark").addEventListener("click", function() {
-                    setMessage("Benchmarking not yet implemented via internal API.");
+                el("shirariumRunBenchmark").addEventListener("click", async function() {
+                    Dashboard.showLoadingMsg();
+                    setError("");
+                    el("shirariumBenchmarkText").textContent = "Benchmarking in progress...";
+                    try {
+                        var payload = await apiJson("shirarium/benchmark", "POST");
+                        var lines = (payload.results || []).map(function(res) {
+                            var aiText = res.ai ? (res.ai.title + " (" + res.ai.latencyMs.toFixed(1) + "ms)") : "N/A";
+                            return "PATH: " + res.path + "\n" +
+                                   "  - RULE: " + res.heuristic.title + " (" + res.heuristic.latencyMs.toFixed(1) + "ms)\n" +
+                                   "  - AI  : " + aiText;
+                        });
+                        el("shirariumBenchmarkText").innerHTML = "<pre>" + escapeHtml(lines.join("\n\n")) + "</pre>";
+                        setMessage("Benchmark complete.");
+                    } catch (error) {
+                        setError(String(error.message || error));
+                        el("shirariumBenchmarkText").textContent = "Benchmark failed.";
+                    } finally {
+                        Dashboard.hideLoadingMsg();
+                    }
                 });
 
                 el("shirariumSelectAll").addEventListener("change", function (event) {
