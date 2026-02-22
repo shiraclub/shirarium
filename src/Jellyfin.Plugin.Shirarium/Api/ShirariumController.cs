@@ -50,7 +50,7 @@ public sealed class ShirariumController : ControllerBase
 
         _planner = new OrganizationPlanner(applicationPaths, logger);
         _applier = new OrganizationPlanApplier(applicationPaths, logger, libraryManager);
-        _undoer = new OrganizationPlanUndoer(applicationPaths, logger);
+        _undoer = new OrganizationPlanUndoer(applicationPaths, logger, libraryManager);
     }
 
     /// <summary>

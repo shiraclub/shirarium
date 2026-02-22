@@ -42,7 +42,8 @@ public sealed class UndoApplyLogicTests
                 {
                     callOrder.Add(Path.GetFileName(source));
                     File.Move(source, target);
-                });
+                },
+                protectedPaths: null);
 
             Assert.Equal(2, result.RequestedCount);
             Assert.Equal(2, result.AppliedCount);
@@ -81,7 +82,8 @@ public sealed class UndoApplyLogicTests
             "fail",
             _ => false,
             _ => { },
-            (_, _) => { });
+            (_, _) => { },
+            protectedPaths: null);
 
         Assert.Equal(1, result.RequestedCount);
         Assert.Equal(0, result.AppliedCount);
@@ -112,7 +114,8 @@ public sealed class UndoApplyLogicTests
             path => path.Equals(@"D:\from\file.mkv", StringComparison.OrdinalIgnoreCase)
                 || path.Equals(@"D:\to\file.mkv", StringComparison.OrdinalIgnoreCase),
             _ => { },
-            (_, _) => { });
+            (_, _) => { },
+            protectedPaths: null);
 
         Assert.Equal(1, result.RequestedCount);
         Assert.Equal(0, result.AppliedCount);
@@ -143,7 +146,8 @@ public sealed class UndoApplyLogicTests
             path => path.Equals(@"D:\from\file.mkv", StringComparison.OrdinalIgnoreCase)
                 || path.Equals(@"D:\to\file.mkv", StringComparison.OrdinalIgnoreCase),
             _ => { },
-            (_, _) => { });
+            (_, _) => { },
+            protectedPaths: null);
 
         Assert.Equal(1, result.RequestedCount);
         Assert.Equal(0, result.AppliedCount);
@@ -183,7 +187,8 @@ public sealed class UndoApplyLogicTests
                 "suffix",
                 File.Exists,
                 path => _ = Directory.CreateDirectory(path),
-                File.Move);
+                File.Move,
+                protectedPaths: null);
 
             Assert.Equal(1, result.RequestedCount);
             Assert.Equal(1, result.AppliedCount);

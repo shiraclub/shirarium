@@ -41,7 +41,7 @@ public sealed class IntegrationFlowTests
             Assert.Single(afterApplyJournal.Runs[0].UndoOperations);
             Assert.Null(afterApplyJournal.Runs[0].UndoneByRunId);
 
-            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance);
+            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
             var undoResult = await undoer.RunAsync(
                 new UndoApplyRequest
                 {
@@ -123,7 +123,7 @@ public sealed class IntegrationFlowTests
                     }));
             Assert.Equal("OperationAlreadyInProgress", applyEx.Message);
 
-            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance);
+            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
             var undoEx = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 undoer.RunAsync(new UndoApplyRequest()));
             Assert.Equal("OperationAlreadyInProgress", undoEx.Message);
@@ -172,7 +172,7 @@ public sealed class IntegrationFlowTests
 
             File.WriteAllText(sourcePathB, "collision");
 
-            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance);
+            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
             var undoResult = await undoer.RunAsync(
                 new UndoApplyRequest
                 {
@@ -244,7 +244,7 @@ public sealed class IntegrationFlowTests
 
             File.WriteAllText(sourcePathB, "collision");
 
-            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance);
+            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
             var undoResult = await undoer.RunAsync(
                 new UndoApplyRequest
                 {
@@ -301,7 +301,7 @@ public sealed class IntegrationFlowTests
                     SourcePaths = [sourcePath]
                 });
 
-            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance);
+            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
             var undoResult = await undoer.RunAsync(
                 new UndoApplyRequest
                 {
@@ -529,7 +529,7 @@ public sealed class IntegrationFlowTests
                 .ToArray();
             Assert.All(movedTargets, movedTarget => Assert.True(File.Exists(movedTarget)));
 
-            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance);
+            var undoer = new OrganizationPlanUndoer(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
             var undoResult = await undoer.RunAsync(new UndoApplyRequest { RunId = applyResult.RunId });
 
             Assert.Equal(2, undoResult.AppliedCount);

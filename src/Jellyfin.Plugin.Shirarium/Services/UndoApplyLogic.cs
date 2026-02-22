@@ -19,6 +19,7 @@ internal static class UndoApplyLogic
     internal static UndoApplyResult UndoRun(
         ApplyOrganizationPlanResult sourceRun,
         string? targetConflictPolicy,
+        IEnumerable<string>? protectedPaths = null,
         CancellationToken cancellationToken = default)
     {
         return UndoRun(
@@ -27,6 +28,7 @@ internal static class UndoApplyLogic
             path => File.Exists(path) || Directory.Exists(path),
             path => _ = Directory.CreateDirectory(path),
             MovePath,
+            protectedPaths,
             cancellationToken);
     }
 
@@ -34,11 +36,53 @@ internal static class UndoApplyLogic
     {
         if (Directory.Exists(source))
         {
-            Directory.Move(source, target);
+            try
+            {
+                Directory.Move(source, target);
+            }
+            catch (IOException)
+            {
+                // Fallback for cross-volume directory move
+                CopyDirectory(source, target);
+                Directory.Delete(source, true);
+            }
         }
         else
         {
-            File.Move(source, target);
+            try
+            {
+                File.Move(source, target);
+            }
+            catch (IOException)
+            {
+                // Fallback for cross-volume file move
+                File.Copy(source, target);
+                File.Delete(source);
+            }
+        }
+    }
+
+    private static void CopyDirectory(string sourceDir, string destinationDir)
+    {
+        var dir = new DirectoryInfo(sourceDir);
+        if (!dir.Exists)
+        {
+            throw new DirectoryNotFoundException($"Source directory not found: {dir.FullName}");
+        }
+
+        var dirs = dir.GetDirectories();
+        Directory.CreateDirectory(destinationDir);
+
+        foreach (var file in dir.GetFiles())
+        {
+            var targetFilePath = Path.Combine(destinationDir, file.Name);
+            file.CopyTo(targetFilePath);
+        }
+
+        foreach (var subDir in dirs)
+        {
+            var newDestinationDir = Path.Combine(destinationDir, subDir.Name);
+            CopyDirectory(subDir.FullName, newDestinationDir);
         }
     }
 
@@ -48,6 +92,7 @@ internal static class UndoApplyLogic
         Func<string, bool> pathExists,
         Action<string> ensureDirectory,
         Action<string, string> movePath,
+        IEnumerable<string>? protectedPaths = null,
         CancellationToken cancellationToken = default)
     {
         var normalizedConflictPolicy = NormalizeTargetConflictPolicy(targetConflictPolicy);
@@ -193,6 +238,9 @@ internal static class UndoApplyLogic
                 {
                     conflictResolvedCount++;
                 }
+
+                // Cleanup empty parent directories, excluding protected paths (roots)
+                CleanupEmptyParentDirectories(Path.GetDirectoryName(operation.FromPath), protectedPaths);
             }
             catch (Exception ex)
             {
@@ -232,6 +280,36 @@ internal static class UndoApplyLogic
             ConflictResolvedCount = conflictResolvedCount,
             Results = itemResults.ToArray()
         };
+    }
+
+    private static void CleanupEmptyParentDirectories(string? directoryPath, IEnumerable<string>? protectedPaths)
+    {
+        if (string.IsNullOrWhiteSpace(directoryPath) || !Directory.Exists(directoryPath))
+        {
+            return;
+        }
+
+        try
+        {
+            // Do not delete root or system directories
+            if (directoryPath.Length <= 3) return;
+
+            // Do not delete protected paths (library roots, org roots)
+            if (protectedPaths != null && protectedPaths.Any(p => PathEquals(p, directoryPath)))
+            {
+                return;
+            }
+
+            if (!Directory.EnumerateFileSystemEntries(directoryPath).Any())
+            {
+                Directory.Delete(directoryPath);
+                CleanupEmptyParentDirectories(Path.GetDirectoryName(directoryPath), protectedPaths);
+            }
+        }
+        catch
+        {
+            // Best effort
+        }
     }
 
     private static string NormalizeTargetConflictPolicy(string? targetConflictPolicy)
