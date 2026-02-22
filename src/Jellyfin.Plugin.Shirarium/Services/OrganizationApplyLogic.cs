@@ -352,6 +352,9 @@ internal static class OrganizationApplyLogic
                     FromPath = targetPath,
                     ToPath = sourcePath
                 });
+
+                // Cleanup empty parent directories
+                CleanupEmptyParentDirectories(Path.GetDirectoryName(sourcePath));
             }
             catch (Exception ex)
             {
@@ -378,6 +381,30 @@ internal static class OrganizationApplyLogic
             Results = itemResults.ToArray(),
             UndoOperations = undoOperations.ToArray()
         };
+    }
+
+    private static void CleanupEmptyParentDirectories(string? directoryPath)
+    {
+        if (string.IsNullOrWhiteSpace(directoryPath) || !Directory.Exists(directoryPath))
+        {
+            return;
+        }
+
+        try
+        {
+            // Do not delete root or system directories
+            if (directoryPath.Length <= 3) return;
+
+            if (!Directory.EnumerateFileSystemEntries(directoryPath).Any())
+            {
+                Directory.Delete(directoryPath);
+                CleanupEmptyParentDirectories(Path.GetDirectoryName(directoryPath));
+            }
+        }
+        catch
+        {
+            // Best effort
+        }
     }
 
     private static bool TryGetCanonicalPath(string? path, out string? canonicalPath)

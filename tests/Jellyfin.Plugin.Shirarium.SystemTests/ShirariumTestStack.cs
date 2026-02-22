@@ -1,5 +1,6 @@
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
+using DotNet.Testcontainers.Configurations;
 using RestSharp;
 using System.Net;
 
@@ -42,6 +43,7 @@ public class ShirariumTestStack : IAsyncDisposable
             .WithWaitStrategy(Wait.ForUnixContainer()
                 .UntilPortIsAvailable(8096)
                 .UntilHttpRequestIsSucceeded(r => r.ForPort(8096).ForPath("/System/Info/Public")))
+            .WithOutputConsumer(Consume.RedirectStdoutAndStderrToConsole())
             .Build();
     }
 
