@@ -82,7 +82,7 @@ public class DeepAnalysisTests
         
         var inceptionEntry = plan.Entries.First(e => e.SourcePath.Contains("Inception"));
         Assert.Equal("move", inceptionEntry.Action);
-        Assert.Contains("/media/Movies/Inception (2010) [1080p]/Inception (2010) [1080p]", inceptionEntry.TargetPath);
+        Assert.Contains("/media/Movies/Inception (2010)/Inception (2010) [1080p]", inceptionEntry.TargetPath);
 
         // 7. Assert: Plan Application
         var status = await client.GetOpsStatusAsync();
@@ -96,7 +96,7 @@ public class DeepAnalysisTests
         Assert.Equal(0, applyResult.FailedCount);
 
         // 8. Physical Verification
-        var targetFile = Path.Combine(stack.MediaPath, "Movies", "Inception (2010) [1080p]", "Inception (2010) [1080p].mkv");
+        var targetFile = Path.Combine(stack.MediaPath, "Movies", "Inception (2010)", "Inception (2010) [1080p].mkv");
         Assert.True(File.Exists(targetFile), $"File should have moved to: {targetFile}");
         
         // Scene folder should be gone

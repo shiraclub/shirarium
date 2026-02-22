@@ -36,7 +36,7 @@ public sealed class OrganizationPlanLogicTests
             Assert.Equal("movie", entry.Strategy);
             Assert.Equal("move", entry.Action);
             Assert.Equal("Planned", entry.Reason);
-            // Default template: {TitleWithYear} [{Resolution}]/{TitleWithYear} [{Resolution}]
+            // Default template: {TitleWithYear}/{TitleWithYear} [{Resolution}]
             // Resolution is null, so cleanup removes " []"
             Assert.Equal(
                 Path.Combine(root, "organized", "Noroi (2005)", "Noroi (2005).mkv"),
@@ -104,7 +104,7 @@ public sealed class OrganizationPlanLogicTests
                 normalizePathSegments: true);
 
             Assert.Equal(
-                Path.Combine(root, "organized", "Matrix (1999) [1080p]", "Matrix (1999) [1080p].mkv"),
+                Path.Combine(root, "organized", "Matrix (1999)", "Matrix (1999) [1080p].mkv"),
                 entry.TargetPath);
         }
         finally
@@ -150,8 +150,9 @@ public sealed class OrganizationPlanLogicTests
             var entry = OrganizationPlanLogic.BuildEntry(suggestion, organized, true);
 
             Assert.Equal(2, entry.AssociatedFiles.Length);
-            Assert.Contains(entry.AssociatedFiles, m => m.SourcePath == nfoPath && m.TargetPath.EndsWith("Movie (2024) [1080p].nfo"));
-            Assert.Contains(entry.AssociatedFiles, m => m.SourcePath == srtPath && m.TargetPath.EndsWith("Movie (2024) [1080p].en.srt"));
+            // Folder is just Movie (2024), filename is Movie (2024) [1080p]
+            Assert.Contains(entry.AssociatedFiles, m => m.SourcePath == nfoPath && m.TargetPath.EndsWith("Movie (2024) [1080p].nfo".Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar)));
+            Assert.Contains(entry.AssociatedFiles, m => m.SourcePath == srtPath && m.TargetPath.EndsWith("Movie (2024) [1080p].en.srt".Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar)));
         }
         finally
         {
