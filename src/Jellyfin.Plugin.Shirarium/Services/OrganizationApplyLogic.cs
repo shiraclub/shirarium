@@ -7,6 +7,7 @@ internal static class OrganizationApplyLogic
     internal static ApplyOrganizationPlanResult ApplySelected(
         OrganizationPlanSnapshot plan,
         IEnumerable<string> selectedSourcePaths,
+        IEnumerable<string>? protectedPaths = null,
         CancellationToken cancellationToken = default)
     {
         return EvaluateSelected(
@@ -16,6 +17,7 @@ internal static class OrganizationApplyLogic
             path => _ = Directory.CreateDirectory(path),
             MovePath,
             executeMoves: true,
+            protectedPaths,
             cancellationToken);
     }
 
@@ -79,6 +81,7 @@ internal static class OrganizationApplyLogic
         Func<string, bool> pathExists,
         Action<string> ensureDirectory,
         Action<string, string> movePath,
+        IEnumerable<string>? protectedPaths = null,
         CancellationToken cancellationToken = default)
     {
         return EvaluateSelected(
@@ -88,6 +91,7 @@ internal static class OrganizationApplyLogic
             ensureDirectory,
             movePath,
             executeMoves: true,
+            protectedPaths,
             cancellationToken);
     }
 
@@ -103,6 +107,7 @@ internal static class OrganizationApplyLogic
             _ => { },
             (_, _) => { },
             executeMoves: false,
+            protectedPaths: null,
             cancellationToken);
     }
 
@@ -113,6 +118,7 @@ internal static class OrganizationApplyLogic
         Action<string> ensureDirectory,
         Action<string, string> movePath,
         bool executeMoves,
+        IEnumerable<string>? protectedPaths,
         CancellationToken cancellationToken)
     {
         var rootValidation = TryGetCanonicalPath(plan.RootPath, out var canonicalRootPath);
@@ -353,8 +359,8 @@ internal static class OrganizationApplyLogic
                     ToPath = sourcePath
                 });
 
-                // Cleanup empty parent directories
-                CleanupEmptyParentDirectories(Path.GetDirectoryName(sourcePath));
+                // Cleanup empty parent directories, excluding protected paths (roots)
+                CleanupEmptyParentDirectories(Path.GetDirectoryName(sourcePath), protectedPaths);
             }
             catch (Exception ex)
             {
@@ -383,7 +389,7 @@ internal static class OrganizationApplyLogic
         };
     }
 
-    private static void CleanupEmptyParentDirectories(string? directoryPath)
+    private static void CleanupEmptyParentDirectories(string? directoryPath, IEnumerable<string>? protectedPaths)
     {
         if (string.IsNullOrWhiteSpace(directoryPath) || !Directory.Exists(directoryPath))
         {
@@ -395,10 +401,16 @@ internal static class OrganizationApplyLogic
             // Do not delete root or system directories
             if (directoryPath.Length <= 3) return;
 
+            // Do not delete protected paths (library roots, org roots)
+            if (protectedPaths != null && protectedPaths.Any(p => PathEquals(p, directoryPath)))
+            {
+                return;
+            }
+
             if (!Directory.EnumerateFileSystemEntries(directoryPath).Any())
             {
                 Directory.Delete(directoryPath);
-                CleanupEmptyParentDirectories(Path.GetDirectoryName(directoryPath));
+                CleanupEmptyParentDirectories(Path.GetDirectoryName(directoryPath), protectedPaths);
             }
         }
         catch

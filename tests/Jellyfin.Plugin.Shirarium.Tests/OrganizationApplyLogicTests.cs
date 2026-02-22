@@ -284,12 +284,58 @@ public sealed class OrganizationApplyLogicTests
             [sourcePath],
             path => path.Equals(sourcePath, StringComparison.OrdinalIgnoreCase),
             _ => { },
-            (_, _) => { });
+            (_, _) => { },
+            protectedPaths: null);
 
         Assert.Equal(1, result.RequestedCount);
         Assert.Equal(1, result.AppliedCount);
         Assert.Equal(0, result.FailedCount);
         Assert.Equal("applied", result.Results[0].Status);
+    }
+
+    [Fact]
+    public void ApplySelected_CleansUpEmptyParentDirectories_ButProtectsRoots()
+    {
+        var root = CreateTempRoot();
+        try
+        {
+            var incomingRoot = Path.Combine(root, "incoming");
+            var sceneDir = Path.Combine(incomingRoot, "Movie.2024.1080p-Group");
+            var sourcePath = Path.Combine(sceneDir, "movie.mkv");
+            
+            var organizationRoot = Path.Combine(root, "organized");
+            var targetPath = Path.Combine(organizationRoot, "Movie (2024)", "Movie (2024).mkv");
+            
+            Directory.CreateDirectory(sceneDir);
+            File.WriteAllText(sourcePath, "content");
+
+            var plan = CreatePlan(organizationRoot, new OrganizationPlanEntry
+            {
+                ItemId = "1",
+                SourcePath = sourcePath,
+                TargetPath = targetPath,
+                Action = "move",
+                Reason = "Planned"
+            });
+
+            // We protect incomingRoot, so it should NOT be deleted even if empty.
+            // But sceneDir should be deleted.
+            var result = OrganizationApplyLogic.ApplySelected(
+                plan, 
+                [sourcePath], 
+                protectedPaths: [incomingRoot]);
+
+            Assert.Equal(1, result.AppliedCount);
+            Assert.False(File.Exists(sourcePath));
+            Assert.True(File.Exists(targetPath));
+            
+            Assert.False(Directory.Exists(sceneDir), "Scene directory should have been cleaned up");
+            Assert.True(Directory.Exists(incomingRoot), "Incoming root should have been protected");
+        }
+        finally
+        {
+            CleanupTempRoot(root);
+        }
     }
 
     private static OrganizationPlanSnapshot CreatePlan(string rootPath, params OrganizationPlanEntry[] entries)

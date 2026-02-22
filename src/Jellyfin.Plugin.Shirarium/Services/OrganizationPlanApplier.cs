@@ -13,6 +13,7 @@ public sealed class OrganizationPlanApplier
     private readonly IApplicationPaths _applicationPaths;
     private readonly ILogger _logger;
     private readonly ILibraryManager? _libraryManager;
+    private readonly IEnumerable<string>? _extraProtectedPaths;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OrganizationPlanApplier"/> class.
@@ -20,14 +21,17 @@ public sealed class OrganizationPlanApplier
     /// <param name="applicationPaths">Jellyfin application paths.</param>
     /// <param name="logger">Logger instance.</param>
     /// <param name="libraryManager">Optional Jellyfin library manager.</param>
+    /// <param name="extraProtectedPaths">Optional extra paths to protect from cleanup.</param>
     public OrganizationPlanApplier(
         IApplicationPaths applicationPaths, 
         ILogger logger, 
-        ILibraryManager? libraryManager = null)
+        ILibraryManager? libraryManager = null,
+        IEnumerable<string>? extraProtectedPaths = null)
     {
         _applicationPaths = applicationPaths;
         _logger = logger;
         _libraryManager = libraryManager;
+        _extraProtectedPaths = extraProtectedPaths;
     }
 
     /// <summary>
@@ -80,9 +84,26 @@ public sealed class OrganizationPlanApplier
             throw new InvalidOperationException("PlanFingerprintMismatch");
         }
 
+        var protectedPaths = new List<string>();
+        if (!string.IsNullOrWhiteSpace(plan.RootPath))
+        {
+            protectedPaths.Add(plan.RootPath);
+        }
+
+        if (_libraryManager != null)
+        {
+            protectedPaths.AddRange(_libraryManager.GetVirtualFolders().SelectMany(f => f.Locations));
+        }
+
+        if (_extraProtectedPaths != null)
+        {
+            protectedPaths.AddRange(_extraProtectedPaths);
+        }
+
         var result = OrganizationApplyLogic.ApplySelected(
             plan,
             request.SourcePaths,
+            protectedPaths.Distinct(PathComparison.Comparer),
             cancellationToken);
 
         await ApplyJournalStore.AppendApplyAsync(_applicationPaths, result, cancellationToken);

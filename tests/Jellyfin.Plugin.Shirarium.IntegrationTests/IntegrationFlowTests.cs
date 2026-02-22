@@ -22,7 +22,7 @@ public sealed class IntegrationFlowTests
             File.WriteAllText(sourcePath, "content");
 
             var plan = await WritePlanAsync(applicationPaths, sourcePath, targetPath);
-            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
 
             var applyResult = await applier.RunAsync(
                 new ApplyOrganizationPlanRequest
@@ -79,7 +79,7 @@ public sealed class IntegrationFlowTests
             File.WriteAllText(sourcePath, "content");
             await WritePlanAsync(applicationPaths, sourcePath, targetPath);
 
-            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 applier.RunAsync(
                     new ApplyOrganizationPlanRequest
@@ -113,7 +113,7 @@ public sealed class IntegrationFlowTests
             using var lockHandle = OperationLock.TryAcquire(applicationPaths);
             Assert.NotNull(lockHandle);
 
-            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
             var applyEx = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 applier.RunAsync(
                     new ApplyOrganizationPlanRequest
@@ -156,7 +156,7 @@ public sealed class IntegrationFlowTests
                 CreatePlanEntry(sourcePathA, targetPathA, "A"),
                 CreatePlanEntry(sourcePathB, targetPathB, "B"));
 
-            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
             var applyResult = await applier.RunAsync(
                 new ApplyOrganizationPlanRequest
                 {
@@ -228,7 +228,7 @@ public sealed class IntegrationFlowTests
                 CreatePlanEntry(sourcePathA, targetPathA, "A"),
                 CreatePlanEntry(sourcePathB, targetPathB, "B"));
 
-            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
             var applyResult = await applier.RunAsync(
                 new ApplyOrganizationPlanRequest
                 {
@@ -293,7 +293,7 @@ public sealed class IntegrationFlowTests
             File.WriteAllText(sourcePath, "content");
 
             var plan = await WritePlanAsync(applicationPaths, sourcePath, targetPath);
-            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
             var applyResult = await applier.RunAsync(
                 new ApplyOrganizationPlanRequest
                 {
@@ -510,7 +510,7 @@ public sealed class IntegrationFlowTests
             Assert.Equal(2, plan.PlannedCount);
             Assert.Equal(0, plan.ConflictCount);
 
-            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
             var applyResult = await applier.RunAsync(
                 new ApplyOrganizationPlanRequest
                 {
@@ -638,7 +638,7 @@ public sealed class IntegrationFlowTests
             Assert.Single(reviewedSelection);
             Assert.Equal(sourcePathB, reviewedSelection[0]);
 
-            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance);
+            var applier = new OrganizationPlanApplier(applicationPaths, NullLogger.Instance, extraProtectedPaths: [Path.Combine(root, "incoming")]);
 
             var staleEx = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 applier.RunAsync(
