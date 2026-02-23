@@ -79,10 +79,6 @@ public sealed class InferenceManager : IHostedService, IDisposable
             _status = "Disabled";
             return Task.CompletedTask;
         }
-        {
-            _status = "Disabled";
-            return Task.CompletedTask;
-        }
 
         if (_runnerProcess != null && !_runnerProcess.HasExited)
         {
