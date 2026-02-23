@@ -163,49 +163,53 @@
                 if (tabId === 'settings') loadSettings();
             }
 
-                        async function refreshDash() {
-                            try {
-                                var results = await Promise.all([
-                                    api('shirarium/inference-status'),
-                                    api('shirarium/organization-plan-view?pageSize=1')
-                                ]);
-            
-                                var inf = results[0];
-                                var plan = results[1];
-                                state.plan = plan;
-            
-                                var tag = el('ai-status-tag');
-                                var progressContainer = el('ai-progress-container');
-                                var progressBar = el('ai-progress-bar');
-                                var statusText = el('ai-status-text');
-            
-                                if (inf.isDownloading) {
-                                    tag.textContent = 'Learning...';
-                                    tag.className = 'sh-status-tag status-wait';
-                                    statusText.textContent = 'AI is downloading its knowledge (' + (inf.modelName || '...') + ').';
-                                    if (progressContainer) progressContainer.classList.remove('hidden');
-                                    if (progressBar) progressBar.style.width = (inf.downloadProgress || 0) + '%';
-                                } else if (inf.isOnline) {
-                                    tag.textContent = 'Active';
-                                    tag.className = 'sh-status-tag status-ok';
-                                    statusText.textContent = 'Brain online: ' + inf.modelName + ' (' + inf.p50LatencyMs.toFixed(1) + 'ms latency)';
-                                    if (progressContainer) progressContainer.classList.add('hidden');
-                                } else {
-                                    tag.textContent = 'Offline';
-                                    tag.className = 'sh-status-tag';
-                                    statusText.textContent = 'Enable AI in settings to improve library organization.';
-                                    if (progressContainer) progressContainer.classList.add('hidden');
-                                }
-            
-                                if (plan.filteredEntries > 0) {
-                                    el('card-ready').classList.remove('hidden');
-                                    el('ready-text').textContent = 'AI found ' + plan.filteredEntries + ' improvements for your library.';
-                                } else {
-                                    el('card-ready').classList.add('hidden');
-                                }
-                            } catch (e) { console.error("Dash refresh failed", e); }
-                        }
-            async function refreshReview() {
+                                    async function refreshDash() {
+                                        try {
+                                            var results = await Promise.all([
+                                                api('shirarium/inference-status'),
+                                                api('shirarium/organization-plan-view?pageSize=1')
+                                            ]);
+                        
+                                            var inf = results[0];
+                                            var plan = results[1];
+                                            state.plan = plan;
+                        
+                                            var tag = el('ai-status-tag');
+                                            var progressContainer = el('ai-progress-container');
+                                            var progressBar = el('ai-progress-bar');
+                                            var statusText = el('ai-status-text');
+                        
+                                            if (inf.Status === 'DownloadingModel') {
+                                                tag.textContent = 'Learning...';
+                                                tag.className = 'sh-status-tag status-wait';
+                                                statusText.textContent = 'AI is downloading its knowledge: ' + (inf.ModelName || '...');
+                                                if (progressContainer) progressContainer.classList.remove('hidden');
+                                                if (progressBar) progressBar.style.width = (inf.Progress || 0) + '%';
+                                            } else if (inf.Status === 'Ready') {
+                                                tag.textContent = 'Active';
+                                                tag.className = 'sh-status-tag status-ok';
+                                                statusText.textContent = 'Brain online: ' + inf.ModelName;
+                                                if (progressContainer) progressContainer.classList.add('hidden');
+                                            } else if (inf.Status === 'Error') {
+                                                tag.textContent = 'Error';
+                                                tag.className = 'sh-status-tag status-wait';
+                                                statusText.textContent = 'Brain error: ' + (inf.Error || 'Unknown error');
+                                                if (progressContainer) progressContainer.classList.add('hidden');
+                                            } else {
+                                                tag.textContent = 'Idle';
+                                                tag.className = 'sh-status-tag';
+                                                statusText.textContent = 'Brain is idle. Enable AI in settings to improve library organization.';
+                                                if (progressContainer) progressContainer.classList.add('hidden');
+                                            }
+                        
+                                            if (plan && plan.filteredEntries > 0) {
+                                                el('card-ready').classList.remove('hidden');
+                                                el('ready-text').textContent = 'AI found ' + plan.filteredEntries + ' improvements for your library.';
+                                            } else {
+                                                el('card-ready').classList.add('hidden');
+                                            }
+                                        } catch (e) { console.error("Dash refresh failed", e); }
+                                    }            async function refreshReview() {
                 Dashboard.showLoadingMsg();
                 try {
                     var plan = await api('shirarium/organization-plan-view?pageSize=100');
@@ -294,18 +298,21 @@
             function startPolling() {
                 if (pollHandle) clearInterval(pollHandle);
                 pollHandle = setInterval(function() {
-                    // Only poll if the dash tab is active
                     if (!el('panel-dash').classList.contains('hidden')) {
                         refreshDash();
                     }
                 }, 3000);
             }
 
-            // INIT
-            document.querySelector('#ShirariumReviewPage').addEventListener('pageshow', function () {
+            function init() {
                 refreshDash();
                 startPolling();
-            });
+            }
+
+            // INIT
+            var page = document.querySelector('#ShirariumReviewPage');
+            page.addEventListener('pageshow', init);
+            page.addEventListener('viewshow', init);
 
             document.querySelectorAll('.sh-tab-btn').forEach(function(btn) {
                 btn.onclick = function() { switchTab(btn.dataset.tab); };
