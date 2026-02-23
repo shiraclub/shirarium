@@ -1,0 +1,447 @@
+{
+  "schemaVersion": "1.0",
+  "name": "tier-b-synthetic-dirty",
+  "description": "Dirty dataset with 7092 items including clutter (NFO, samples, etc).",
+  "entries": [
+    {
+      "relativePath": "Downloads/One.Piece.2019.1080p.BluRay.x264-DON/One.Piece.2019.1080p.BluRay.x264-DON.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "One Piece",
+        "year": 2019,
+        "resolution": "1080p",
+        "source": "BluRay",
+        "codec": "x264",
+        "group": "DON"
+      }
+    },
+    {
+      "relativePath": "Downloads/One.Piece.2019.1080p.BluRay.x264-DON/One.Piece.2019.1080p.BluRay.x264-DON.nfo",
+      "expected": null
+    },
+    {
+      "relativePath": "Downloads/Jujutsu.Kaisen.1982.BRRip.HDR.AV1-SubsPlease/Jujutsu.Kaisen.1982.BRRip.HDR.AV1-SubsPlease.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Jujutsu Kaisen",
+        "year": 1982,
+        "resolution": "BRRip",
+        "source": "HDR",
+        "codec": "AV1",
+        "group": "SubsPlease"
+      }
+    },
+    {
+      "relativePath": "Downloads/Jujutsu.Kaisen.1982.BRRip.HDR.AV1-SubsPlease/Jujutsu.Kaisen.1982.BRRip.HDR.AV1-SubsPlease.nfo",
+      "expected": null
+    },
+    {
+      "relativePath": "Downloads/Jujutsu.Kaisen.1982.BRRip.HDR.AV1-SubsPlease/RARBG.txt",
+      "expected": null
+    },
+    {
+      "relativePath": "TV/The Thing/Season 5/The Thing - S05E22.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "The Thing",
+        "season": 5,
+        "episode": 22,
+        "resolution": "UHD",
+        "codec": "HEVC",
+        "group": "YTS"
+      }
+    },
+    {
+      "relativePath": "Downloads/Movie.43.2024.720p.HDR.x264-FRAme/Movie.43.2024.720p.HDR.x264-FRAme.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Movie 43",
+        "year": 2024,
+        "resolution": "720p",
+        "source": "HDR",
+        "codec": "x264",
+        "group": "FRAme"
+      }
+    },
+    {
+      "relativePath": "Downloads/Movie.43.2024.720p.HDR.x264-FRAme/Movie.43.2024.720p.HDR.x264-FRAme.nfo",
+      "expected": null
+    },
+    {
+      "relativePath": "Movies/The 100 (2014)/The 100 (2014) [720p].mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "The 100",
+        "year": 2014,
+        "resolution": "720p",
+        "source": "DoVi",
+        "codec": "HEVC",
+        "group": "Erai-raws"
+      }
+    },
+    {
+      "relativePath": "Movies/Movie 43 (2024)/Movie 43 (2024) [1080p].mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Movie 43",
+        "year": 2024,
+        "resolution": "1080p",
+        "source": "WEBRip",
+        "codec": "AV1",
+        "group": "SPARKS"
+      }
+    },
+    {
+      "relativePath": "Movies/Movie 43 (2024)/fanart.jpg",
+      "expected": null
+    },
+    {
+      "relativePath": "Downloads/Movie.43.2014.BRRip.HDR.x264-AMIABLE/Movie.43.2014.BRRip.HDR.x264-AMIABLE.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Movie 43",
+        "year": 2014,
+        "resolution": "BRRip",
+        "source": "HDR",
+        "codec": "x264",
+        "group": "AMIABLE"
+      }
+    },
+    {
+      "relativePath": "Downloads/Movie.43.2014.BRRip.HDR.x264-AMIABLE/Movie.43.2014.BRRip.HDR.x264-AMIABLE.nfo",
+      "expected": null
+    },
+    {
+      "relativePath": "Downloads/District.9.2017.720p.HDTV.x264-FRAme.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "District 9",
+        "year": 2017,
+        "resolution": "720p",
+        "source": "HDTV",
+        "codec": "x264",
+        "group": "FRAme"
+      }
+    },
+    {
+      "relativePath": "TV-Downloads/1917.S05E13.2160p.AV1-FRAme.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "1917",
+        "season": 5,
+        "episode": 13,
+        "resolution": "2160p",
+        "codec": "AV1",
+        "group": "FRAme"
+      }
+    },
+    {
+      "relativePath": "Downloads/Succession.2024.720p.WEBRip.AV1-YTS/Succession.2024.720p.WEBRip.AV1-YTS.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Succession",
+        "year": 2024,
+        "resolution": "720p",
+        "source": "WEBRip",
+        "codec": "AV1",
+        "group": "YTS"
+      }
+    },
+    {
+      "relativePath": "Downloads/Succession.2024.720p.WEBRip.AV1-YTS/Succession.2024.720p.WEBRip.AV1-YTS.nfo",
+      "expected": null
+    },
+    {
+      "relativePath": "Downloads/Succession.2024.720p.WEBRip.AV1-YTS/Proof/Succession.2024.720p.WEBRip.AV1-YTS-proof.jpg",
+      "expected": null
+    },
+    {
+      "relativePath": "Downloads/Succession.1999.DVDRip.DoVi.HEVC-Erai-raws/Succession.1999.DVDRip.DoVi.HEVC-Erai-raws.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Succession",
+        "year": 1999,
+        "resolution": "DVDRip",
+        "source": "DoVi",
+        "codec": "HEVC",
+        "group": "Erai-raws"
+      }
+    },
+    {
+      "relativePath": "Downloads/Succession.1999.DVDRip.DoVi.HEVC-Erai-raws/Succession.1999.DVDRip.DoVi.HEVC-Erai-raws.nfo",
+      "expected": null
+    },
+    {
+      "relativePath": "Downloads/District.9.2021.2160p.DoVi.x264-DON.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "District 9",
+        "year": 2021,
+        "resolution": "2160p",
+        "source": "DoVi",
+        "codec": "x264",
+        "group": "DON"
+      }
+    },
+    {
+      "relativePath": "TV-Downloads/The.Office.S02E24.1080p.AV1-SubsPlease/The.Office.S02E24.1080p.AV1-SubsPlease.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "The Office",
+        "season": 2,
+        "episode": 24,
+        "resolution": "1080p",
+        "codec": "AV1",
+        "group": "SubsPlease"
+      }
+    },
+    {
+      "relativePath": "Downloads/300.2017.4K.HDR.HEVC-FRAme.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "300",
+        "year": 2017,
+        "resolution": "4K",
+        "source": "HDR",
+        "codec": "HEVC",
+        "group": "FRAme"
+      }
+    },
+    {
+      "relativePath": "TV-Downloads/The.Thing.S09E20.4K.HEVC-FRAme/The.Thing.S09E20.4K.HEVC-FRAme.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "The Thing",
+        "season": 9,
+        "episode": 20,
+        "resolution": "4K",
+        "codec": "HEVC",
+        "group": "FRAme"
+      }
+    },
+    {
+      "relativePath": "TV-Downloads/District.9.S10E24.2160p.AV1-SubsPlease/District.9.S10E24.2160p.AV1-SubsPlease.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "District 9",
+        "season": 10,
+        "episode": 24,
+        "resolution": "2160p",
+        "codec": "AV1",
+        "group": "SubsPlease"
+      }
+    },
+    {
+      "relativePath": "TV-Downloads/District.9.S10E24.2160p.AV1-SubsPlease/District.9.S10E24.2160p.AV1-SubsPlease.nfo",
+      "expected": null
+    },
+    {
+      "relativePath": "TV-Downloads/District.9.S10E24.2160p.AV1-SubsPlease/RARBG.txt",
+      "expected": null
+    },
+    {
+      "relativePath": "Downloads/Seven.1982.1080p.WEBRip.x265-Erai-raws/Seven.1982.1080p.WEBRip.x265-Erai-raws.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Seven",
+        "year": 1982,
+        "resolution": "1080p",
+        "source": "WEBRip",
+        "codec": "x265",
+        "group": "Erai-raws"
+      }
+    },
+    {
+      "relativePath": "Downloads/Seven.1982.1080p.WEBRip.x265-Erai-raws/Seven.1982.1080p.WEBRip.x265-Erai-raws.nfo",
+      "expected": null
+    },
+    {
+      "relativePath": "Downloads/Seven.1982.1080p.WEBRip.x265-Erai-raws/RARBG.txt",
+      "expected": null
+    },
+    {
+      "relativePath": "TV-Downloads/Godzilla.Minus.One.S02E06.720p.x265-DON/Godzilla.Minus.One.S02E06.720p.x265-DON.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Godzilla Minus One",
+        "season": 2,
+        "episode": 6,
+        "resolution": "720p",
+        "codec": "x265",
+        "group": "DON"
+      }
+    },
+    {
+      "relativePath": "TV-Downloads/Godzilla.Minus.One.S02E06.720p.x265-DON/Godzilla.Minus.One.S02E06.720p.x265-DON.nfo",
+      "expected": null
+    },
+    {
+      "relativePath": "TV-Downloads/Godzilla.Minus.One.S02E06.720p.x265-DON/Sample/Godzilla.Minus.One.S02E06.720p.x265-DON-sample.mkv",
+      "expected": null
+    },
+    {
+      "relativePath": "Movies/The 100 (2023)/The 100 (2023) [BRRip].mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "The 100",
+        "year": 2023,
+        "resolution": "BRRip",
+        "source": "DoVi",
+        "codec": "x264",
+        "group": "SubsPlease"
+      }
+    },
+    {
+      "relativePath": "Downloads/Blade.Runner.2049.2021.4K.BluRay.h264-FRAme/Blade.Runner.2049.2021.4K.BluRay.h264-FRAme.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Blade Runner 2049",
+        "year": 2021,
+        "resolution": "4K",
+        "source": "BluRay",
+        "codec": "h264",
+        "group": "FRAme"
+      }
+    },
+    {
+      "relativePath": "Movies/Attack on Titan (2014)/Attack on Titan (2014) [1080p].mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Attack on Titan",
+        "year": 2014,
+        "resolution": "1080p",
+        "source": "HDR",
+        "codec": "x265",
+        "group": "FRAme"
+      }
+    },
+    {
+      "relativePath": "Movies/Attack on Titan (2014)/fanart.jpg",
+      "expected": null
+    },
+    {
+      "relativePath": "TV-Downloads/2012.S08E06.1080p.AV1-SubsPlease.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "2012",
+        "season": 8,
+        "episode": 6,
+        "resolution": "1080p",
+        "codec": "AV1",
+        "group": "SubsPlease"
+      }
+    },
+    {
+      "relativePath": "Downloads/Interstellar.2017.BRRip.DoVi.HEVC-YTS.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Interstellar",
+        "year": 2017,
+        "resolution": "BRRip",
+        "source": "DoVi",
+        "codec": "HEVC",
+        "group": "YTS"
+      }
+    },
+    {
+      "relativePath": "Movies/Inception (2014)/Inception (2014) [1080p].mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Inception",
+        "year": 2014,
+        "resolution": "1080p",
+        "source": "BluRay",
+        "codec": "x265",
+        "group": "DON"
+      }
+    },
+    {
+      "relativePath": "Downloads/Arrival.2017.1080p.WEB-DL.h264-DON.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Arrival",
+        "year": 2017,
+        "resolution": "1080p",
+        "source": "WEB-DL",
+        "codec": "h264",
+        "group": "DON"
+      }
+    },
+    {
+      "relativePath": "Downloads/Succession.2010.2160p.HDTV.h264-AMIABLE/Succession.2010.2160p.HDTV.h264-AMIABLE.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Succession",
+        "year": 2010,
+        "resolution": "2160p",
+        "source": "HDTV",
+        "codec": "h264",
+        "group": "AMIABLE"
+      }
+    },
+    {
+      "relativePath": "Downloads/Succession.2010.2160p.HDTV.h264-AMIABLE/Sample/Succession.2010.2160p.HDTV.h264-AMIABLE-sample.mkv",
+      "expected": null
+    },
+    {
+      "relativePath": "Downloads/Star.Wars.Episode.I.1979.4K.WEBRip.x265-AMIABLE/Star.Wars.Episode.I.1979.4K.WEBRip.x265-AMIABLE.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Star Wars Episode I",
+        "year": 1979,
+        "resolution": "4K",
+        "source": "WEBRip",
+        "codec": "x265",
+        "group": "AMIABLE"
+      }
+    },
+    {
+      "relativePath": "Downloads/Star.Wars.Episode.I.1979.4K.WEBRip.x265-AMIABLE/Star.Wars.Episode.I.1979.4K.WEBRip.x265-AMIABLE.nfo",
+      "expected": null
+    },
+    {
+      "relativePath": "TV-Downloads/Spirited.Away.S07E02.720p.HEVC-SPARKS.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "Spirited Away",
+        "season": 7,
+        "episode": 2,
+        "resolution": "720p",
+        "codec": "HEVC",
+        "group": "SPARKS"
+      }
+    },
+    {
+      "relativePath": "Downloads/Fantastic.4.2010.UHD.WEBRip.HEVC-RARBG/Fantastic.4.2010.UHD.WEBRip.HEVC-RARBG.mkv",
+      "expected": {
+        "mediaType": "movie",
+        "title": "Fantastic 4",
+        "year": 2010,
+        "resolution": "UHD",
+        "source": "WEBRip",
+        "codec": "HEVC",
+        "group": "RARBG"
+      }
+    },
+    {
+      "relativePath": "TV-Downloads/2012.S06E12.4K.AV1-SPARKS/2012.S06E12.4K.AV1-SPARKS.mkv",
+      "expected": {
+        "mediaType": "episode",
+        "title": "2012",
+        "season": 6,
+        "episode": 12,
+        "resolution": "4K",
+        "codec": "AV1",
+        "group": "SPARKS"
+      }
+    },
+    {
+      "relativePath": "TV-Downloads/2012.S06E12.4K.AV1-SPARKS/2012.S06E12.4K.AV1-SPARKS.nfo",
+      "expected": null
+    },
+    {
+      "relativePath": "TV-Downloads/2012.S06E12.4K.AV1-SPARKS/RARBG.txt",
+      "expected": null
+    }
+  ]
+}

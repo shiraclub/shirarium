@@ -63,7 +63,7 @@ jobs:
           # Seed after container is up so we can use its ffmpeg for golden samples
           python3 scripts/manage.py seed \
             --clean \
-            --dataset datasets/regression/tier-b-synthetic.json
+            --dataset datasets/regression/smoke-tiny.json
 
           # Wait until the public endpoint returns real JSON payload (not startup/migration HTML)
           for i in {1..180}; do
