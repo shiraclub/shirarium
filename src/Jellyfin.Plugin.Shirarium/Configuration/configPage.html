@@ -2,1651 +2,304 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Shirarium Review</title>
+    <title>Shirarium</title>
 </head>
 <body>
 <div id="ShirariumReviewPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
     <div data-role="content">
         <div class="content-primary">
             <style>
-                #ShirariumReviewPage .shirarium-grid {
-                    display: grid;
-                    gap: 12px;
-                }
+                .shirarium-container { padding: 20px 0; max-width: 900px; margin: 0 auto; }
+                .sh-header { margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 20px; }
+                .sh-header h1 { margin: 0; color: #52B54B; font-weight: 300; font-size: 32px; }
+                
+                .sh-tabs { display: flex; gap: 5px; margin-bottom: 25px; }
+                .sh-tab-btn { flex: 1; text-align: center; }
 
-                #ShirariumReviewPage .shirarium-toolbar {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 8px;
-                    align-items: center;
-                    margin-bottom: 16px;
-                }
-
-                #ShirariumReviewPage .shirarium-controls-row {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 16px;
-                    align-items: flex-end;
-                    margin-bottom: 12px;
-                    background: rgba(0, 0, 0, 0.2);
-                    padding: 12px;
-                    border-radius: 8px;
-                }
-
-                #ShirariumReviewPage .shirarium-tabs {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 8px;
-                    margin-top: 8px;
-                }
-
-                #ShirariumReviewPage .shirarium-tab {
-                    border: 1px solid var(--theme-primary-color, #52b54b);
-                    background: transparent;
-                    color: inherit;
-                    padding: 6px 10px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                }
-
-                #ShirariumReviewPage .shirarium-tab.active {
-                    background: var(--theme-primary-color, #52b54b);
-                    color: #fff;
-                }
-
-                #ShirariumReviewPage .shirarium-panel {
-                    display: none;
-                }
-
-                #ShirariumReviewPage .shirarium-panel.active {
-                    display: block;
-                }
-
-                #ShirariumReviewPage .shirarium-kpis {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-                    gap: 8px;
-                }
-
-                #ShirariumReviewPage .shirarium-kpi {
-                    border: 1px solid var(--theme-primary-color, #52b54b);
-                    border-radius: 6px;
-                    padding: 8px;
-                }
-
-                #ShirariumReviewPage .shirarium-kpi-label {
-                    font-size: 12px;
-                    opacity: 0.85;
-                }
-
-                #ShirariumReviewPage .shirarium-kpi-value {
-                    font-size: 20px;
-                    font-weight: 600;
-                }
-
-                #ShirariumReviewPage .shirarium-table-wrap {
-                    overflow: auto;
-                    max-height: 60vh;
-                    border: 1px solid #3a3a3a;
-                    border-radius: 6px;
-                }
-
-                #ShirariumReviewPage table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    min-width: 980px;
-                }
-
-                #ShirariumReviewPage th,
-                #ShirariumReviewPage td {
-                    padding: 6px;
-                    border-bottom: 1px solid #2f2f2f;
-                    text-align: left;
-                    vertical-align: top;
-                    font-size: 12px;
-                }
-
-                #ShirariumReviewPage code {
-                    white-space: pre-wrap;
-                    word-break: break-word;
-                }
-
-                #ShirariumReviewPage .shirarium-badge {
-                    display: inline-block;
-                    padding: 1px 6px;
-                    border-radius: 999px;
-                    font-size: 11px;
-                    border: 1px solid transparent;
-                }
-
-                #ShirariumReviewPage .shirarium-badge.good {
-                    background: rgba(82, 181, 75, 0.18);
-                    border-color: rgba(82, 181, 75, 0.65);
-                }
-
-                #ShirariumReviewPage .shirarium-badge.warn {
-                    background: rgba(229, 181, 51, 0.18);
-                    border-color: rgba(229, 181, 51, 0.65);
-                }
-
-                #ShirariumReviewPage .shirarium-badge.bad {
-                    background: rgba(209, 62, 62, 0.18);
-                    border-color: rgba(209, 62, 62, 0.7);
-                }
-
-                #ShirariumReviewPage .shirarium-inline {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 8px;
-                    align-items: center;
-                }
-
-                #ShirariumReviewPage .shirarium-muted {
-                    opacity: 0.75;
-                    font-size: 12px;
-                }
-
-                #ShirariumReviewPage .shirarium-small {
-                    font-size: 11px;
-                }
-
-                #ShirariumReviewPage .shirarium-w100 {
-                    width: 100%;
-                }
-
-                #ShirariumReviewPage .shirarium-error {
-                    color: #ff9e9e;
-                    white-space: pre-wrap;
-                }
-
-                #ShirariumReviewPage .shirarium-status-bar {
-                    background: rgba(82, 181, 75, 0.1);
-                    border: 1px solid var(--theme-primary-color, #52b54b);
-                    padding: 10px;
-                    border-radius: 6px;
-                    margin-bottom: 12px;
-                    display: none;
-                }
-
-                #ShirariumReviewPage .progress-container {
-                    background: #2a2a2a;
-                    height: 8px;
-                    border-radius: 4px;
-                    margin-top: 6px;
-                    overflow: hidden;
-                }
-
-                #ShirariumReviewPage .progress-bar {
-                    background: var(--theme-primary-color, #52b54b);
-                    height: 100%;
-                    width: 0%;
-                    transition: width 0.3s ease;
-                }
-
-                /* Layout helpers for controls */
-                .inputContainer {
-                    flex: 1;
-                    min-width: 150px;
-                    margin: 0 !important;
-                }
-                .selectContainer {
-                    flex: 1;
-                    min-width: 150px;
-                    margin: 0 !important;
-                }
-                .checkboxContainer {
-                    display: flex;
-                    align-items: center;
-                    margin: 0 !important;
-                    min-height: 40px;
-                }
+                .sh-card { background: #1c1c1c; border-radius: 8px; padding: 24px; margin-bottom: 20px; border: 1px solid #333; }
+                .sh-card-title { font-size: 18px; margin-bottom: 15px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+                
+                .sh-status-tag { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+                .status-ok { background: #52B54B; color: white; }
+                .status-wait { background: #f1c40f; color: black; }
+                
+                .sh-table-wrap { overflow-x: auto; margin-top: 15px; border-radius: 4px; border: 1px solid #333; }
+                .sh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+                .sh-table th { background: #222; text-align: left; padding: 12px; border-bottom: 1px solid #333; color: #888; }
+                .sh-table td { padding: 12px; border-bottom: 1px solid #222; }
+                
+                .hidden { display: none !important; }
+                .sh-btn-big { font-size: 1.2em !important; padding: 1em 2em !important; }
             </style>
 
-            <div class="verticalSection verticalSection-extrabottompadding shirarium-grid">
-                <h2>Shirarium Review Console</h2>
-                
-                <div id="shirariumInferenceStatus" class="shirarium-status-bar">
-                    <div class="shirarium-inline">
-                        <strong id="shirariumStatusLabel">AI Engine: Initializing...</strong>
-                        <span id="shirariumStatusDetail" class="shirarium-small">Downloading recommended model (2.5GB)</span>
+            <div class="shirarium-container">
+                <header class="sh-header">
+                    <h1>Shirarium</h1>
+                    <p style="color:#888; margin: 5px 0 0;">Intelligent Library Organizer</p>
+                </header>
+
+                <div class="sh-tabs">
+                    <button is="emby-button" class="sh-tab-btn raised active" data-tab="dash">Overview</button>
+                    <button is="emby-button" class="sh-tab-btn raised" data-tab="review">Review Changes</button>
+                    <button is="emby-button" class="sh-tab-btn raised" data-tab="settings">Settings</button>
+                </div>
+
+                <!-- DASHBOARD -->
+                <div id="panel-dash" class="sh-panel">
+                    <div class="sh-card">
+                        <div class="sh-card-title">
+                            <span>AI Brain Status</span>
+                            <span id="ai-status-tag" class="sh-status-tag">Checking...</span>
+                        </div>
+                        <div id="ai-status-text">Connecting to local AI engine...</div>
                     </div>
-                    <div class="progress-container">
-                        <div id="shirariumProgressBar" class="progress-bar"></div>
+
+                    <div id="card-ready" class="sh-card hidden" style="text-align: center;">
+                        <h2 style="margin-top:0;">Good news!</h2>
+                        <p id="ready-text">We found improvements for your library.</p>
+                        <button is="emby-button" type="button" class="raised button-submit sh-btn-big" id="btn-start-review">
+                            <span>Review Changes Now</span>
+                        </button>
+                    </div>
+
+                    <div id="card-empty" class="sh-card">
+                        <div class="sh-card-title">How to organize</div>
+                        <p style="color:#aaa; line-height: 1.5;">
+                            1. Run a <b>Library Scan</b> in your Jellyfin Dashboard.<br>
+                            2. Our AI will analyze your files and propose better names.<br>
+                            3. Return here to approve and apply the changes.
+                        </p>
                     </div>
                 </div>
 
-                <div class="shirarium-muted">Review, preflight, lock, and apply organization moves from inside Jellyfin.</div>
-
-                <div class="shirarium-kpis">
-                    <div class="shirarium-kpi">
-                        <div class="shirarium-kpi-label">Plan Fingerprint</div>
-                        <div id="shirariumPlanFingerprint" class="shirarium-kpi-value shirarium-small">-</div>
-                    </div>
-                    <div class="shirarium-kpi">
-                        <div class="shirarium-kpi-label">Filtered Entries</div>
-                        <div id="shirariumFilteredEntries" class="shirarium-kpi-value">0</div>
-                    </div>
-                    <div class="shirarium-kpi">
-                        <div class="shirarium-kpi-label">Overrides</div>
-                        <div id="shirariumOverrideCount" class="shirarium-kpi-value">0</div>
-                    </div>
-                    <div class="shirarium-kpi">
-                        <div class="shirarium-kpi-label">Selected Moves</div>
-                        <div id="shirariumSelectedCount" class="shirarium-kpi-value">0</div>
-                    </div>
-                </div>
-
-                <div class="shirarium-tabs">
-                    <button type="button" class="shirarium-tab active" data-panel="review">Review</button>
-                    <button type="button" class="shirarium-tab" data-panel="preflight">Preflight</button>
-                    <button type="button" class="shirarium-tab" data-panel="locks">Locks</button>
-                    <button type="button" class="shirarium-tab" data-panel="history">History</button>
-                    <button type="button" class="shirarium-tab" data-panel="benchmark">Benchmark</button>
-                    <button type="button" class="shirarium-tab" data-panel="settings">Settings</button>
-                </div>
-
-                <div id="shirariumPanelReview" class="shirarium-panel active">
-                    <div class="shirarium-grid">
-                        <div class="shirarium-toolbar">
-                            <button is="emby-button" type="button" id="shirariumReloadPlan" class="raised button-submit">Reload View</button>
-                            <button is="emby-button" type="button" id="shirariumPreflightSelected" class="raised">Preflight Selected</button>
-                            <button is="emby-button" type="button" id="shirariumApplySelected" class="raised">Apply Selected</button>
-                            <button is="emby-button" type="button" id="shirariumCreateLockSelected" class="raised">Create Lock from Selected</button>
-                            <button is="emby-button" type="button" id="shirariumSelectFilteredMoves" class="raised">Select Filtered Moves</button>
-                            <button is="emby-button" type="button" id="shirariumClearSelection" class="raised">Clear Selection</button>
+                <!-- REVIEW -->
+                <div id="panel-review" class="sh-panel hidden">
+                    <div class="sh-card">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px;">
+                            <div class="sh-card-title" style="margin:0;">Proposed Improvements</div>
+                            <button is="emby-button" type="button" class="raised button-submit" id="btn-apply-main" disabled>
+                                <span>Apply Selected</span>
+                            </button>
                         </div>
 
-                        <!-- Filters Row -->
-                        <div class="shirarium-controls-row">
-                            <label class="checkboxContainer">
-                                <input type="checkbox" is="emby-checkbox" id="shirariumMovesOnly" checked>
-                                <span>Moves only</span>
-                            </label>
-                            <label class="checkboxContainer">
-                                <input type="checkbox" is="emby-checkbox" id="shirariumOverridesOnly">
-                                <span>Overrides only</span>
-                            </label>
-                            <div class="inputContainer">
-                                <input is="emby-input" id="shirariumMinConfidence" type="number" min="0" max="1" step="0.01" value="0" label="Min confidence" />
-                            </div>
-                            <div class="selectContainer">
-                                <label class="selectLabel" for="shirariumActionFilter">Action</label>
-                                <select is="emby-select" id="shirariumActionFilter">
-                                    <option value="">All</option>
-                                    <option value="move">move</option>
-                                    <option value="skip">skip</option>
-                                    <option value="none">none</option>
-                                    <option value="conflict">conflict</option>
-                                </select>
-                            </div>
-                            <div class="inputContainer">
-                                <input is="emby-input" id="shirariumPathPrefix" type="text" label="Path prefix" placeholder="D:\\media\\incoming" />
-                            </div>
-                        </div>
-
-                        <!-- Sort & Page Row -->
-                        <div class="shirarium-controls-row">
-                            <div class="selectContainer">
-                                <label class="selectLabel" for="shirariumSortBy">Sort</label>
-                                <select is="emby-select" id="shirariumSortBy">
-                                    <option value="sourcePath">sourcePath</option>
-                                    <option value="targetPath">targetPath</option>
-                                    <option value="confidence">confidence</option>
-                                    <option value="strategy">strategy</option>
-                                    <option value="action">action</option>
-                                    <option value="reason">reason</option>
-                                </select>
-                            </div>
-                            <div class="selectContainer">
-                                <label class="selectLabel" for="shirariumSortDirection">Direction</label>
-                                <select is="emby-select" id="shirariumSortDirection">
-                                    <option value="asc">asc</option>
-                                    <option value="desc">desc</option>
-                                </select>
-                            </div>
-                            <div class="inputContainer">
-                                <input is="emby-input" id="shirariumPage" type="number" min="1" value="1" label="Page" />
-                            </div>
-                            <div class="inputContainer">
-                                <input is="emby-input" id="shirariumPageSize" type="number" min="1" max="500" value="50" label="Page size" />
-                            </div>
-                        </div>
-
-                        <!-- Bulk Actions Row -->
-                        <div class="shirarium-controls-row">
-                            <div class="selectContainer">
-                                <label class="selectLabel" for="shirariumBulkAction">Bulk action</label>
-                                <select is="emby-select" id="shirariumBulkAction">
-                                    <option value="move">move</option>
-                                    <option value="skip">skip</option>
-                                    <option value="none">none</option>
-                                    <option value="conflict">conflict</option>
-                                </select>
-                            </div>
-                            <button is="emby-button" type="button" id="shirariumApplyBulkAction" class="raised">Apply Action</button>
-                            
-                            <div class="inputContainer" style="flex: 2;">
-                                <input is="emby-input" id="shirariumBulkTargetPrefix" type="text" label="Bulk target prefix" placeholder="D:\\media\\organized" />
-                            </div>
-                            <button is="emby-button" type="button" id="shirariumApplyBulkTargetPrefix" class="raised">Apply Target</button>
-                        </div>
-
-                        <div class="shirarium-table-wrap">
-                            <table>
+                        <div class="sh-table-wrap">
+                            <table class="sh-table">
                                 <thead>
                                     <tr>
-                                        <th><label class="checkboxContainer"><input type="checkbox" is="emby-checkbox" id="shirariumSelectAll"><span></span></label></th>
-                                        <th>Source</th>
-                                        <th>Target</th>
-                                        <th>Effective</th>
-                                        <th>Reason</th>
-                                        <th>Confidence</th>
-                                        <th>Override</th>
+                                        <th style="width:30px;"><input type="checkbox" id="selectAll"></th>
+                                        <th>Original File</th>
+                                        <th>AI Suggestion</th>
                                     </tr>
                                 </thead>
-                                <tbody id="shirariumReviewTableBody"></tbody>
+                                <tbody id="table-body">
+                                    <!-- Rows -->
+                                </tbody>
                             </table>
                         </div>
-                    </div>
-                </div>
-
-                <div id="shirariumPanelPreflight" class="shirarium-panel">
-                    <div class="shirarium-grid">
-                        <div class="shirarium-toolbar">
-                            <button is="emby-button" type="button" id="shirariumRunPreflight" class="raised">Run Preflight</button>
-                        </div>
-                        <div id="shirariumPreflightSummary" class="shirarium-muted">No preflight run yet.</div>
-                        <div class="shirarium-table-wrap">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Status</th>
-                                        <th>Reason</th>
-                                        <th>Source</th>
-                                        <th>Target</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="shirariumPreflightTableBody"></tbody>
-                            </table>
+                        <div id="table-empty" class="hidden" style="padding:40px; text-align:center; color:#666;">
+                            No files need organizing right now.
                         </div>
                     </div>
                 </div>
 
-                <div id="shirariumPanelLocks" class="shirarium-panel">
-                    <div class="shirarium-grid">
-                        <div class="shirarium-toolbar">
-                            <button is="emby-button" type="button" id="shirariumReloadLocks" class="raised">Reload Locks</button>
-                            <div class="inputContainer" style="max-width: 100px;">
-                                <input is="emby-input" id="shirariumLocksLimit" type="number" min="1" max="200" value="20" label="Limit" />
-                            </div>
-                        </div>
-                        <div class="shirarium-table-wrap">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Review Id</th>
-                                        <th>Created</th>
-                                        <th>Selected</th>
-                                        <th>Applied Run</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="shirariumLocksTableBody"></tbody>
-                            </table>
-                        </div>
-                        <pre id="shirariumLockDetails" class="shirarium-muted"></pre>
-                    </div>
-                </div>
-
-                <div id="shirariumPanelHistory" class="shirarium-panel">
-                    <div class="shirarium-grid">
-                        <div class="shirarium-toolbar">
-                            <button is="emby-button" type="button" id="shirariumReloadHistory" class="raised">Reload History</button>
-                            <div class="inputContainer" style="max-width: 100px;">
-                                <input is="emby-input" id="shirariumHistoryLimit" type="number" min="1" max="200" value="20" label="Limit" />
-                            </div>
-                        </div>
-                        <div class="shirarium-inline">
-                            <div class="shirarium-w100">
-                                <h3>Plan History</h3>
-                                <div class="shirarium-table-wrap">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th>Generated</th>
-                                                <th>Fingerprint</th>
-                                                <th>Schema</th>
-                                                <th>Moves</th>
-                                                <th>Conflicts</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="shirariumPlanHistoryBody"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            <div class="shirarium-w100">
-                                <h3>Override History</h3>
-                                <div class="shirarium-table-wrap">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th>Updated</th>
-                                                <th>Fingerprint</th>
-                                                <th>Schema</th>
-                                                <th>Entries</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="shirariumOverrideHistoryBody"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="shirariumPanelBenchmark" class="shirarium-panel">
-                    <div class="shirarium-grid">
-                        <h3>System Benchmark</h3>
-                        <div class="shirarium-muted">Test your hardware's AI parsing performance.</div>
-                        <div class="shirarium-toolbar">
-                            <button is="emby-button" type="button" id="shirariumRunBenchmark" class="raised button-submit">Run Speed Test (100 items)</button>
-                        </div>
-                        <div id="shirariumBenchmarkResult" class="shirarium-status-bar" style="display:block; background:rgba(0,0,0,0.2)">
-                            <div id="shirariumBenchmarkText">Ready to benchmark.</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="shirariumPanelSettings" class="shirarium-panel">
-                    <form id="shirariumSettingsForm" class="shirarium-grid">
-                        <div class="verticalSection">
-                            <h3>AI Parsing Engine</h3>
-                            <div class="checkboxContainer">
+                <!-- SETTINGS -->
+                <div id="panel-settings" class="sh-panel hidden">
+                    <div class="sh-card">
+                        <div class="sh-card-title">Settings</div>
+                        <form id="settings-form">
+                            <div class="checkboxContainer" style="margin:20px 0;">
                                 <label>
-                                    <input is="emby-checkbox" type="checkbox" id="chkEnableAiParsing" />
-                                    <span>Enable AI-assisted parsing</span>
+                                    <input type="checkbox" is="emby-checkbox" id="chkEnableAi">
+                                    <span>Enable AI Brain</span>
                                 </label>
                             </div>
-                            <div id="aiSettingsGroup" style="margin-top: 1em; padding-left: 1.5em; border-left: 2px solid #333;">
-                                <div class="checkboxContainer">
-                                    <label>
-                                        <input is="emby-checkbox" type="checkbox" id="chkEnableManagedLocalInference" />
-                                        <span>Use managed local inference (llama.cpp)</span>
-                                    </label>
-                                </div>
-                                <div id="managedAiGroup" style="margin-top: 1em; padding-left: 1.5em; border-left: 2px solid #444;">
-                                    <div class="selectContainer">
-                                        <label class="selectLabel" for="selectModelPreset">Model Preset</label>
-                                        <select is="emby-select" id="selectModelPreset"></select>
-                                        <div id="modelRationale" class="fieldDescription shirarium-small" style="margin-top:4px; opacity:0.8;"></div>
-                                    </div>
-                                    <div id="customModelGroup" style="display:none; margin-top:1em;">
-                                        <div class="inputContainer">
-                                            <input is="emby-input" id="txtModelUrl" type="text" label="Custom GGUF URL" />
-                                        </div>
-                                    </div>
-                                    <div class="inputContainer" style="margin-top:1em;">
-                                        <input is="emby-input" id="txtInferencePort" type="number" label="Local Server Port" />
-                                    </div>
-                                    <div class="checkboxContainer">
-                                        <label>
-                                            <input is="emby-checkbox" type="checkbox" id="chkAutoDownloadModel" />
-                                            <span>Automatically download model if missing</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div id="externalAiGroup" style="margin-top: 1em; display:none;">
-                                    <div class="inputContainer">
-                                        <input is="emby-input" id="txtExternalOllamaUrl" type="text" label="External Provider URL (Ollama/vLLM)" />
-                                    </div>
-                                </div>
+                            <div class="selectContainer" style="margin:20px 0;">
+                                <label class="form-label">AI Model</label>
+                                <select is="emby-select" id="selectPreset"></select>
+                                <div id="preset-info" style="font-size:12px; color:#666; margin-top:5px;"></div>
                             </div>
-                        </div>
-
-                        <div class="verticalSection">
-                            <h3>Path Templates</h3>
-                            <div class="inputContainer">
-                                <input is="emby-input" id="txtOrganizationRootPath" type="text" label="Organization Root Path" />
+                            <div style="margin-top:30px;">
+                                <button is="emby-button" type="submit" class="raised button-submit">Save Settings</button>
                             </div>
-                            <div class="inputContainer">
-                                <input is="emby-input" id="txtMoviePathTemplate" type="text" label="Movie Template" />
-                            </div>
-                            <div class="inputContainer">
-                                <input is="emby-input" id="txtEpisodePathTemplate" type="text" label="Episode Template" />
-                            </div>
-                            <div class="checkboxContainer">
-                                <label>
-                                    <input is="emby-checkbox" type="checkbox" id="chkNormalizePathSegments" />
-                                    <span>Normalize path segments (clean characters)</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="verticalSection">
-                            <h3>Scan Settings</h3>
-                            <div class="inputContainer">
-                                <input is="emby-input" id="txtMaxItemsPerRun" type="number" label="Max Items Per Run" />
-                            </div>
-                            <div class="inputContainer">
-                                <input is="emby-input" id="txtMinConfidence" type="number" step="0.01" min="0" max="1" label="Min Confidence Threshold" />
-                            </div>
-                            <div class="checkboxContainer">
-                                <label>
-                                    <input is="emby-checkbox" type="checkbox" id="chkEnablePostScanTask" />
-                                    <span>Run automatically after library scans</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="shirarium-toolbar">
-                            <button is="emby-button" type="submit" class="raised button-submit">Save Settings</button>
-                        </div>
-                    </form>
+                        </form>
+                    </div>
                 </div>
-
-                <div id="shirariumMessage" class="shirarium-muted"></div>
-                <div id="shirariumError" class="shirarium-error"></div>
             </div>
         </div>
     </div>
 
-    <script type="text/javascript">
+    <script>
         (function () {
             var state = {
-                planFingerprint: "",
-                planRootPath: "",
-                selectedSourcePaths: {},
-                lastView: null,
-                lastPreflight: null,
-                preflightToken: "",
-                preflightTokenExpiresAtUtc: null,
-                preflightSelectionKey: "",
-                availablePresets: [],
-                config: null
+                pluginId: new URLSearchParams(window.location.search).get('id'),
+                plan: null,
+                selection: new Set()
             };
 
-            var planReasonTone = {
-                Planned: "good",
-                PlannedWithSuffix: "warn",
-                AlreadyOrganized: "warn",
-                TargetAlreadyExists: "bad",
-                DuplicateTargetInPlan: "bad",
-                MissingSourcePath: "bad",
-                MissingTargetPath: "bad",
-                UnsupportedMediaType: "warn",
-                MissingSeasonOrEpisode: "warn",
-                InvalidMovieTemplate: "bad",
-                InvalidEpisodeTemplate: "bad"
-            };
-
-            var applyReasonTone = {
-                Moved: "good",
-                WouldMove: "good",
-                NotFoundInPlan: "warn",
-                NotMoveAction: "warn",
-                SourceMissing: "bad",
-                TargetAlreadyExists: "bad",
-                TargetOutsideRootPath: "bad",
-                CrossVolumeMoveNotAllowed: "bad"
-            };
-
-            function el(id) {
-                return document.getElementById(id);
+            function el(id) { return document.getElementById(id); }
+            
+            function api(path, method, body) {
+                return new Promise(function(resolve, reject) {
+                    ApiClient.ajax({
+                        type: method || 'GET',
+                        url: ApiClient.getUrl(path),
+                        data: body ? JSON.stringify(body) : null,
+                        contentType: 'application/json',
+                        dataType: 'json',
+                        success: resolve,
+                        error: reject
+                    });
+                });
             }
 
-            function escapeHtml(value) {
-                return String(value || "")
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")
-                    .replace(/\"/g, "&quot;")
-                    .replace(/'/g, "&#39;");
+            function switchTab(tabId) {
+                document.querySelectorAll('.sh-tab-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.tab === tabId); });
+                document.querySelectorAll('.sh-panel').forEach(function(p) { p.classList.toggle('hidden', p.id !== 'panel-' + tabId); });
+                if (tabId === 'dash') refreshDash();
+                if (tabId === 'review') refreshReview();
+                if (tabId === 'settings') loadSettings();
             }
 
-            function setMessage(message) {
-                el("shirariumMessage").textContent = message || "";
-            }
-
-            async function pollInferenceStatus() {
+            async function refreshDash() {
                 try {
-                    var status = await apiJson("shirarium/inference-status", "GET");
-                    var statusEl = el("shirariumInferenceStatus");
-                    var labelEl = el("shirariumStatusLabel");
-                    var detailEl = el("shirariumStatusDetail");
-                    var barEl = el("shirariumProgressBar");
+                    var results = await Promise.all([
+                        api('shirarium/inference-status'),
+                        api('shirarium/organization-plan-view?pageSize=1')
+                    ]);
+                    
+                    var inf = results[0];
+                    var plan = results[1];
+                    state.plan = plan;
 
-                    // Handle potential casing issues
-                    var currentStatus = status.status || status.Status || "Unknown";
-                    var currentProgress = (status.progress !== undefined ? status.progress : status.Progress) || 0;
-                    var currentError = status.error || status.Error || "";
+                    var tag = el('ai-status-tag');
+                    if (inf.isDownloading) {
+                        tag.textContent = 'Learning...';
+                        tag.className = 'sh-status-tag status-wait';
+                        el('ai-status-text').textContent = 'AI is downloading its knowledge (' + (inf.downloadProgress || 0) + '%).';
+                    } else if (inf.isOnline) {
+                        tag.textContent = 'Active';
+                        tag.className = 'sh-status-tag status-ok';
+                        el('ai-status-text').textContent = 'The AI Brain is online and ready.';
+                    } else {
+                        tag.textContent = 'Offline';
+                        tag.className = 'sh-status-tag';
+                        el('ai-status-text').textContent = 'Enable AI in settings to improve results.';
+                    }
 
-                    if (currentStatus === "Ready" || currentStatus === "Disabled") {
-                        statusEl.style.display = "none";
+                    if (plan.filteredEntries > 0) {
+                        el('card-ready').classList.remove('hidden');
+                        el('ready-text').textContent = 'AI found ' + plan.filteredEntries + ' improvements for your library.';
+                    } else {
+                        el('card-ready').classList.add('hidden');
+                    }
+                } catch (e) { console.error(e); }
+            }
+
+            async function refreshReview() {
+                Dashboard.showLoadingMsg();
+                try {
+                    var plan = await api('shirarium/organization-plan-view?pageSize=100');
+                    state.plan = plan;
+                    state.selection.clear();
+                    el('selectAll').checked = false;
+
+                    var tbody = el('table-body');
+                    tbody.innerHTML = '';
+                    
+                    if (!plan.entries || plan.entries.length === 0) {
+                        el('table-empty').classList.remove('hidden');
+                        el('btn-apply-main').disabled = true;
                         return;
                     }
 
-                    statusEl.style.display = "block";
-                    labelEl.textContent = "AI Engine: " + currentStatus;
-                    detailEl.textContent = currentError ? currentError : (Number(currentProgress).toFixed(1) + "% complete");
-                    barEl.style.width = currentProgress + "%";
-
-                    if (currentStatus === "Error") {
-                        statusEl.style.borderColor = "#ff9e9e";
-                        statusEl.style.background = "rgba(255, 158, 158, 0.1)";
-                    }
-                } catch (e) {
-                    console.error("Failed to poll inference status", e);
-                }
-            }
-
-            var statusInterval = null;
-            function startPolling() {
-                if (statusInterval) clearInterval(statusInterval);
-                pollInferenceStatus();
-                statusInterval = setInterval(pollInferenceStatus, 2000);
-            }
-
-            function setError(error) {
-                el("shirariumError").textContent = error || "";
-            }
-
-            function formatDate(value) {
-                if (!value) {
-                    return "-";
-                }
-
-                var date = new Date(value);
-                if (Number.isNaN(date.getTime())) {
-                    return String(value);
-                }
-
-                return date.toLocaleString();
-            }
-
-            function selectedPaths() {
-                return Object.keys(state.selectedSourcePaths)
-                    .filter(function (path) { return state.selectedSourcePaths[path]; })
-                    .sort();
-            }
-
-            function selectionKey(paths) {
-                var normalized = (paths || []).slice().sort();
-                return (state.planFingerprint || "") + "|" + normalized.join("|");
-            }
-
-            function invalidatePreflightToken() {
-                state.preflightToken = "";
-                state.preflightTokenExpiresAtUtc = null;
-                state.preflightSelectionKey = "";
-            }
-
-            function hasValidPreflightToken(paths) {
-                if (!state.preflightToken) {
-                    return false;
-                }
-
-                if (state.preflightSelectionKey !== selectionKey(paths)) {
-                    return false;
-                }
-
-                if (!state.preflightTokenExpiresAtUtc) {
-                    return false;
-                }
-
-                return Date.parse(state.preflightTokenExpiresAtUtc) > Date.now();
-            }
-
-            function updateSelectedCount() {
-                el("shirariumSelectedCount").textContent = String(selectedPaths().length);
-            }
-
-            function reasonBadge(reason, map) {
-                var tone = map[reason] || "warn";
-                if (String(reason).startsWith("MoveFailed:")) {
-                    tone = "bad";
-                }
-
-                return '<span class="shirarium-badge ' + tone + '">' + escapeHtml(reason) + "</span>";
-            }
-
-            function findByDataAttribute(attributeName, expectedValue) {
-                var candidates = document.querySelectorAll("[" + attributeName + "]");
-                for (var i = 0; i < candidates.length; i++) {
-                    if (candidates[i].getAttribute(attributeName) === expectedValue) {
-                        return candidates[i];
-                    }
-                }
-
-                return null;
-            }
-
-            async function apiJson(path, method, body) {
-                var requestMethod = (method || "GET").toUpperCase();
-                var url = ApiClient.getUrl(path);
-
-                try {
-                    if (requestMethod === "GET") {
-                        return await ApiClient.getJSON(url);
-                    }
-
-                    var request = {
-                        type: requestMethod,
-                        url: url
-                    };
-
-                    if (body !== undefined) {
-                        request.contentType = "application/json";
-                        request.data = JSON.stringify(body);
-                    }
-
-                    var payload = await ApiClient.ajax(request);
-                    return payload === undefined ? null : payload;
-                } catch (error) {
-                    var responseText = "";
-                    if (error && typeof error === "object") {
-                        responseText = error.responseText
-                            || (error.responseJSON ? JSON.stringify(error.responseJSON) : "")
-                            || (error.jqXHR && error.jqXHR.responseText)
-                            || "";
-                    }
-
-                    var errorMessage = responseText;
-                    if (!errorMessage && error && typeof error === "object" && error.status) {
-                        errorMessage = "HTTP " + String(error.status);
-                    }
-
-                    if (!errorMessage && error && error.message) {
-                        errorMessage = String(error.message);
-                    }
-
-                    if (!errorMessage) {
-                        errorMessage = "Request failed.";
-                    }
-
-                    try {
-                        var parsed = JSON.parse(responseText);
-                        if (parsed && typeof parsed === "object") {
-                            var code = parsed.code ? ("[" + parsed.code + "] ") : "";
-                            var message = parsed.message || errorMessage;
-                            errorMessage = code + message;
-                        }
-                    } catch (parseError) {
-                    }
-
-                    throw new Error(errorMessage);
-                }
-            }
-
-            function getActionFilterValues() {
-                var action = el("shirariumActionFilter").value;
-                if (!action) {
-                    return [];
-                }
-
-                return [action];
-            }
-            function buildViewQuery(options) {
-                options = options || {};
-                var minConfidenceValue = Number(el("shirariumMinConfidence").value || "0");
-                var minConfidence = Number.isFinite(minConfidenceValue) ? Math.max(0, Math.min(1, minConfidenceValue)) : 0;
-                var page = Math.max(1, Number(options.page || el("shirariumPage").value || "1"));
-                var pageSize = Math.max(1, Math.min(1000, Number(options.pageSize || el("shirariumPageSize").value || "50")));
-
-                var query = new URLSearchParams();
-                query.set("page", String(page));
-                query.set("pageSize", String(pageSize));
-                query.set("sortBy", el("shirariumSortBy").value || "sourcePath");
-                query.set("sortDirection", el("shirariumSortDirection").value || "asc");
-                query.set("movesOnly", el("shirariumMovesOnly").checked ? "true" : "false");
-                query.set("overridesOnly", el("shirariumOverridesOnly").checked ? "true" : "false");
-                query.set("minConfidence", String(minConfidence));
-
-                var pathPrefix = (el("shirariumPathPrefix").value || "").trim();
-                if (pathPrefix) {
-                    query.set("pathPrefix", pathPrefix);
-                }
-
-                var actionFilters = getActionFilterValues();
-                actionFilters.forEach(function (action) {
-                    query.append("actions", action);
-                });
-
-                return query.toString();
-            }
-
-            async function fetchViewPage(page, pageSize) {
-                return apiJson("shirarium/organization-plan-view?" + buildViewQuery({
-                    page: page,
-                    pageSize: pageSize
-                }), "GET");
-            }
-
-            async function loadAllFilteredEntries() {
-                var page = 1;
-                var pageSize = 500;
-                var allEntries = [];
-
-                while (true) {
-                    var payload = await fetchViewPage(page, pageSize);
-                    var entries = payload.entries || [];
-                    allEntries = allEntries.concat(entries);
-
-                    var totalFiltered = Number(payload.filteredEntries || 0);
-                    if (page * pageSize >= totalFiltered || entries.length === 0) {
-                        break;
-                    }
-
-                    page += 1;
-                }
-
-                return allEntries;
-            }
-
-            async function loadAllFilteredMoveSourcePaths() {
-                var sourcePathMap = {};
-                var allEntries = await loadAllFilteredEntries();
-                allEntries.forEach(function (entry) {
-                    if (String(entry.effectiveAction || "").toLowerCase() === "move" && entry.sourcePath) {
-                        sourcePathMap[entry.sourcePath] = true;
-                    }
-                });
-
-                return Object.keys(sourcePathMap).sort();
-            }
-
-            function getViewEntryBySourcePath(sourcePath) {
-                if (!state.lastView || !Array.isArray(state.lastView.entries)) {
-                    return null;
-                }
-
-                for (var i = 0; i < state.lastView.entries.length; i++) {
-                    var entry = state.lastView.entries[i];
-                    if ((entry.sourcePath || "") === sourcePath) {
-                        return entry;
-                    }
-                }
-
-                return null;
-            }
-
-            function tryBuildTargetWithPrefix(currentTargetPath, newPrefix) {
-                if (!currentTargetPath || !newPrefix || !state.planRootPath) {
-                    return null;
-                }
-
-                var normalizedRoot = state.planRootPath.replace(/\//g, "\\").replace(/\\+$/g, "");
-                var normalizedCurrent = String(currentTargetPath).replace(/\//g, "\\");
-                var normalizedPrefix = String(newPrefix).replace(/\//g, "\\").replace(/\\+$/g, "");
-                var rootPrefix = normalizedRoot + "\\";
-
-                if (normalizedCurrent.toLowerCase().indexOf(rootPrefix.toLowerCase()) !== 0) {
-                    return null;
-                }
-
-                var relativePath = normalizedCurrent.substring(rootPrefix.length);
-                return normalizedPrefix + "\\" + relativePath;
-            }
-
-            function renderReviewRows(entries) {
-                var rowsHtml = entries.map(function (entry) {
-                    var sourcePath = entry.sourcePath || "";
-                    var checked = state.selectedSourcePaths[sourcePath] ? " checked" : "";
-                    var moveEligible = String(entry.effectiveAction || "").toLowerCase() === "move";
-                    var selectDisabled = moveEligible ? "" : " disabled";
-                    var actionValue = entry.overrideAction || "";
-                    var targetValue = entry.overrideTargetPath || "";
-
-                    var actionOptions = ["", "move", "skip", "none", "conflict"].map(function (candidate) {
-                        var selected = candidate === actionValue ? " selected" : "";
-                        var label = candidate || "(no override)";
-                        return '<option value="' + escapeHtml(candidate) + '"' + selected + '>' + escapeHtml(label) + "</option>";
-                    }).join("");
-
-                    return ""
-                        + "<tr>"
-                        + '<td><label class="checkboxContainer"><input type="checkbox" is="emby-checkbox" data-select-source="' + escapeHtml(sourcePath) + '"' + checked + selectDisabled + "><span></span></label></td>'
-                        + "<td><code>" + escapeHtml(sourcePath) + "</code></td>"
-                        + "<td><code>" + escapeHtml(entry.effectiveTargetPath || "") + "</code></td>"
-                        + "<td>"
-                        + reasonBadge(entry.effectiveAction || "", { move: "good", skip: "warn", none: "warn", conflict: "bad" })
-                        + "<br><span class='shirarium-small'>base: " + escapeHtml(entry.baseAction || "") + "</span>"
-                        + "</td>"
-                        + "<td>" + reasonBadge(entry.reason || "", planReasonTone) + "</td>"
-                        + "<td>" + Number(entry.confidence || 0).toFixed(3) + "</td>"
-                        + "<td>"
-                        + '<div class="shirarium-grid">'
-                        + '<div class="selectContainer"><select is="emby-select" data-override-action="' + escapeHtml(sourcePath) + '">' + actionOptions + '</select></div>'
-                        + '<div class="inputContainer"><input is="emby-input" type="text" data-override-target="' + escapeHtml(sourcePath) + '" value="' + escapeHtml(targetValue) + '"></div>'
-                        + '<div class="shirarium-inline">'
-                        + '<button is="emby-button" type="button" data-override-save="' + escapeHtml(sourcePath) + '">Save</button>'
-                        + '<button is="emby-button" type="button" data-override-clear="' + escapeHtml(sourcePath) + '">Clear</button>'
-                        + "</div>"
-                        + "</div>"
-                        + "</td>"
-                        + "</tr>";
-                }).join("");
-
-                el("shirariumReviewTableBody").innerHTML = rowsHtml;
-            }
-
-            function renderPreflightRows(results) {
-                var rowsHtml = results.map(function (item) {
-                    return ""
-                        + "<tr>"
-                        + "<td>" + reasonBadge(item.status || "", { applied: "good", preview: "good", skipped: "warn", failed: "bad" }) + "</td>"
-                        + "<td>" + reasonBadge(item.reason || "", applyReasonTone) + "</td>"
-                        + "<td><code>" + escapeHtml(item.sourcePath || "") + "</code></td>"
-                        + "<td><code>" + escapeHtml(item.targetPath || "") + "</code></td>"
-                        + "</tr>";
-                }).join("");
-
-                el("shirariumPreflightTableBody").innerHTML = rowsHtml;
-            }
-
-            function renderLocksRows(items) {
-                var rowsHtml = items.map(function (item) {
-                    return ""
-                        + "<tr>"
-                        + "<td><code>" + escapeHtml(item.reviewId || "") + "</code></td>"
-                        + "<td>" + escapeHtml(formatDate(item.createdAtUtc)) + "</td>"
-                        + "<td>" + escapeHtml(String(item.selectedCount || 0)) + "</td>"
-                        + "<td><code>" + escapeHtml(item.appliedRunId || "-") + "</code></td>"
-                        + "<td>"
-                        + '<div class="shirarium-inline">'
-                        + '<button is="emby-button" type="button" data-lock-view="' + escapeHtml(item.reviewId || "") + '">View</button>'
-                        + '<button is="emby-button" type="button" data-lock-apply="' + escapeHtml(item.reviewId || "") + '">Apply</button>'
-                        + "</div>"
-                        + "</td>"
-                        + "</tr>";
-                }).join("");
-
-                el("shirariumLocksTableBody").innerHTML = rowsHtml;
-            }
-
-            function renderPlanHistory(items) {
-                el("shirariumPlanHistoryBody").innerHTML = items.map(function (item) {
-                    return ""
-                        + "<tr>"
-                        + "<td>" + escapeHtml(formatDate(item.generatedAtUtc)) + "</td>"
-                        + "<td><code>" + escapeHtml(item.planFingerprint || "") + "</code></td>"
-                        + "<td>" + escapeHtml(String(item.schemaVersion || 0)) + "</td>"
-                        + "<td>" + escapeHtml(String(item.plannedCount || 0)) + "</td>"
-                        + "<td>" + escapeHtml(String(item.conflictCount || 0)) + "</td>"
-                        + "</tr>";
-                }).join("");
-            }
-
-            function renderOverrideHistory(items) {
-                el("shirariumOverrideHistoryBody").innerHTML = items.map(function (item) {
-                    return ""
-                        + "<tr>"
-                        + "<td>" + escapeHtml(formatDate(item.updatedAtUtc)) + "</td>"
-                        + "<td><code>" + escapeHtml(item.planFingerprint || "") + "</code></td>"
-                        + "<td>" + escapeHtml(String(item.schemaVersion || 0)) + "</td>"
-                        + "<td>" + escapeHtml(String((item.entries || []).length)) + "</td>"
-                        + "</tr>";
-                }).join("");
-            }
-
-            async function loadReviewView() {
-                Dashboard.showLoadingMsg();
-                setError("");
-                try {
-                    var query = buildViewQuery();
-                    var results = await Promise.all([
-                        apiJson("shirarium/organization-plan-view?" + query, "GET"),
-                        apiJson("shirarium/organization-plan-summary", "GET")
-                    ]);
-
-                    var payload = results[0];
-                    var summary = results[1] || {};
-                    state.lastView = payload;
-                    state.planFingerprint = payload.planFingerprint || "";
-                    state.planRootPath = summary.rootPath || "";
-                    invalidatePreflightToken();
-
-                    el("shirariumPlanFingerprint").textContent = state.planFingerprint || "-";
-                    el("shirariumFilteredEntries").textContent = String(payload.filteredEntries || 0);
-                    el("shirariumOverrideCount").textContent = String(payload.overrideCount || 0);
-
-                    renderReviewRows(payload.entries || []);
-                    updateSelectedCount();
-
-                    setMessage(
-                        "Loaded " + String((payload.entries || []).length)
-                        + " entries (page " + String(payload.page || 1)
-                        + ", filtered " + String(payload.filteredEntries || 0) + ").");
-                } catch (error) {
-                    setError(String(error.message || error));
-                } finally {
-                    Dashboard.hideLoadingMsg();
-                }
-            }
-
-            async function patchOverride(sourcePath, remove) {
-                if (!state.planFingerprint) {
-                    throw new Error("No plan fingerprint loaded. Reload the review view first.");
-                }
-
-                var actionElement = findByDataAttribute("data-override-action", sourcePath);
-                var targetElement = findByDataAttribute("data-override-target", sourcePath);
-
-                var patch = {
-                    sourcePath: sourcePath,
-                    remove: !!remove
-                };
-
-                if (!remove) {
-                    patch.action = actionElement ? actionElement.value : null;
-                    patch.targetPath = targetElement ? targetElement.value : null;
-                }
-
-                await apiJson("shirarium/organization-plan-entry-overrides", "PATCH", {
-                    expectedPlanFingerprint: state.planFingerprint,
-                    patches: [patch]
-                });
-
-                invalidatePreflightToken();
-                await loadReviewView();
-            }
-
-            async function runPreflight(options) {
-                options = options || {};
-                if (!state.planFingerprint) {
-                    throw new Error("No plan fingerprint loaded. Reload the review view first.");
-                }
-
-                var shouldShowLoading = options.showLoading !== false;
-                var paths = Array.isArray(options.paths) ? options.paths.slice() : selectedPaths();
-
-                if (shouldShowLoading) {
-                    Dashboard.showLoadingMsg();
-                }
-                setError("");
-                try {
-                    var payload = await apiJson("shirarium/preflight-reviewed-plan", "POST", {
-                        expectedPlanFingerprint: state.planFingerprint,
-                        sourcePaths: paths
+                    el('table-empty').classList.add('hidden');
+                    el('btn-apply-main').disabled = true;
+
+                    plan.entries.forEach(function(entry) {
+                        var row = document.createElement('tr');
+                        row.innerHTML = '<td><input type="checkbox" class="row-check" data-path="' + entry.sourcePath + '"></td>' +
+                            '<td><div style="font-family:monospace; font-size:11px;">' + entry.sourcePath + '</div></td>' +
+                            '<td><div style="color:#52B54B;">' + (entry.effectiveTargetPath || '-') + '</div></td>';
+                        tbody.appendChild(row);
                     });
 
-                    state.lastPreflight = payload;
-                    state.preflightToken = payload.preflightToken || "";
-                    state.preflightTokenExpiresAtUtc = payload.preflightTokenExpiresAtUtc || null;
-                    state.preflightSelectionKey = selectionKey(payload.selectedSourcePaths || paths);
-
-                    var result = payload.previewResult || {};
-                    var results = result.results || [];
-                    renderPreflightRows(results);
-
-                    el("shirariumPreflightSummary").textContent =
-                        "Generated " + formatDate(payload.generatedAtUtc)
-                        + " | tokenExpires=" + formatDate(payload.preflightTokenExpiresAtUtc)
-                        + " | requested=" + String(result.requestedCount || 0)
-                        + " | preview=" + String(result.appliedCount || 0)
-                        + " | skipped=" + String(result.skippedCount || 0)
-                        + " | failed=" + String(result.failedCount || 0);
-                    setMessage("Preflight completed.");
-                    return payload;
-                } catch (error) {
-                    setError(String(error.message || error));
-                    throw error;
-                } finally {
-                    if (shouldShowLoading) {
-                        Dashboard.hideLoadingMsg();
-                    }
-                }
-            }
-
-            async function applyReviewed() {
-                if (!state.planFingerprint) {
-                    throw new Error("No plan fingerprint loaded. Reload the review view first.");
-                }
-
-                var paths = selectedPaths();
-                if (!paths.length && !window.confirm("No explicit selection. Apply all reviewed move entries?")) {
-                    return;
-                }
-
-                Dashboard.showLoadingMsg();
-                setError("");
-                try {
-                    if (!hasValidPreflightToken(paths)) {
-                        await runPreflight({
-                            showLoading: false,
-                            paths: paths
-                        });
-                    }
-
-                    var payload = await apiJson("shirarium/apply-reviewed-plan", "POST", {
-                        expectedPlanFingerprint: state.planFingerprint,
-                        preflightToken: state.preflightToken,
-                        sourcePaths: paths
-                    });
-
-                    setMessage(
-                        "Apply run " + payload.runId
-                        + " completed: applied=" + String(payload.appliedCount || 0)
-                        + ", skipped=" + String(payload.skippedCount || 0)
-                        + ", failed=" + String(payload.failedCount || 0));
-                    invalidatePreflightToken();
-                    await loadReviewView();
-                } catch (error) {
-                    setError(String(error.message || error));
-                } finally {
-                    Dashboard.hideLoadingMsg();
-                }
-            }
-
-            async function selectFilteredMoves() {
-                Dashboard.showLoadingMsg();
-                setError("");
-                try {
-                    var movePaths = await loadAllFilteredMoveSourcePaths();
-                    movePaths.forEach(function (path) {
-                        state.selectedSourcePaths[path] = true;
-                    });
-                    updateSelectedCount();
-                    invalidatePreflightToken();
-                    await loadReviewView();
-                    setMessage("Selected " + String(movePaths.length) + " filtered move entries.");
-                } catch (error) {
-                    setError(String(error.message || error));
-                } finally {
-                    Dashboard.hideLoadingMsg();
-                }
-            }
-
-            function clearSelection() {
-                state.selectedSourcePaths = {};
-                invalidatePreflightToken();
-                updateSelectedCount();
-                Array.prototype.forEach.call(document.querySelectorAll("[data-select-source]"), function (checkbox) {
-                    checkbox.checked = false;
-                });
-                setMessage("Selection cleared.");
-            }
-
-            async function applyBulkAction() {
-                if (!state.planFingerprint) {
-                    throw new Error("No plan fingerprint loaded. Reload the review view first.");
-                }
-
-                var paths = selectedPaths();
-                if (!paths.length) {
-                    throw new Error("No selected entries.");
-                }
-
-                var action = (el("shirariumBulkAction").value || "").trim();
-                if (!action) {
-                    throw new Error("Bulk action is required.");
-                }
-
-                Dashboard.showLoadingMsg();
-                setError("");
-                try {
-                    var patches = paths.map(function (sourcePath) {
-                        return {
-                            sourcePath: sourcePath,
-                            action: action
-                        };
-                    });
-
-                    await apiJson("shirarium/organization-plan-entry-overrides", "PATCH", {
-                        expectedPlanFingerprint: state.planFingerprint,
-                        patches: patches
-                    });
-
-                    invalidatePreflightToken();
-                    await loadReviewView();
-                    setMessage("Applied bulk action '" + action + "' to " + String(paths.length) + " entries.");
-                } catch (error) {
-                    setError(String(error.message || error));
-                } finally {
-                    Dashboard.hideLoadingMsg();
-                }
-            }
-
-            async function applyBulkTargetPrefix() {
-                if (!state.planFingerprint) {
-                    throw new Error("No plan fingerprint loaded. Reload the review view first.");
-                }
-
-                var paths = selectedPaths();
-                if (!paths.length) {
-                    throw new Error("No selected entries.");
-                }
-
-                var prefix = (el("shirariumBulkTargetPrefix").value || "").trim();
-                if (!prefix) {
-                    throw new Error("Bulk target prefix is required.");
-                }
-
-                Dashboard.showLoadingMsg();
-                setError("");
-                try {
-                    var allEntries = await loadAllFilteredEntries();
-                    var targetBySource = {};
-                    allEntries.forEach(function (entry) {
-                        if (entry.sourcePath) {
-                            targetBySource[entry.sourcePath] = entry.effectiveTargetPath || "";
-                        }
-                    });
-
-                    var patches = [];
-                    var skipped = 0;
-                    paths.forEach(function (sourcePath) {
-                        var currentTarget = targetBySource[sourcePath] || (getViewEntryBySourcePath(sourcePath) || {}).effectiveTargetPath;
-                        var nextTarget = tryBuildTargetWithPrefix(currentTarget, prefix);
-                        if (!nextTarget) {
-                            skipped += 1;
-                            return;
-                        }
-
-                        patches.push({
-                            sourcePath: sourcePath,
-                            action: "move",
-                            targetPath: nextTarget
+                    tbody.querySelectorAll('.row-check').forEach(function(chk) {
+                        chk.addEventListener('change', function(e) {
+                            if (e.target.checked) state.selection.add(e.target.dataset.path);
+                            else state.selection.delete(e.target.dataset.path);
+                            el('btn-apply-main').disabled = state.selection.size === 0;
                         });
                     });
-
-                    if (!patches.length) {
-                        throw new Error("No selected entries could be remapped to the target prefix.");
-                    }
-
-                    await apiJson("shirarium/organization-plan-entry-overrides", "PATCH", {
-                        expectedPlanFingerprint: state.planFingerprint,
-                        patches: patches
-                    });
-
-                    invalidatePreflightToken();
-                    await loadReviewView();
-                    setMessage(
-                        "Applied target prefix to " + String(patches.length) + " entries."
-                        + (skipped > 0 ? (" Skipped " + String(skipped) + " entries outside plan root.") : ""));
-                } catch (error) {
-                    setError(String(error.message || error));
-                } finally {
-                    Dashboard.hideLoadingMsg();
-                }
-            }
-
-            async function createLock() {
-                if (!state.planFingerprint) {
-                    throw new Error("No plan fingerprint loaded. Reload the review view first.");
-                }
-
-                Dashboard.showLoadingMsg();
-                setError("");
-                try {
-                    var payload = await apiJson("shirarium/review-locks", "POST", {
-                        expectedPlanFingerprint: state.planFingerprint,
-                        sourcePaths: selectedPaths()
-                    });
-
-                    setMessage("Created review lock " + payload.reviewId + " with " + String(payload.selectedCount || 0) + " selected entries.");
-                    await loadLocks();
-                } catch (error) {
-                    setError(String(error.message || error));
-                } finally {
-                    Dashboard.hideLoadingMsg();
-                }
-            }
-
-            async function loadLocks() {
-                Dashboard.showLoadingMsg();
-                setError("");
-                try {
-                    var limit = Math.max(1, Math.min(200, Number(el("shirariumLocksLimit").value || "20")));
-                    var payload = await apiJson("shirarium/review-locks?limit=" + String(limit), "GET");
-                    renderLocksRows(payload.items || []);
-                    setMessage("Loaded " + String((payload.items || []).length) + " review locks.");
-                } catch (error) {
-                    setError(String(error.message || error));
-                } finally {
-                    Dashboard.hideLoadingMsg();
-                }
-            }
-
-            async function viewLock(reviewId) {
-                Dashboard.showLoadingMsg();
-                setError("");
-                try {
-                    var payload = await apiJson("shirarium/review-locks/" + encodeURIComponent(reviewId), "GET");
-                    el("shirariumLockDetails").textContent = JSON.stringify({
-                        reviewId: payload.reviewId,
-                        createdAtUtc: payload.createdAtUtc,
-                        planFingerprint: payload.planFingerprint,
-                        schemaVersion: payload.schemaVersion,
-                        selectedCount: (payload.selectedSourcePaths || []).length,
-                        appliedRunId: payload.appliedRunId,
-                        appliedAtUtc: payload.appliedAtUtc
-                    }, null, 2);
-                    setMessage("Loaded lock " + reviewId + ".");
-                } catch (error) {
-                    setError(String(error.message || error));
-                } finally {
-                    Dashboard.hideLoadingMsg();
-                }
-            }
-
-            async function applyLock(reviewId) {
-                Dashboard.showLoadingMsg();
-                setError("");
-                try {
-                    var payload = await apiJson("shirarium/review-locks/" + encodeURIComponent(reviewId) + "/apply", "POST");
-                    setMessage(
-                        "Lock " + reviewId + " applied via run " + payload.runId
-                        + " (applied=" + String(payload.appliedCount || 0)
-                        + ", skipped=" + String(payload.skippedCount || 0)
-                        + ", failed=" + String(payload.failedCount || 0) + ")");
-                    await loadLocks();
-                } catch (error) {
-                    setError(String(error.message || error));
-                } finally {
-                    Dashboard.hideLoadingMsg();
-                }
-            }
-
-            async function loadHistory() {
-                Dashboard.showLoadingMsg();
-                setError("");
-                try {
-                    var limit = Math.max(1, Math.min(200, Number(el("shirariumHistoryLimit").value || "20")));
-                    var planPayload = await apiJson("shirarium/organization-plan-history?limit=" + String(limit), "GET");
-                    var overridePayload = await apiJson("shirarium/organization-plan-overrides-history?limit=" + String(limit), "GET");
-
-                    renderPlanHistory(planPayload.items || []);
-                    renderOverrideHistory(overridePayload.items || []);
-                    setMessage("Loaded history snapshots.");
-                } catch (error) {
-                    setError(String(error.message || error));
-                } finally {
-                    Dashboard.hideLoadingMsg();
-                }
+                } finally { Dashboard.hideLoadingMsg(); }
             }
 
             async function loadSettings() {
-                Dashboard.showLoadingMsg();
                 try {
-                    var results = await Promise.all([
-                        ApiClient.getPluginConfiguration(PluginManager.getPlugins().find(p => p.Name === "Shirarium").Id),
-                        apiJson("shirarium/ai-model-presets", "GET")
-                    ]);
-
-                    var config = results[0];
-                    var presetsRes = results[1];
+                    var config = await ApiClient.getPluginConfiguration(state.pluginId);
+                    var presets = await api('shirarium/ai-model-presets');
+                    
+                    el('chkEnableAi').checked = config.EnableAiParsing;
+                    var sel = el('selectPreset');
+                    sel.innerHTML = presets.presets.map(function(p) {
+                        return '<option value="' + p.id + '" ' + (p.id === config.SelectedModelPreset ? 'selected' : '') + '>' + p.name + '</option>';
+                    }).join('');
+                    
+                    var updateInfo = function() {
+                        var p = presets.presets.find(function(x) { return x.id === sel.value; });
+                        if (p) el('preset-info').textContent = p.rationale;
+                    };
+                    sel.onchange = updateInfo;
+                    updateInfo();
                     state.config = config;
-                    state.availablePresets = presetsRes.presets || [];
-
-                    // Populate Presets
-                    var presetSelect = el("selectModelPreset");
-                    presetSelect.innerHTML = state.availablePresets.map(p => 
-                        '<option value="' + p.id + '"' + (p.id === config.SelectedModelPreset ? " selected" : "") + '>' + escapeHtml(p.name) + '</option>'
-                    ).join("");
-
-                    // Bind Form
-                    el("chkEnableAiParsing").checked = config.EnableAiParsing;
-                    el("chkEnableManagedLocalInference").checked = config.EnableManagedLocalInference;
-                    el("txtInferencePort").value = config.InferencePort;
-                    el("chkAutoDownloadModel").checked = config.AutoDownloadModel;
-                    el("txtModelUrl").value = config.ModelUrl;
-                    el("txtExternalOllamaUrl").value = config.ExternalOllamaUrl;
-                    el("txtOrganizationRootPath").value = config.OrganizationRootPath;
-                    el("txtMoviePathTemplate").value = config.MoviePathTemplate;
-                    el("txtEpisodePathTemplate").value = config.EpisodePathTemplate;
-                    el("chkNormalizePathSegments").checked = config.NormalizePathSegments;
-                    el("txtMaxItemsPerRun").value = config.MaxItemsPerRun;
-                    el("txtMinConfidence").value = config.MinConfidence;
-                    el("chkEnablePostScanTask").checked = config.EnablePostScanTask;
-
-                    updateSettingsVisibility();
-                    updatePresetRationale();
-                } catch (e) {
-                    setError("Failed to load settings: " + e.message);
-                } finally {
-                    Dashboard.hideLoadingMsg();
-                }
+                } catch(e) {}
             }
 
             async function saveSettings(e) {
-                if (e) e.preventDefault();
+                e.preventDefault();
                 Dashboard.showLoadingMsg();
-
-                var pluginId = PluginManager.getPlugins().find(p => p.Name === "Shirarium").Id;
-                var config = state.config;
-
-                config.EnableAiParsing = el("chkEnableAiParsing").checked;
-                config.EnableManagedLocalInference = el("chkEnableManagedLocalInference").checked;
-                config.SelectedModelPreset = el("selectModelPreset").value;
-                config.InferencePort = parseInt(el("txtInferencePort").value);
-                config.AutoDownloadModel = el("chkAutoDownloadModel").checked;
-                config.ModelUrl = el("txtModelUrl").value;
-                config.ExternalOllamaUrl = el("txtExternalOllamaUrl").value;
-                config.OrganizationRootPath = el("txtOrganizationRootPath").value;
-                config.MoviePathTemplate = el("txtMoviePathTemplate").value;
-                config.EpisodePathTemplate = el("txtEpisodePathTemplate").value;
-                config.NormalizePathSegments = el("chkNormalizePathSegments").checked;
-                config.MaxItemsPerRun = parseInt(el("txtMaxItemsPerRun").value);
-                config.MinConfidence = parseFloat(el("txtMinConfidence").value);
-                config.EnablePostScanTask = el("chkEnablePostScanTask").checked;
-
                 try {
-                    await ApiClient.updatePluginConfiguration(pluginId, config);
-                    Dashboard.alert("Settings saved successfully.");
-                } catch (e) {
-                    setError("Failed to save settings: " + e.message);
-                } finally {
-                    Dashboard.hideLoadingMsg();
-                }
+                    state.config.EnableAiParsing = el('chkEnableAi').checked;
+                    state.config.SelectedModelPreset = el('selectPreset').value;
+                    await ApiClient.updatePluginConfiguration(state.pluginId, state.config);
+                    Dashboard.alert('Settings saved.');
+                } finally { Dashboard.hideLoadingMsg(); }
             }
 
-            function updateSettingsVisibility() {
-                var aiParsing = el("chkEnableAiParsing").checked;
-                var managed = el("chkEnableManagedLocalInference").checked;
-                var preset = el("selectModelPreset").value;
-
-                el("aiSettingsGroup").style.display = aiParsing ? "block" : "none";
-                el("managedAiGroup").style.display = managed ? "block" : "none";
-                el("externalAiGroup").style.display = (aiParsing && !managed) ? "block" : "none";
-                el("customModelGroup").style.display = (managed && preset === "custom") ? "block" : "none";
-            }
-
-            function updatePresetRationale() {
-                var presetId = el("selectModelPreset").value;
-                var preset = state.availablePresets.find(p => p.id === presetId);
-                if (preset) {
-                    el("modelRationale").textContent = preset.rationale + " (" + preset.parameters + ")";
-                    if (preset.url && presetId !== "custom") {
-                        el("txtModelUrl").value = preset.url;
-                    }
-                }
-            }
-
-            function switchPanel(panelName) {
-                var panels = {
-                    review: el("shirariumPanelReview"),
-                    preflight: el("shirariumPanelPreflight"),
-                    locks: el("shirariumPanelLocks"),
-                    history: el("shirariumPanelHistory"),
-                    benchmark: el("shirariumPanelBenchmark"),
-                    settings: el("shirariumPanelSettings")
-                };
-
-                Object.keys(panels).forEach(function (key) {
-                    if (panels[key]) {
-                        panels[key].classList.toggle("active", key === panelName);
-                    }
-                });
-
-                Array.prototype.forEach.call(document.querySelectorAll("#ShirariumReviewPage .shirarium-tab"), function (tab) {
-                    tab.classList.toggle("active", tab.getAttribute("data-panel") === panelName);
-                });
-
-                if (panelName === "settings") {
-                    loadSettings();
-                }
-            }
-
-            function bindEvents() {
-                el("shirariumReloadPlan").addEventListener("click", loadReviewView);
-                el("shirariumRunPreflight").addEventListener("click", runPreflight);
-                el("shirariumPreflightSelected").addEventListener("click", runPreflight);
-                el("shirariumApplySelected").addEventListener("click", applyReviewed);
-                el("shirariumCreateLockSelected").addEventListener("click", createLock);
-                el("shirariumSelectFilteredMoves").addEventListener("click", selectFilteredMoves);
-                el("shirariumClearSelection").addEventListener("click", clearSelection);
-                el("shirariumApplyBulkAction").addEventListener("click", applyBulkAction);
-                el("shirariumApplyBulkTargetPrefix").addEventListener("click", applyBulkTargetPrefix);
-                el("shirariumReloadLocks").addEventListener("click", loadLocks);
-                el("shirariumReloadHistory").addEventListener("click", loadHistory);
-                
-                el("shirariumSettingsForm").addEventListener("submit", saveSettings);
-                el("chkEnableAiParsing").addEventListener("change", updateSettingsVisibility);
-                el("chkEnableManagedLocalInference").addEventListener("change", updateSettingsVisibility);
-                el("selectModelPreset").addEventListener("change", function() {
-                    updatePresetRationale();
-                    updateSettingsVisibility();
-                });
-
-                el("shirariumRunBenchmark").addEventListener("click", async function() {
-                    Dashboard.showLoadingMsg();
-                    setError("");
-                    el("shirariumBenchmarkText").textContent = "Benchmarking in progress...";
-                    try {
-                        var payload = await apiJson("shirarium/benchmark", "POST");
-                        var lines = (payload.results || []).map(function(res) {
-                            var aiText = res.ai ? (res.ai.title + " (" + res.ai.latencyMs.toFixed(1) + "ms)") : "N/A";
-                            return "PATH: " + res.path + "\n" +
-                                   "  - RULE: " + res.heuristic.title + " (" + res.heuristic.latencyMs.toFixed(1) + "ms)\n" +
-                                   "  - AI  : " + aiText;
-                        });
-                        el("shirariumBenchmarkText").innerHTML = "<pre>" + escapeHtml(lines.join("\n\n")) + "</pre>";
-                        setMessage("Benchmark complete.");
-                    } catch (error) {
-                        setError(String(error.message || error));
-                        el("shirariumBenchmarkText").textContent = "Benchmark failed.";
-                    } finally {
-                        Dashboard.hideLoadingMsg();
-                    }
-                });
-
-                el("shirariumSelectAll").addEventListener("change", function (event) {
-                    var checked = !!event.target.checked;
-                    Array.prototype.forEach.call(document.querySelectorAll("[data-select-source]"), function (checkbox) {
-                        if (checkbox.disabled) {
-                            return;
-                        }
-
-                        checkbox.checked = checked;
-                        state.selectedSourcePaths[checkbox.getAttribute("data-select-source")] = checked;
+            async function applySelected() {
+                if (state.selection.size === 0) return;
+                Dashboard.showLoadingMsg();
+                try {
+                    await api('shirarium/apply-reviewed-plan', 'POST', {
+                        expectedPlanFingerprint: state.plan.planFingerprint,
+                        sourcePaths: Array.from(state.selection)
                     });
-                    invalidatePreflightToken();
-                    updateSelectedCount();
-                });
-
-                ["shirariumMovesOnly", "shirariumOverridesOnly", "shirariumMinConfidence", "shirariumActionFilter", "shirariumPathPrefix", "shirariumSortBy", "shirariumSortDirection", "shirariumPage", "shirariumPageSize"].forEach(function (id) {
-                    el(id).addEventListener("change", function () {
-                        if (id !== "shirariumPage") {
-                            el("shirariumPage").value = "1";
-                        }
-                        invalidatePreflightToken();
-                        loadReviewView();
-                    });
-                });
-
-                Array.prototype.forEach.call(document.querySelectorAll("#ShirariumReviewPage .shirarium-tab"), function (tab) {
-                    tab.addEventListener("click", function () {
-                        var panel = tab.getAttribute("data-panel") || "review";
-                        switchPanel(panel);
-                        if (panel === "locks") {
-                            loadLocks();
-                        } else if (panel === "history") {
-                            loadHistory();
-                        }
-                    });
-                });
-
-                el("shirariumReviewTableBody").addEventListener("change", function (event) {
-                    var target = event.target;
-                    if (target && target.hasAttribute("data-select-source")) {
-                        state.selectedSourcePaths[target.getAttribute("data-select-source")] = !!target.checked;
-                        invalidatePreflightToken();
-                        updateSelectedCount();
-                    }
-                });
-
-                el("shirariumReviewTableBody").addEventListener("click", async function (event) {
-                    var target = event.target;
-                    if (!(target instanceof HTMLElement)) {
-                        return;
-                    }
-
-                    var saveSource = target.getAttribute("data-override-save");
-                    var clearSource = target.getAttribute("data-override-clear");
-
-                    if (saveSource) {
-                        try {
-                            Dashboard.showLoadingMsg();
-                            setError("");
-                            await patchOverride(saveSource, false);
-                            setMessage("Saved override for " + saveSource + ".");
-                        } catch (error) {
-                            setError(String(error.message || error));
-                        } finally {
-                            Dashboard.hideLoadingMsg();
-                        }
-                        return;
-                    }
-
-                    if (clearSource) {
-                        try {
-                            Dashboard.showLoadingMsg();
-                            setError("");
-                            await patchOverride(clearSource, true);
-                            setMessage("Removed override for " + clearSource + ".");
-                        } catch (error) {
-                            setError(String(error.message || error));
-                        } finally {
-                            Dashboard.hideLoadingMsg();
-                        }
-                    }
-                });
-
-                el("shirariumLocksTableBody").addEventListener("click", function (event) {
-                    var target = event.target;
-                    if (!(target instanceof HTMLElement)) {
-                        return;
-                    }
-
-                    var reviewForView = target.getAttribute("data-lock-view");
-                    if (reviewForView) {
-                        viewLock(reviewForView);
-                        return;
-                    }
-
-                    var reviewForApply = target.getAttribute("data-lock-apply");
-                    if (reviewForApply) {
-                        applyLock(reviewForApply);
-                    }
-                });
+                    Dashboard.alert('Library updated!');
+                    refreshReview();
+                } catch(e) { Dashboard.alert('Failed: ' + e.message); }
+                finally { Dashboard.hideLoadingMsg(); }
             }
 
-            var initialized = false;
-            function initializePage() {
-                if (initialized) {
-                    loadReviewView();
-                    startPolling();
-                    return;
-                }
+            // INIT
+            document.querySelector('#ShirariumReviewPage').addEventListener('pageshow', function () {
+                refreshDash();
+            });
 
-                bindEvents();
-                initialized = true;
-                loadReviewView();
-                startPolling();
-            }
+            document.querySelectorAll('.sh-tab-btn').forEach(function(btn) {
+                btn.onclick = function() { switchTab(btn.dataset.tab); };
+            });
+            
+            el('btn-start-review').onclick = function() { switchTab('review'); };
+            el('btn-apply-main').onclick = applySelected;
+            el('settings-form').onsubmit = saveSettings;
+            el('selectAll').onclick = function(e) {
+                document.querySelectorAll('.row-check').forEach(function(chk) {
+                    chk.checked = e.target.checked;
+                    if (e.target.checked) state.selection.add(chk.dataset.path);
+                    else state.selection.delete(chk.dataset.path);
+                });
+                el('btn-apply-main').disabled = state.selection.size === 0;
+            };
 
-            document.querySelector("#ShirariumReviewPage").addEventListener("pageshow", initializePage);
-            document.querySelector("#ShirariumReviewPage").addEventListener("viewshow", initializePage);
         })();
     </script>
 </div>
