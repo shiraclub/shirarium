@@ -104,9 +104,8 @@ public sealed class InferenceManager : IHostedService, IDisposable
                 }
 
                 StartServer(binaryPath, modelPath, _port);
-                _startTime = DateTime.UtcNow;
-                _status = "Ready";
-                _downloadProgress = 100.0;
+                
+                // Status stays 'Initializing' until the first successful heartbeat or until a crash is detected
                 StartMetadataPolling();
             }
             catch (Exception ex)
@@ -146,7 +145,13 @@ public sealed class InferenceManager : IHostedService, IDisposable
             var url = $"http://127.0.0.1:{_port}/props";
             while (!token.IsCancellationRequested)
             {
-                if (_runnerProcess == null || _runnerProcess.HasExited) break;
+                if (_runnerProcess == null || _runnerProcess.HasExited) 
+                {
+                    // Clean up metadata if process is gone
+                    _metadata = new();
+                    break;
+                }
+
                 try
                 {
                     var newMeta = new Dictionary<string, string>();
@@ -156,9 +161,12 @@ public sealed class InferenceManager : IHostedService, IDisposable
                         newMeta["Uptime"] = $"{(int)diff.TotalHours:D2}:{diff.Minutes:D2}:{diff.Seconds:D2}.{diff.Milliseconds / 100}";
                     }
                     newMeta["Compute"] = DetectGpuLayers() > 0 ? "Vulkan/CUDA" : "CPU (AVX2)";
-                    _runnerProcess.Refresh();
-                    double memMb = _runnerProcess.WorkingSet64 / (1024.0 * 1024.0);
-                    newMeta["RAM"] = memMb > 1024 ? $"{memMb / 1024.0:F2} GB" : $"{memMb:F0} MB";
+                    
+                    try {
+                        _runnerProcess.Refresh();
+                        double memMb = _runnerProcess.WorkingSet64 / (1024.0 * 1024.0);
+                        newMeta["RAM"] = memMb > 1024 ? $"{memMb / 1024.0:F2} GB" : $"{memMb:F0} MB";
+                    } catch { newMeta["RAM"] = "0 MB"; }
 
                     try
                     {
@@ -173,9 +181,17 @@ public sealed class InferenceManager : IHostedService, IDisposable
                             if (rawName.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)) rawName = Path.GetFileNameWithoutExtension(rawName);
                             newMeta["Model"] = rawName;
                             if (root.TryGetProperty("n_ctx", out var ctx)) newMeta["Context"] = ctx.GetInt32().ToString();
+                            
+                            // Success! Transition to Ready if we were Initializing
+                            if (_status == "Initializing") {
+                                _status = "Ready";
+                                _startTime = DateTime.UtcNow;
+                            }
                         }
                     }
-                    catch { }
+                    catch { 
+                        // Engine might still be loading weights
+                    }
                     _metadata = newMeta;
                 }
                 catch { }
@@ -242,6 +258,15 @@ public sealed class InferenceManager : IHostedService, IDisposable
         try
         {
             _runnerProcess = new Process { StartInfo = startInfo };
+            _runnerProcess.EnableRaisingEvents = true;
+            
+            _runnerProcess.Exited += (s, e) => {
+                var exitCode = _runnerProcess?.ExitCode ?? -1;
+                _status = "Error";
+                _error = $"Engine exited with code {exitCode}. Check logs.";
+                _logger.LogError("LLM Process Exited with code {Code}", exitCode);
+            };
+
             _runnerProcess.Start();
 
             // Background reader for Standard Output
@@ -271,6 +296,8 @@ public sealed class InferenceManager : IHostedService, IDisposable
                     // If we get here, the stream ended (process likely died)
                     var finalError = fullErr.ToString();
                     if (finalError.Contains("corrupted") || finalError.Contains("file bounds") || finalError.Contains("incomplete")) {
+                        _status = "Error";
+                        _error = "Model file corrupted. Purging...";
                         _logger.LogWarning("LLM Self-Healing: Deleting corrupted model: {Path}", _activeModelPath);
                         try { if (File.Exists(_activeModelPath)) File.Delete(_activeModelPath); } catch { }
                     }
@@ -279,7 +306,11 @@ public sealed class InferenceManager : IHostedService, IDisposable
 
             _logger.LogInformation("Local inference server started (PID: {Pid})", _runnerProcess.Id);
         }
-        catch (Exception ex) { _logger.LogError(ex, "Failed to start engine."); }
+        catch (Exception ex) { 
+            _status = "Error";
+            _error = ex.Message;
+            _logger.LogError(ex, "Failed to start engine."); 
+        }
     }
 
     private int DetectGpuLayers()
