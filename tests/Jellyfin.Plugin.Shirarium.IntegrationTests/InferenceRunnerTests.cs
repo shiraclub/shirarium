@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Jellyfin.Plugin.Shirarium.Configuration;
 using Jellyfin.Plugin.Shirarium.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
