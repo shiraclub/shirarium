@@ -2,9 +2,7 @@
 
 <img src="thumb.png" width="396" height="216" alt="Shirarium Logo" />
 
-Clean up your Jellyfin library.
-
-Shirarium turns messy file and folder names into a pristine, Jellyfin-friendly structure using advanced heuristics and optional AI-assisted parsing. 
+Shirarium organizes file and folder names into pristine, Jellyfin-friendly structures using advanced heuristics and AI-assisted parsing. 
 
 ![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11.6-00A4DC?logo=jellyfin&logoColor=white)
