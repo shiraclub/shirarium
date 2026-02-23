@@ -55,6 +55,21 @@ public sealed class ShirariumController : ControllerBase
     }
 
     /// <summary>
+    /// Gets the list of available AI model presets.
+    /// </summary>
+    /// <returns>The list of available AI model presets.</returns>
+    [HttpGet("ai-model-presets")]
+    public ActionResult<AiModelPresetsResponse> GetAiModelPresets()
+    {
+        var config = Plugin.Instance?.Configuration;
+        return Ok(new AiModelPresetsResponse
+        {
+            Presets = AiModelPreset.AvailablePresets,
+            SelectedPresetId = config?.SelectedModelPreset ?? "gemma-3-4b"
+        });
+    }
+
+    /// <summary>
     /// Gets the current status of the managed local inference engine.
     /// </summary>
     [HttpGet("inference-status")]

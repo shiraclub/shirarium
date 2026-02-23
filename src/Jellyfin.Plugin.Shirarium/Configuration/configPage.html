@@ -242,6 +242,7 @@
                     <button type="button" class="shirarium-tab" data-panel="locks">Locks</button>
                     <button type="button" class="shirarium-tab" data-panel="history">History</button>
                     <button type="button" class="shirarium-tab" data-panel="benchmark">Benchmark</button>
+                    <button type="button" class="shirarium-tab" data-panel="settings">Settings</button>
                 </div>
 
                 <div id="shirariumPanelReview" class="shirarium-panel active">
@@ -456,6 +457,93 @@
                     </div>
                 </div>
 
+                <div id="shirariumPanelSettings" class="shirarium-panel">
+                    <form id="shirariumSettingsForm" class="shirarium-grid">
+                        <div class="verticalSection">
+                            <h3>AI Parsing Engine</h3>
+                            <div class="checkboxContainer">
+                                <label>
+                                    <input is="emby-checkbox" type="checkbox" id="chkEnableAiParsing" />
+                                    <span>Enable AI-assisted parsing</span>
+                                </label>
+                            </div>
+                            <div id="aiSettingsGroup" style="margin-top: 1em; padding-left: 1.5em; border-left: 2px solid #333;">
+                                <div class="checkboxContainer">
+                                    <label>
+                                        <input is="emby-checkbox" type="checkbox" id="chkEnableManagedLocalInference" />
+                                        <span>Use managed local inference (llama.cpp)</span>
+                                    </label>
+                                </div>
+                                <div id="managedAiGroup" style="margin-top: 1em; padding-left: 1.5em; border-left: 2px solid #444;">
+                                    <div class="selectContainer">
+                                        <label class="selectLabel" for="selectModelPreset">Model Preset</label>
+                                        <select is="emby-select" id="selectModelPreset"></select>
+                                        <div id="modelRationale" class="fieldDescription shirarium-small" style="margin-top:4px; opacity:0.8;"></div>
+                                    </div>
+                                    <div id="customModelGroup" style="display:none; margin-top:1em;">
+                                        <div class="inputContainer">
+                                            <input is="emby-input" id="txtModelUrl" type="text" label="Custom GGUF URL" />
+                                        </div>
+                                    </div>
+                                    <div class="inputContainer" style="margin-top:1em;">
+                                        <input is="emby-input" id="txtInferencePort" type="number" label="Local Server Port" />
+                                    </div>
+                                    <div class="checkboxContainer">
+                                        <label>
+                                            <input is="emby-checkbox" type="checkbox" id="chkAutoDownloadModel" />
+                                            <span>Automatically download model if missing</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div id="externalAiGroup" style="margin-top: 1em; display:none;">
+                                    <div class="inputContainer">
+                                        <input is="emby-input" id="txtExternalOllamaUrl" type="text" label="External Provider URL (Ollama/vLLM)" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="verticalSection">
+                            <h3>Path Templates</h3>
+                            <div class="inputContainer">
+                                <input is="emby-input" id="txtOrganizationRootPath" type="text" label="Organization Root Path" />
+                            </div>
+                            <div class="inputContainer">
+                                <input is="emby-input" id="txtMoviePathTemplate" type="text" label="Movie Template" />
+                            </div>
+                            <div class="inputContainer">
+                                <input is="emby-input" id="txtEpisodePathTemplate" type="text" label="Episode Template" />
+                            </div>
+                            <div class="checkboxContainer">
+                                <label>
+                                    <input is="emby-checkbox" type="checkbox" id="chkNormalizePathSegments" />
+                                    <span>Normalize path segments (clean characters)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="verticalSection">
+                            <h3>Scan Settings</h3>
+                            <div class="inputContainer">
+                                <input is="emby-input" id="txtMaxItemsPerRun" type="number" label="Max Items Per Run" />
+                            </div>
+                            <div class="inputContainer">
+                                <input is="emby-input" id="txtMinConfidence" type="number" step="0.01" min="0" max="1" label="Min Confidence Threshold" />
+                            </div>
+                            <div class="checkboxContainer">
+                                <label>
+                                    <input is="emby-checkbox" type="checkbox" id="chkEnablePostScanTask" />
+                                    <span>Run automatically after library scans</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="shirarium-toolbar">
+                            <button is="emby-button" type="submit" class="raised button-submit">Save Settings</button>
+                        </div>
+                    </form>
+                </div>
+
                 <div id="shirariumMessage" class="shirarium-muted"></div>
                 <div id="shirariumError" class="shirarium-error"></div>
             </div>
@@ -472,7 +560,9 @@
                 lastPreflight: null,
                 preflightToken: "",
                 preflightTokenExpiresAtUtc: null,
-                preflightSelectionKey: ""
+                preflightSelectionKey: "",
+                availablePresets: [],
+                config: null
             };
 
             var planReasonTone = {
@@ -1275,13 +1365,111 @@
                 }
             }
 
+            async function loadSettings() {
+                Dashboard.showLoadingMsg();
+                try {
+                    var results = await Promise.all([
+                        ApiClient.getPluginConfiguration(PluginManager.getPlugins().find(p => p.Name === "Shirarium").Id),
+                        apiJson("shirarium/ai-model-presets", "GET")
+                    ]);
+
+                    var config = results[0];
+                    var presetsRes = results[1];
+                    state.config = config;
+                    state.availablePresets = presetsRes.presets || [];
+
+                    // Populate Presets
+                    var presetSelect = el("selectModelPreset");
+                    presetSelect.innerHTML = state.availablePresets.map(p => 
+                        '<option value="' + p.id + '"' + (p.id === config.SelectedModelPreset ? " selected" : "") + '>' + escapeHtml(p.name) + '</option>'
+                    ).join("");
+
+                    // Bind Form
+                    el("chkEnableAiParsing").checked = config.EnableAiParsing;
+                    el("chkEnableManagedLocalInference").checked = config.EnableManagedLocalInference;
+                    el("txtInferencePort").value = config.InferencePort;
+                    el("chkAutoDownloadModel").checked = config.AutoDownloadModel;
+                    el("txtModelUrl").value = config.ModelUrl;
+                    el("txtExternalOllamaUrl").value = config.ExternalOllamaUrl;
+                    el("txtOrganizationRootPath").value = config.OrganizationRootPath;
+                    el("txtMoviePathTemplate").value = config.MoviePathTemplate;
+                    el("txtEpisodePathTemplate").value = config.EpisodePathTemplate;
+                    el("chkNormalizePathSegments").checked = config.NormalizePathSegments;
+                    el("txtMaxItemsPerRun").value = config.MaxItemsPerRun;
+                    el("txtMinConfidence").value = config.MinConfidence;
+                    el("chkEnablePostScanTask").checked = config.EnablePostScanTask;
+
+                    updateSettingsVisibility();
+                    updatePresetRationale();
+                } catch (e) {
+                    setError("Failed to load settings: " + e.message);
+                } finally {
+                    Dashboard.hideLoadingMsg();
+                }
+            }
+
+            async function saveSettings(e) {
+                if (e) e.preventDefault();
+                Dashboard.showLoadingMsg();
+
+                var pluginId = PluginManager.getPlugins().find(p => p.Name === "Shirarium").Id;
+                var config = state.config;
+
+                config.EnableAiParsing = el("chkEnableAiParsing").checked;
+                config.EnableManagedLocalInference = el("chkEnableManagedLocalInference").checked;
+                config.SelectedModelPreset = el("selectModelPreset").value;
+                config.InferencePort = parseInt(el("txtInferencePort").value);
+                config.AutoDownloadModel = el("chkAutoDownloadModel").checked;
+                config.ModelUrl = el("txtModelUrl").value;
+                config.ExternalOllamaUrl = el("txtExternalOllamaUrl").value;
+                config.OrganizationRootPath = el("txtOrganizationRootPath").value;
+                config.MoviePathTemplate = el("txtMoviePathTemplate").value;
+                config.EpisodePathTemplate = el("txtEpisodePathTemplate").value;
+                config.NormalizePathSegments = el("chkNormalizePathSegments").checked;
+                config.MaxItemsPerRun = parseInt(el("txtMaxItemsPerRun").value);
+                config.MinConfidence = parseFloat(el("txtMinConfidence").value);
+                config.EnablePostScanTask = el("chkEnablePostScanTask").checked;
+
+                try {
+                    await ApiClient.updatePluginConfiguration(pluginId, config);
+                    Dashboard.alert("Settings saved successfully.");
+                } catch (e) {
+                    setError("Failed to save settings: " + e.message);
+                } finally {
+                    Dashboard.hideLoadingMsg();
+                }
+            }
+
+            function updateSettingsVisibility() {
+                var aiParsing = el("chkEnableAiParsing").checked;
+                var managed = el("chkEnableManagedLocalInference").checked;
+                var preset = el("selectModelPreset").value;
+
+                el("aiSettingsGroup").style.display = aiParsing ? "block" : "none";
+                el("managedAiGroup").style.display = managed ? "block" : "none";
+                el("externalAiGroup").style.display = (aiParsing && !managed) ? "block" : "none";
+                el("customModelGroup").style.display = (managed && preset === "custom") ? "block" : "none";
+            }
+
+            function updatePresetRationale() {
+                var presetId = el("selectModelPreset").value;
+                var preset = state.availablePresets.find(p => p.id === presetId);
+                if (preset) {
+                    el("modelRationale").textContent = preset.rationale + " (" + preset.parameters + ")";
+                    if (preset.url && presetId !== "custom") {
+                        el("txtModelUrl").value = preset.url;
+                    }
+                }
+            }
+
             function switchPanel(panelName) {
                 var panels = {
                     review: el("shirariumPanelReview"),
                     preflight: el("shirariumPanelPreflight"),
                     locks: el("shirariumPanelLocks"),
                     history: el("shirariumPanelHistory"),
-                    benchmark: el("shirariumPanelBenchmark")
+                    benchmark: el("shirariumPanelBenchmark"),
+                    settings: el("shirariumPanelSettings")
                 };
 
                 Object.keys(panels).forEach(function (key) {
@@ -1293,6 +1481,10 @@
                 Array.prototype.forEach.call(document.querySelectorAll("#ShirariumReviewPage .shirarium-tab"), function (tab) {
                     tab.classList.toggle("active", tab.getAttribute("data-panel") === panelName);
                 });
+
+                if (panelName === "settings") {
+                    loadSettings();
+                }
             }
 
             function bindEvents() {
@@ -1307,6 +1499,15 @@
                 el("shirariumApplyBulkTargetPrefix").addEventListener("click", applyBulkTargetPrefix);
                 el("shirariumReloadLocks").addEventListener("click", loadLocks);
                 el("shirariumReloadHistory").addEventListener("click", loadHistory);
+                
+                el("shirariumSettingsForm").addEventListener("submit", saveSettings);
+                el("chkEnableAiParsing").addEventListener("change", updateSettingsVisibility);
+                el("chkEnableManagedLocalInference").addEventListener("change", updateSettingsVisibility);
+                el("selectModelPreset").addEventListener("change", function() {
+                    updatePresetRationale();
+                    updateSettingsVisibility();
+                });
+
                 el("shirariumRunBenchmark").addEventListener("click", async function() {
                     Dashboard.showLoadingMsg();
                     setError("");

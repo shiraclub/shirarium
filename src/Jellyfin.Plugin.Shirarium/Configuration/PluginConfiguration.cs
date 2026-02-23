@@ -75,18 +75,22 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     /// </summary>
     public bool AutoDownloadModel { get; set; } = true;
 
-    /// <summary>
-    /// Gets or sets the local path to the GGUF model file. 
-    /// If empty, defaults to the plugin data directory.
-    /// </summary>
-    public string LocalModelPath { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the URL used to download the recommended model (Qwen 2.5 3B GGUF).
-    /// </summary>
-    public string ModelUrl { get; set; } = "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf";
-
-    /// <summary>
+        /// <summary>
+        /// Gets or sets the ID of the selected AI model preset.
+        /// </summary>
+        public string SelectedModelPreset { get; set; } = "gemma-3-4b";
+    
+        /// <summary>
+        /// Gets or sets the local path to the GGUF model file.
+        /// If empty, defaults to the plugin data directory.
+        /// </summary>
+        public string LocalModelPath { get; set; } = string.Empty;
+    
+        /// <summary>
+        /// Gets or sets the URL used to download the recommended model (Gemma 3 4B GGUF).
+        /// </summary>
+        public string ModelUrl { get; set; } = "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q6_K.gguf";
+        /// <summary>
     /// Gets or sets the destination root path used when generating organization plans.
     /// </summary>
     public string OrganizationRootPath { get; set; } = "/media";

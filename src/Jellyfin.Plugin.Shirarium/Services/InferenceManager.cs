@@ -301,15 +301,33 @@ public sealed class InferenceManager : IHostedService, IDisposable
 
     private async Task<string> EnsureModelExistsAsync(PluginConfiguration config, CancellationToken cancellationToken)
     {
+        var modelUrl = config.ModelUrl;
         var modelPath = config.LocalModelPath;
+
         if (string.IsNullOrWhiteSpace(modelPath))
         {
             var folder = Path.Combine(_applicationPaths.DataPath, "plugins", "Shirarium", "models");
             Directory.CreateDirectory(folder);
-            modelPath = Path.Combine(folder, "shirarium-model.gguf");
+
+            // Use a unique filename based on the URL to allow multiple models to coexist
+            string fileName;
+            if (Uri.TryCreate(modelUrl, UriKind.Absolute, out var uri))
+            {
+                fileName = Path.GetFileName(uri.LocalPath);
+                if (string.IsNullOrEmpty(fileName) || !fileName.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase))
+                {
+                    fileName = $"model-{config.SelectedModelPreset}.gguf";
+                }
+            }
+            else
+            {
+                fileName = "shirarium-custom-model.gguf";
+            }
+
+            modelPath = Path.Combine(folder, fileName);
         }
 
-        if (File.Exists(modelPath))
+        if (File.Exists(modelPath) && new FileInfo(modelPath).Length > 1024 * 1024)
         {
             _downloadProgress = 100.0;
             return modelPath;
