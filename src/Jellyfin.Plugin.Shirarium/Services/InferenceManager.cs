@@ -206,14 +206,14 @@ public sealed class InferenceManager : IHostedService, IDisposable
 
     private async Task<string> EnsureBinaryExistsAsync(CancellationToken cancellationToken)
     {
-        const string Version = "b8133";
+        const string Version = InferenceBinaryProvider.Version;
         var binFolder = Path.Combine(_applicationPaths.DataPath, "plugins", "Shirarium", "bin", Version);
         Directory.CreateDirectory(binFolder);
         string binaryName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "llama-server.exe" : "llama-server";
         var existing = Directory.GetFiles(binFolder, binaryName, SearchOption.AllDirectories).FirstOrDefault();
         if (existing != null) return existing;
 
-        string? downloadUrl = GetBinaryUrl();
+        string? downloadUrl = InferenceBinaryProvider.GetBinaryUrl();
         if (downloadUrl == null) return string.Empty;
 
         _logger.LogInformation("Downloading llama-server binary ({Version})...", Version);
@@ -259,35 +259,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
         finally { if (File.Exists(tempFile)) try { File.Delete(tempFile); } catch { } }
     }
 
-    private string? GetBinaryUrl()
-    {
-        const string Version = "b8133";
-        const string BaseUrl = $"https://github.com/ggml-org/llama.cpp/releases/download/{Version}/";
-        
-        var isArm64 = RuntimeInformation.OSArchitecture == Architecture.Arm64;
-        
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            // Windows is almost always x64 for Jellyfin; default to Vulkan for GPU support
-            // We can add a CPU fallback if Vulkan fails in a future iteration
-            return BaseUrl + $"llama-{Version}-bin-win-vulkan-x64.zip";
-        }
-        
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            // Standard Ubuntu build for Linux
-            return BaseUrl + $"llama-{Version}-bin-ubuntu-x64.tar.gz";
-        }
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            // macOS binaries are always tar.gz and split by Arch (Arm64 vs x64)
-            string arch = isArm64 ? "arm64" : "x64";
-            return BaseUrl + $"llama-{Version}-bin-macos-{arch}.tar.gz";
-        }
-
-        return null;
-    }
+    private string? GetBinaryUrl() => InferenceBinaryProvider.GetBinaryUrl();
 
     private void StartServer(string binaryPath, string modelPath, int port)
     {
