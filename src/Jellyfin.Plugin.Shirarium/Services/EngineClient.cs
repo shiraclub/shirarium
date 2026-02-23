@@ -54,9 +54,21 @@ public sealed class EngineClient
             bool useAi = config?.EnableManagedLocalInference == true || !string.IsNullOrWhiteSpace(config?.ExternalOllamaUrl);
             if (useAi)
             {
+                // Result Caching: Check if we already solved this exact path with this model
+                var modelName = config?.SelectedModelPreset ?? "custom";
+                var engine = "ollama"; // Generic engine name for cache
+                
+                var cached = Plugin.Instance?.ResultCache?.Get(path, engine, modelName);
+                if (cached != null)
+                {
+                    return cached;
+                }
+
                 var aiResult = await _ollamaService.ParseAsync(path, cancellationToken);
                 if (aiResult != null)
                 {
+                    // Store in cache
+                    Plugin.Instance?.ResultCache?.Set(path, engine, modelName, aiResult);
                     return aiResult;
                 }
             }

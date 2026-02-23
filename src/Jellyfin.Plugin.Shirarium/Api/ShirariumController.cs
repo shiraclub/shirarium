@@ -81,15 +81,27 @@ public sealed class ShirariumController : ControllerBase
             return Ok(new InferenceStatusResponse { Status = "NotInitialized" });
         }
 
-        var (status, progress, error, port, metadata) = manager.GetStatus();
+        var (status, progress, error, port, metadata, modelName) = manager.GetStatus();
         return Ok(new InferenceStatusResponse
         {
             Status = status,
             Progress = progress,
             Error = error,
             Port = port,
-            Metadata = metadata
+            Metadata = metadata,
+            ModelName = modelName
         });
+    }
+
+    /// <summary>
+    /// Gets the latest inference engine logs for terminal display.
+    /// </summary>
+    /// <returns>A string array of log lines.</returns>
+    [HttpGet("inference-logs")]
+    public ActionResult<string[]> GetInferenceLogs()
+    {
+        var manager = Plugin.Instance?.InferenceManager;
+        return Ok(manager?.GetLogs() ?? Array.Empty<string>());
     }
 
     /// <summary>

@@ -257,6 +257,9 @@ public sealed class ShirariumScanner
         };
 
         await SuggestionStore.WriteAsync(_applicationPaths, snapshot, cancellationToken);
+        
+        // Save result cache to disk after a full run
+        Plugin.Instance?.ResultCache?.Save();
 
         _logger.LogInformation(
             "Shirarium dry-run complete. Examined={Examined} Candidates={Candidates} Parsed={Parsed} SkippedLimit={SkippedLimit} SkippedConfidence={SkippedConfidence} ParseFailures={ParseFailures}",

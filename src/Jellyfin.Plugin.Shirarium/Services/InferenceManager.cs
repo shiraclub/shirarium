@@ -19,13 +19,16 @@ public sealed class InferenceManager : IHostedService, IDisposable
     private readonly HttpClient _httpClient;
     private Process? _runnerProcess;
     private bool _isDisposed;
-    private string _status = "Idle";
-    private string _error = string.Empty;
-    private double _downloadProgress;
+        private string _status = "Idle";
+        private string _error = string.Empty;
+        private double _downloadProgress;
         private int _port = 11434;
         private Dictionary<string, string> _metadata = new();
         private CancellationTokenSource? _pollingCts;
         private DateTime? _startTime;
+        private readonly List<string> _logBuffer = new();
+        private readonly object _logLock = new();
+        private const int MaxLogLines = 100;
     
         /// <summary>
         /// Initializes a new instance of the <see cref="InferenceManager"/> class.
@@ -36,16 +39,43 @@ public sealed class InferenceManager : IHostedService, IDisposable
         {
             _applicationPaths = applicationPaths;
             _logger = logger;
-            _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) }; 
+            _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
         }
     
             /// <summary>
             /// Gets the current status of the LLM.
             /// </summary>
-            public (string Status, double Progress, string Error, int Port, Dictionary<string, string> Metadata) GetStatus()
+            public (string Status, double Progress, string Error, int Port, Dictionary<string, string> Metadata, string ModelName) GetStatus()
             {
-                return (_status, _downloadProgress, _error, _port, _metadata);
-            }    
+                _metadata.TryGetValue("Model", out var modelName);
+                return (_status, _downloadProgress, _error, _port, _metadata, modelName ?? "LLM");
+            }
+                /// <summary>
+        /// Gets the recent logs from the inference engine.
+        /// </summary>
+        /// <returns>The recent logs.</returns>
+        public string[] GetLogs()
+        {
+            lock (_logLock)
+            {
+                return _logBuffer.ToArray();
+            }
+        }
+    
+        private void AddLog(string? line)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return;
+    
+            lock (_logLock)
+            {
+                _logBuffer.Add(line);
+                if (_logBuffer.Count > MaxLogLines)
+                {
+                    _logBuffer.RemoveAt(0);
+                }
+            }
+        }
+        
             /// <inheritdoc />
             public Task StartAsync(CancellationToken cancellationToken)
             {
@@ -361,47 +391,38 @@ public sealed class InferenceManager : IHostedService, IDisposable
                     WorkingDirectory = Path.GetDirectoryName(binaryPath)
                 };
 
-        try
-        {
-            _runnerProcess = new Process { StartInfo = startInfo };
-            _runnerProcess.EnableRaisingEvents = true;
-            _runnerProcess.Exited += (sender, args) =>
-            {
-                if (sender is Process p)
-                {
-                    var exitCode = p.ExitCode;
-                    var error = p.StandardError.ReadToEnd();
-                                        var output = p.StandardOutput.ReadToEnd();
-                                        
-                                        _logger.LogError("LLM Process Crashed! ExitCode: {Code}", exitCode);
-                                        if (!string.IsNullOrWhiteSpace(error)) _logger.LogError("LLM STDERR: {Err}", error);
-                                        if (!string.IsNullOrWhiteSpace(output)) _logger.LogError("LLM STDOUT: {Out}", output);
-                    
-                                        _status = "Error";
-                                        if (error.Contains("libgomp") || error.Contains("shared object"))
-                                        {
-                                            _error = "Missing dependency: libgomp1. (apt-get install libgomp1)";
-                                        }
-                                        else if (error.Contains("CUDA") || error.Contains("driver"))
-                                        {
-                                            _error = "GPU Driver Error. Try disabling GPU in settings.";
-                                        }
-                                        else
-                                        {
-                                            _error = $"Process exited with code {exitCode}. Check logs.";
-                                        }
-                                    }
-                                };            
-            _runnerProcess.Start();
-            _logger.LogInformation("Local inference server started (PID: {Pid})", _runnerProcess.Id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to start local inference server.");
-        }
-    }
-
-    private int DetectGpuLayers()
+                        try
+                        {
+                            _runnerProcess = new Process { StartInfo = startInfo };
+                            _runnerProcess.EnableRaisingEvents = true;
+                
+                            _runnerProcess.OutputDataReceived += (s, e) => AddLog(e.Data);
+                            _runnerProcess.ErrorDataReceived += (s, e) => AddLog(e.Data);
+                
+                            _runnerProcess.Exited += (sender, args) =>
+                            {
+                                if (sender is Process p)
+                                {
+                                    var exitCode = p.ExitCode;
+                                    _logger.LogError("LLM Process Crashed! ExitCode: {Code}", exitCode);
+                
+                                    _status = "Error";
+                                    _error = $"Process exited with code {exitCode}. Check logs.";
+                                }
+                            };
+                
+                            _runnerProcess.Start();
+                            _runnerProcess.BeginOutputReadLine();
+                            _runnerProcess.BeginErrorReadLine();
+                
+                            _logger.LogInformation("Local inference server started (PID: {Pid})", _runnerProcess.Id);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to start local inference server.");
+                        }
+                    }
+                    private int DetectGpuLayers()
     {
         try
         {

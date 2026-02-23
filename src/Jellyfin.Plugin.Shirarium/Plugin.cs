@@ -38,6 +38,11 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>
     /// </summary>
     public InferenceManager? InferenceManager { get; private set; }
 
+    /// <summary>
+    /// Gets the persistent result cache.
+    /// </summary>
+    public ResultCacheStore? ResultCache { get; private set; }
+
     /// <inheritdoc />
     public override string Name => "Shirarium";
 
@@ -56,6 +61,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>
         AppPaths = applicationPaths;
         Instance = this;
         Logger = loggerFactory.CreateLogger("Shirarium");
+        ResultCache = new ResultCacheStore(applicationPaths, loggerFactory.CreateLogger<ResultCacheStore>());
         InferenceManager = new InferenceManager(applicationPaths, loggerFactory.CreateLogger<InferenceManager>());
         _ = InferenceManager.StartAsync(CancellationToken.None);
     }
@@ -78,6 +84,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>
     /// <inheritdoc />
     public void Dispose()
     {
+        ResultCache?.Save();
         InferenceManager?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
         InferenceManager?.Dispose();
     }

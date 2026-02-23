@@ -36,6 +36,19 @@
                 .sh-table th { background: #222; text-align: left; padding: 12px; border-bottom: 1px solid #333; color: #888; }
                 .sh-table td { padding: 12px; border-bottom: 1px solid #222; }
 
+                /* Terminal Styling */
+                .sh-terminal { background: #000; border-radius: 4px; padding: 15px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 11px; line-height: 1.4; color: #33a1d6; border: 1px solid #111; height: 180px; overflow-y: auto; box-shadow: inset 0 0 10px rgba(51, 161, 214, 0.1); margin-top: 15px; }
+                .sh-terminal-line { margin-bottom: 2px; border-left: 2px solid transparent; padding-left: 8px; }
+                .sh-terminal-line:hover { border-left-color: #33a1d6; background: rgba(51, 161, 214, 0.05); }
+                .sh-terminal-tag { color: #888; margin-right: 8px; }
+                .sh-terminal::-webkit-scrollbar { width: 4px; }
+                .sh-terminal::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+                /* Diffing Styling */
+                .diff-added { background: rgba(39, 174, 96, 0.2); color: #2ecc71; padding: 0 2px; border-radius: 2px; text-decoration: none; }
+                .diff-removed { background: rgba(231, 76, 60, 0.2); color: #e74c3c; padding: 0 2px; border-radius: 2px; text-decoration: line-through; opacity: 0.8; }
+                .diff-wrap { font-family: monospace; font-size: 11px; word-break: break-all; white-space: pre-wrap; }
+
                 .hidden { display: none !important; }
                 .sh-btn-big { font-size: 1.2em !important; padding: 1em 2em !important; }
             </style>
@@ -63,6 +76,13 @@
                         <div id="ai-metadata" class="sh-metadata hidden"></div>
                         <div id="ai-progress-container" class="sh-table-wrap hidden" style="height: 8px; margin-top: 15px; background: #222; border: none;">
                             <div id="ai-progress-bar" style="width: 0%; height: 100%; background: #33a1d6; transition: width 0.4s ease;"></div>
+                        </div>
+                    </div>
+
+                    <div id="card-terminal" class="sh-card hidden">
+                        <div class="sh-card-title">Thinking Stream</div>
+                        <div id="ai-logs" class="sh-terminal">
+                            <div class="sh-terminal-line">Waiting for engine output...</div>
                         </div>
                     </div>
 
@@ -194,6 +214,27 @@
                 }
             }
 
+            async function refreshLogs() {
+                try {
+                    var logs = await api('shirarium/inference-logs');
+                    var container = el('ai-logs');
+                    if (!logs || logs.length === 0) return;
+
+                    var html = logs.map(function(line) {
+                        return '<div class="sh-terminal-line">' + 
+                               '<span class="sh-terminal-tag">&gt;</span>' + 
+                               line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + 
+                               '</div>';
+                    }).join('');
+
+                    var isAtBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 1;
+                    container.innerHTML = html;
+                    if (isAtBottom) container.scrollTop = container.scrollHeight;
+
+                    el('card-terminal').classList.remove('hidden');
+                } catch (e) { console.error("[Shirarium] Log refresh failed", e); }
+            }
+
             async function refreshDash() {
                 if (state.isRefreshingDash) return;
                 state.isRefreshingDash = true;
@@ -214,6 +255,12 @@
                     var modelName = rawModel.charAt(0).toUpperCase() + rawModel.slice(1);
                     var progress = inf.Progress || 0;
                     var filtered = plan ? plan.FilteredEntries : 0;
+
+                    if (status === 'Ready' || status === 'Initializing' || status === 'DownloadingModel') {
+                        refreshLogs();
+                    } else {
+                        el('card-terminal').classList.add('hidden');
+                    }
 
                     if (inf.Metadata && Object.keys(inf.Metadata).length > 0) {
                         metaContainer.classList.remove('hidden');
@@ -279,35 +326,75 @@
                 if (tabId === 'settings') loadSettings();
             }
 
-            async function refreshReview() {
-                Dashboard.showLoadingMsg();
-                try {
-                    var plan = await api('shirarium/organization-plan-view?pageSize=100');
-                    state.plan = plan;
-                    state.selection.clear();
-                    el('selectAll').checked = false;
-
-                    var tbody = el('table-body');
-                    tbody.innerHTML = '';
-
-                    if (!plan.Entries || plan.Entries.length === 0) {
-                        el('table-empty').classList.remove('hidden');
-                        el('btn-apply-main').disabled = true;
-                        return;
-                    }
-
-                    el('table-empty').classList.add('hidden');
-                    el('btn-apply-main').disabled = true;
-
-                    plan.Entries.forEach(function(entry) {
-                        var row = document.createElement('tr');
-                        row.innerHTML = '<td><input type="checkbox" class="row-check" data-path="' + entry.SourcePath + '"></td>' +
-                            '<td><div style="font-family:monospace; font-size:11px; word-break:break-all;">' + entry.SourcePath + '</div></td>' + 
-                            '<td><div style="color:#33a1d6; word-break:break-all;">' + (entry.EffectiveTargetPath || '-') + '</div></td>';        
-                        tbody.appendChild(row);
-                    });
-
-                    tbody.querySelectorAll('.row-check').forEach(function(chk) {
+                        function diffStrings(oldStr, newStr) {
+                            if (!oldStr || !newStr) return newStr || '-';
+                            
+                            // For paths, let's try a segment-based diff first (split by / or \)
+                            var a = oldStr.split(/[\\\/]/);
+                            var b = newStr.split(/[\\\/]/);
+                            var html = '';
+                            
+                            // If the paths are vastly different (e.g. different roots), just show the new one
+                            if (a[0] !== b[0] && a.length > 1 && b.length > 1) {
+                                return '<span class="diff-added">' + newStr + '</span>';
+                            }
+            
+                            // Simple word-level diff for the filename (last segment)
+                            for (var i = 0; i < Math.max(a.length, b.length); i++) {
+                                if (i > 0) html += ' / ';
+                                
+                                if (i >= a.length) {
+                                    html += '<span class="diff-added">' + b[i] + '</span>';
+                                } else if (i >= b.length) {
+                                    html += '<span class="diff-removed">' + a[i] + '</span>';
+                                } else if (a[i] === b[i]) {
+                                    html += a[i];
+                                } else {
+                                    // Different segment - do char-level diff for this segment
+                                    var sa = a[i], sb = b[i];
+                                    var segmentHtml = '';
+                                    var j = 0;
+                                    while(j < Math.min(sa.length, sb.length) && sa[j] === sb[j]) {
+                                        segmentHtml += sa[j];
+                                        j++;
+                                    }
+                                    if (j < sa.length) segmentHtml += '<span class="diff-removed">' + sa.substring(j) + '</span>';
+                                    if (j < sb.length) segmentHtml += '<span class="diff-added">' + sb.substring(j) + '</span>';
+                                    html += segmentHtml;
+                                }
+                            }
+                            return html;
+                        }
+            
+                        async function refreshReview() {
+                            Dashboard.showLoadingMsg();
+                            try {
+                                var plan = await api('shirarium/organization-plan-view?pageSize=100');
+                                state.plan = plan;
+                                state.selection.clear();
+                                el('selectAll').checked = false;
+            
+                                var tbody = el('table-body');
+                                tbody.innerHTML = '';
+            
+                                if (!plan.Entries || plan.Entries.length === 0) {
+                                    el('table-empty').classList.remove('hidden');
+                                    el('btn-apply-main').disabled = true;
+                                    return;
+                                }
+            
+                                el('table-empty').classList.add('hidden');
+                                el('btn-apply-main').disabled = true;
+            
+                                plan.Entries.forEach(function(entry) {
+                                    var row = document.createElement('tr');
+                                    var diffHtml = diffStrings(entry.SourcePath, entry.EffectiveTargetPath);
+                                    row.innerHTML = '<td><input type="checkbox" class="row-check" data-path="' + entry.SourcePath + '"></td>' +
+                                        '<td><div style="font-family:monospace; font-size:11px; word-break:break-all; opacity:0.6;">' + entry.SourcePath + '</div></td>' +
+                                        '<td><div class="diff-wrap">' + diffHtml + '</div></td>';
+                                    tbody.appendChild(row);
+                                });
+                                tbody.querySelectorAll('.row-check').forEach(function(chk) {
                         chk.addEventListener('change', function(e) {
                             if (e.target.checked) state.selection.add(e.target.dataset.path);
                             else state.selection.delete(e.target.dataset.path);
