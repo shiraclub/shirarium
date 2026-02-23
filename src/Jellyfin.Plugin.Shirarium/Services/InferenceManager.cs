@@ -206,7 +206,8 @@ public sealed class InferenceManager : IHostedService, IDisposable
 
     private async Task<string> EnsureBinaryExistsAsync(CancellationToken cancellationToken)
     {
-        var binFolder = Path.Combine(_applicationPaths.DataPath, "plugins", "Shirarium", "bin");
+        const string Version = "b8133";
+        var binFolder = Path.Combine(_applicationPaths.DataPath, "plugins", "Shirarium", "bin", Version);
         Directory.CreateDirectory(binFolder);
         string binaryName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "llama-server.exe" : "llama-server";
         var existing = Directory.GetFiles(binFolder, binaryName, SearchOption.AllDirectories).FirstOrDefault();
@@ -215,8 +216,8 @@ public sealed class InferenceManager : IHostedService, IDisposable
         string? downloadUrl = GetBinaryUrl();
         if (downloadUrl == null) return string.Empty;
 
-        _logger.LogInformation("Downloading llama-server binary...");
-        var tempZip = Path.Combine(Path.GetTempPath(), $"shirarium-bin-{Guid.NewGuid():N}.zip");
+        _logger.LogInformation("Downloading llama-server binary ({Version})...", Version);
+        var tempZip = Path.Combine(Path.GetTempPath(), $"shirarium-bin-{Version}-{Guid.NewGuid():N}.zip");
         try
         {
             using (var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
@@ -233,15 +234,18 @@ public sealed class InferenceManager : IHostedService, IDisposable
             }
             return foundBinary ?? string.Empty;
         }
-        catch { return string.Empty; }
+        catch (Exception ex) { 
+            _logger.LogError(ex, "Failed to download or extract binary version {Version}", Version);
+            return string.Empty; 
+        }
         finally { if (File.Exists(tempZip)) File.Delete(tempZip); }
     }
 
     private string? GetBinaryUrl()
     {
-        const string BaseUrl = "https://github.com/ggml-org/llama.cpp/releases/download/b4640/";
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return BaseUrl + "llama-b4640-bin-win-vulkan-x64.zip";
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return BaseUrl + "llama-b4640-bin-ubuntu-x64.zip";
+        const string BaseUrl = "https://github.com/ggml-org/llama.cpp/releases/download/b8133/";
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return BaseUrl + "llama-b8133-bin-win-vulkan-x64.zip";
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return BaseUrl + "llama-b8133-bin-ubuntu-x64.zip";
         return null;
     }
 
