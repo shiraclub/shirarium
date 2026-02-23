@@ -231,9 +231,9 @@ public sealed class InferenceManager : IHostedService, IDisposable
             {
                 ZipFile.ExtractToDirectory(tempFile, binFolder, true);
             }
-            else
+            else if (tempFile.EndsWith(".tar.gz"))
             {
-                // .tar.gz extraction
+                // .tar.gz extraction (Linux and macOS)
                 using var fs = File.OpenRead(tempFile);
                 using var gzip = new GZipStream(fs, CompressionMode.Decompress);
                 var tarPath = tempFile + ".tar";
