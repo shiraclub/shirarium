@@ -68,7 +68,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>
             new PluginPageInfo
             {
                 Name = Name,
-                DisplayName = "Shirarium Review",
+                DisplayName = "Shirarium",
+                EnableInMainMenu = true,
+                MenuIcon = "auto_fix_high",
                 EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", GetType().Namespace)
             }
         ];
