@@ -70,7 +70,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>
                 Name = Name,
                 DisplayName = "Shirarium",
                 EnableInMainMenu = true,
-                MenuIcon = "auto_fix_high",
+                MenuIcon = "smart_toy",
                 EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", GetType().Namespace)
             }
         ];
