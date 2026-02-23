@@ -1,6 +1,22 @@
 {
   "models": [
     {
+      "id": "internlm-2.5-1.8b-instruct",
+      "name": "InternLM 2.5 1.8B Instruct",
+      "url": "https://huggingface.co/bartowski/internlm2_5-1_8b-chat-GGUF/resolve/main/internlm2_5-1_8b-chat-Q6_K.gguf",
+      "filename": "internlm-2.5-1.8b-q6_k.gguf",
+      "parameters": "1.8B",
+      "quant": "Q6_K"
+    },
+    {
+      "id": "gemma-2-2b-it",
+      "name": "Gemma 2 2B IT",
+      "url": "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q6_K_L.gguf",
+      "filename": "gemma-2-2b-it-q6_k_l.gguf",
+      "parameters": "2B",
+      "quant": "Q6_K_L"
+    },
+    {
       "id": "qwen3-4b-thinking",
       "name": "Qwen 3 4B Thinking 2507",
       "url": "https://huggingface.co/bartowski/Qwen_Qwen3-4B-Thinking-2507-GGUF/resolve/main/Qwen_Qwen3-4B-Thinking-2507-Q6_K.gguf",
