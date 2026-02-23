@@ -282,6 +282,23 @@
             // INIT
             document.querySelector('#ShirariumReviewPage').addEventListener('pageshow', function () {
                 refreshDash();
+                
+                // Attempt to fix the sidebar icon via DOM manipulation (World-Class Hack)
+                try {
+                    var parentDoc = window.parent.document;
+                    var sidebarLinks = parentDoc.querySelectorAll('.sidebarLink');
+                    sidebarLinks.forEach(function(link) {
+                        if (link.href.indexOf('ShirariumDashboard') !== -1) {
+                            var icon = link.querySelector('.navMenuIcon');
+                            if (icon) {
+                                icon.textContent = 'smart_toy'; // Set to Robot icon
+                                icon.style.color = '#52B54B';   // Optional: matching our brand green
+                            }
+                        }
+                    });
+                } catch (e) {
+                    console.warn("Could not modify sidebar icon from iframe: " + e.message);
+                }
             });
 
             document.querySelectorAll('.sh-tab-btn').forEach(function(btn) {
