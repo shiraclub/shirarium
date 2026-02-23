@@ -19,10 +19,11 @@ public sealed class InferenceManager : IHostedService, IDisposable
     private readonly HttpClient _httpClient;
     private Process? _runnerProcess;
     private bool _isDisposed;
-        private string _status = "Idle";
-        private string _error = string.Empty;
-        private double _downloadProgress;
-        private int _port = 11434;
+    private string _status = "Idle";
+    private string _error = string.Empty;
+    private string _lastErrorOutput = string.Empty;
+    private double _downloadProgress;
+    private int _port = 11434;
         private Dictionary<string, string> _metadata = new();
         private CancellationTokenSource? _pollingCts;
         private DateTime? _startTime;
@@ -396,22 +397,52 @@ public sealed class InferenceManager : IHostedService, IDisposable
                             _runnerProcess = new Process { StartInfo = startInfo };
                             _runnerProcess.EnableRaisingEvents = true;
                 
-                            _runnerProcess.OutputDataReceived += (s, e) => AddLog(e.Data);
-                            _runnerProcess.ErrorDataReceived += (s, e) => AddLog(e.Data);
-                
-                            _runnerProcess.Exited += (sender, args) =>
-                            {
-                                if (sender is Process p)
-                                {
-                                    var exitCode = p.ExitCode;
-                                    _logger.LogError("LLM Process Crashed! ExitCode: {Code}", exitCode);
-                
-                                    _status = "Error";
-                                    _error = $"Process exited with code {exitCode}. Check logs.";
-                                }
-                            };
-                
-                            _runnerProcess.Start();
+                                        _runnerProcess.OutputDataReceived += (s, e) => 
+                                        {
+                                            if (!string.IsNullOrWhiteSpace(e.Data))
+                                            {
+                                                AddLog(e.Data);
+                                                _logger.LogDebug("LLM Output: {Data}", e.Data);
+                                            }
+                                        };
+                                                                                _runnerProcess.ErrorDataReceived += (s, e) =>
+                                                                                {
+                                                                                    if (!string.IsNullOrWhiteSpace(e.Data))
+                                                                                    {
+                                                                                        AddLog(e.Data);
+                                                                                        _lastErrorOutput = e.Data;
+                                                                                        // Crucial: llama-server often puts its main startup info in stderr
+                                                                                        _logger.LogInformation("LLM Engine: {Data}", e.Data);
+                                                                                    }
+                                                                                };
+                                                                                                _runnerProcess.Exited += (sender, args) =>
+                                                                    {
+                                                                        if (sender is Process p)
+                                                                        {
+                                                                            var exitCode = p.ExitCode;
+                                                                            _logger.LogError("LLM Process Crashed! ExitCode: {Code}", exitCode);
+                                        
+                                                                                                                    _status = "Error";
+                                                                                                                    if (_lastErrorOutput.Contains("libgomp") || _lastErrorOutput.Contains("shared object"))
+                                                                                                                    {
+                                                                                                                        _error = "Missing dependency: libgomp1. (apt-get install libgomp1)";
+                                                                                                                    }
+                                                                                                                    else if (_lastErrorOutput.Contains("corrupted") || _lastErrorOutput.Contains("incomplete") || _lastErrorOutput.Contains("file bounds"))        
+                                                                                                                    {
+                                                                                                                        _error = "Model file corrupted. Try switching models to re-trigger download.";
+                                                                                                                    }
+                                                                                                                    else if (_lastErrorOutput.Contains("CUDA") || _lastErrorOutput.Contains("driver"))
+                                                                                                                    {
+                                                                                                                        _error = "GPU Driver Error. Try disabling GPU in settings.";
+                                                                                                                    }
+                                                                                                                    else
+                                                                                                                    {
+                                                                                                                        _error = $"Process exited with code {exitCode}. Check logs.";
+                                                                                                                    }
+                                        
+                                                                        }
+                                                                    };
+                                                                    _runnerProcess.Start();
                             _runnerProcess.BeginOutputReadLine();
                             _runnerProcess.BeginErrorReadLine();
                 
@@ -485,10 +516,19 @@ public sealed class InferenceManager : IHostedService, IDisposable
                 modelPath = Path.Combine(folder, fileName);
             }
     
-            if (File.Exists(modelPath) && new FileInfo(modelPath).Length > 1024 * 1024)
+            if (File.Exists(modelPath))
             {
-                _downloadProgress = 100.0;
-                return modelPath;
+                var info = new FileInfo(modelPath);
+                // Basic heuristic: no GGUF model we use is under 500MB. 
+                // If it is, it's almost certainly an interrupted download.
+                if (info.Length > 500 * 1024 * 1024)
+                {
+                    _downloadProgress = 100.0;
+                    return modelPath;
+                }
+                
+                _logger.LogWarning("Model file {Path} exists but is too small ({Size}MB). Likely corrupted. Deleting...", modelPath, info.Length / (1024 * 1024));
+                File.Delete(modelPath);
             }
     
             if (!config.AutoDownloadModel)

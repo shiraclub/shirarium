@@ -286,35 +286,38 @@
                         statusText.classList.remove('hidden');
                     }
 
-                    if (status === 'DownloadingModel') {                                                  
-                        tag.textContent = 'Fetching';
-                        tag.className = 'sh-status-tag status-fetching';
-                        statusText.textContent = 'Downloading: ' + modelName;
-                        if (progressContainer) progressContainer.classList.remove('hidden');
-                        if (progressBar) progressBar.style.width = progress + '%';
-                    } else if (status === 'Initializing') {       
-                        tag.textContent = 'Booting';
+                                                            if (status === 'DownloadingModel') {
+                                                                tag.textContent = 'Fetching';
+                                                                tag.className = 'sh-status-tag status-fetching';
+                                                                
+                                                                var source = modelName.includes('huggingface') || modelName.includes('hf') ? 'Hugging Face' : 'External Source';
+                                                                statusText.innerHTML = 'Downloading <b>' + modelName + '</b><br/><small style="opacity:0.6;">Source: ' + source + '</small>';
+                                                                
+                                                                if (progressContainer) progressContainer.classList.remove('hidden');
+                                                                if (progressBar) progressBar.style.width = progress + '%';
+                                                            } else if (status === 'Initializing') {
+                                                                tag.textContent = 'Booting';
                         tag.className = 'sh-status-tag status-booting';
                         statusText.textContent = 'Starting LLM process...';
                         if (progressContainer) progressContainer.classList.add('hidden');
-                    } else if (status === 'Ready') {
-                        tag.textContent = 'Loaded';
-                        tag.className = 'sh-status-tag status-ready';
-                        statusText.textContent = 'Model: ' + modelName;
-                        if (progressContainer) progressContainer.classList.add('hidden');
-                    } else if (status === 'Error') {
-                        tag.textContent = 'Failed';
-                        tag.className = 'sh-status-tag status-error';
-                        statusText.textContent = 'Engine error: ' + (inf.Error || 'Critical failure');
-                        if (progressContainer) progressContainer.classList.add('hidden');
-                    } else {
-                        tag.textContent = 'Offline';
-                        tag.className = 'sh-status-tag status-offline';
-                        statusText.textContent = 'Engine is ' + (status || 'idle').toLowerCase() + '.';
-                        if (progressContainer) progressContainer.classList.add('hidden');
-                    }                                             
-
-                    if (filtered > 0) {
+                                                            } else if (status === 'Ready') {
+                                                                tag.textContent = 'Active';
+                                                                tag.className = 'sh-status-tag status-ready';
+                                                                statusText.innerHTML = '<b>Active Model:</b> ' + modelName;
+                                                                if (progressContainer) progressContainer.classList.add('hidden');
+                                                            } else if (status === 'Error') {
+                                        
+                                            tag.textContent = 'Failed';
+                                            tag.className = 'sh-status-tag status-error';
+                                            statusText.textContent = 'Shirarium encountered an error: ' + (inf.Error || 'Critical failure');
+                                            if (progressContainer) progressContainer.classList.add('hidden');
+                                        } else {
+                                            tag.textContent = 'Idle';
+                                            tag.className = 'sh-status-tag status-offline';
+                                            statusText.textContent = 'Shirarium is currently waiting.';
+                                            if (progressContainer) progressContainer.classList.add('hidden');
+                                        }
+                                        if (filtered > 0) {
                         el('card-ready').classList.remove('hidden');
                         el('ready-text').textContent = 'Shirarium found ' + filtered + ' improvements for your library.';     
                     } else {
