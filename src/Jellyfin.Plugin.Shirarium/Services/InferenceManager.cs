@@ -29,6 +29,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
     private int _port = 11434;
     private Dictionary<string, string> _metadata = new();
     private CancellationTokenSource? _pollingCts;
+    private CancellationTokenSource? _initCts;
     private DateTime? _startTime;
     private readonly List<string> _logBuffer = new();
     private readonly object _logLock = new();
@@ -88,13 +89,17 @@ public sealed class InferenceManager : IHostedService, IDisposable
             return Task.CompletedTask;
         }
 
+        _initCts?.Cancel();
+        _initCts = new CancellationTokenSource();
+        var token = _initCts.Token;
+
         _ = Task.Run(async () =>
         {
             try
             {
                 _status = "Initializing";
                 _port = config.InferencePort;
-                var binaryPath = await EnsureBinaryExistsAsync(CancellationToken.None);
+                var binaryPath = await EnsureBinaryExistsAsync(token);
                 if (string.IsNullOrEmpty(binaryPath))
                 {
                     _status = "Error";
@@ -102,7 +107,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
                     return;
                 }
 
-                var modelPath = await EnsureModelExistsAsync(config, CancellationToken.None);
+                var modelPath = await EnsureModelExistsAsync(config, token);
                 if (string.IsNullOrEmpty(modelPath))
                 {
                     _status = "Error";
@@ -111,9 +116,13 @@ public sealed class InferenceManager : IHostedService, IDisposable
                 }
 
                 StartServer(binaryPath, modelPath, _port);
-                
+
                 // Status stays 'Initializing' until the first successful heartbeat or until a crash is detected
                 StartMetadataPolling();
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("InferenceManager initialization cancelled.");
             }
             catch (Exception ex)
             {
@@ -121,14 +130,14 @@ public sealed class InferenceManager : IHostedService, IDisposable
                 _error = ex.Message;
                 _logger.LogError(ex, "Error initializing local LLM.");
             }
-        }, cancellationToken);
+        }, token);
 
         return Task.CompletedTask;
     }
-
     public Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("InferenceManager stopping...");
+        _initCts?.Cancel();
         _pollingCts?.Cancel();
         _startTime = null;
         try
@@ -152,7 +161,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
             var url = $"http://127.0.0.1:{_port}/props";
             while (!token.IsCancellationRequested)
             {
-                if (_runnerProcess == null || _runnerProcess.HasExited) 
+                if (_runnerProcess == null || _runnerProcess.HasExited)
                 {
                     // Clean up metadata if process is gone
                     _metadata = new();
@@ -168,12 +177,14 @@ public sealed class InferenceManager : IHostedService, IDisposable
                         newMeta["Uptime"] = $"{(int)diff.TotalHours:D2}:{diff.Minutes:D2}:{diff.Seconds:D2}.{diff.Milliseconds / 100}";
                     }
                     newMeta["Compute"] = DetectGpuLayers() > 0 ? "Vulkan/CUDA" : "CPU (AVX2)";
-                    
-                    try {
+
+                    try
+                    {
                         _runnerProcess.Refresh();
                         double memMb = _runnerProcess.WorkingSet64 / (1024.0 * 1024.0);
                         newMeta["RAM"] = memMb > 1024 ? $"{memMb / 1024.0:F2} GB" : $"{memMb:F0} MB";
-                    } catch { newMeta["RAM"] = "0 MB"; }
+                    }
+                    catch { newMeta["RAM"] = "0 MB"; }
 
                     try
                     {
@@ -188,15 +199,17 @@ public sealed class InferenceManager : IHostedService, IDisposable
                             if (rawName.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)) rawName = Path.GetFileNameWithoutExtension(rawName);
                             newMeta["Model"] = rawName;
                             if (root.TryGetProperty("n_ctx", out var ctx)) newMeta["Context"] = ctx.GetInt32().ToString();
-                            
+
                             // Success! Transition to Ready if we were Initializing
-                            if (_status == "Initializing") {
+                            if (_status == "Initializing")
+                            {
                                 _status = "Ready";
                                 _startTime = DateTime.UtcNow;
                             }
                         }
                     }
-                    catch { 
+                    catch
+                    {
                         // Engine might still be loading weights
                     }
                     _metadata = newMeta;
@@ -255,9 +268,10 @@ public sealed class InferenceManager : IHostedService, IDisposable
             }
             return foundBinary ?? string.Empty;
         }
-        catch (Exception ex) { 
+        catch (Exception ex)
+        {
             _logger.LogError(ex, "Failed to download or extract binary version {Version}", Version);
-            return string.Empty; 
+            return string.Empty;
         }
         finally { if (File.Exists(tempFile)) try { File.Delete(tempFile); } catch { } }
     }
@@ -282,8 +296,9 @@ public sealed class InferenceManager : IHostedService, IDisposable
         {
             _runnerProcess = new Process { StartInfo = startInfo };
             _runnerProcess.EnableRaisingEvents = true;
-            
-            _runnerProcess.Exited += (s, e) => {
+
+            _runnerProcess.Exited += (s, e) =>
+            {
                 var exitCode = _runnerProcess?.ExitCode ?? -1;
                 _status = "Error";
                 _error = $"Engine exited with code {exitCode}. Check logs.";
@@ -293,46 +308,57 @@ public sealed class InferenceManager : IHostedService, IDisposable
             _runnerProcess.Start();
 
             // Background reader for Standard Output
-            Task.Run(() => {
-                try {
-                    while (!_runnerProcess.HasExited && !_runnerProcess.StandardOutput.EndOfStream) {
+            Task.Run(() =>
+            {
+                try
+                {
+                    while (!_runnerProcess.HasExited && !_runnerProcess.StandardOutput.EndOfStream)
+                    {
                         var line = _runnerProcess.StandardOutput.ReadLine();
                         if (line != null) AddLog(line);
                     }
-                } catch { }
+                }
+                catch { }
             });
 
             // Background reader for Standard Error (Where llama-server logs errors)
-            Task.Run(() => {
-                try {
+            Task.Run(() =>
+            {
+                try
+                {
                     var fullErr = new System.Text.StringBuilder();
-                    while (!_runnerProcess.HasExited && !_runnerProcess.StandardError.EndOfStream) {
+                    while (!_runnerProcess.HasExited && !_runnerProcess.StandardError.EndOfStream)
+                    {
                         var line = _runnerProcess.StandardError.ReadLine();
-                        if (line != null) {
+                        if (line != null)
+                        {
                             AddLog(line);
                             _lastErrorOutput = line;
                             fullErr.AppendLine(line);
                             _logger.LogInformation("LLM Engine: {Log}", line);
                         }
                     }
-                    
+
                     // If we get here, the stream ended (process likely died)
                     var finalError = fullErr.ToString();
-                    if (finalError.Contains("corrupted") || finalError.Contains("file bounds") || finalError.Contains("incomplete")) {
+                    if (finalError.Contains("corrupted") || finalError.Contains("file bounds") || finalError.Contains("incomplete"))
+                    {
                         _status = "Error";
                         _error = "Model file corrupted. Purging...";
                         _logger.LogWarning("LLM Self-Healing: Deleting corrupted model: {Path}", _activeModelPath);
                         try { if (File.Exists(_activeModelPath)) File.Delete(_activeModelPath); } catch { }
                     }
-                } catch { }
+                }
+                catch { }
             });
 
             _logger.LogInformation("Local inference server started (PID: {Pid})", _runnerProcess.Id);
         }
-        catch (Exception ex) { 
+        catch (Exception ex)
+        {
             _status = "Error";
             _error = ex.Message;
-            _logger.LogError(ex, "Failed to start engine."); 
+            _logger.LogError(ex, "Failed to start engine.");
         }
     }
 
@@ -363,11 +389,11 @@ public sealed class InferenceManager : IHostedService, IDisposable
             fileName = Path.GetFileName(uri.LocalPath);
             if (string.IsNullOrEmpty(fileName) || !fileName.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)) fileName = $"model-{config.SelectedModelPreset}.gguf";
         }
-        else 
+        else
         {
             _modelSource = "Local Path";
         }
-        
+
         _modelName = fileName;
         var modelPath = Path.Combine(folder, fileName);
 
@@ -405,7 +431,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
             }
             await fileStream.FlushAsync(cancellationToken);
             fileStream.Close();
-            
+
             // Success! Atomic rename
             if (File.Exists(modelPath)) File.Delete(modelPath);
             File.Move(tempPath, modelPath);
@@ -417,6 +443,8 @@ public sealed class InferenceManager : IHostedService, IDisposable
     public void Dispose()
     {
         if (_isDisposed) return;
+        _initCts?.Cancel();
+        _initCts?.Dispose();
         _pollingCts?.Cancel();
         _pollingCts?.Dispose();
         _runnerProcess?.Kill();

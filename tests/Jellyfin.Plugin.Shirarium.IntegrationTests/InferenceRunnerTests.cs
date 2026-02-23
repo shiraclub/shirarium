@@ -13,14 +13,14 @@ public sealed class InferenceRunnerTests
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), "shirarium-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempRoot);
-        
+
         try
         {
-            var appPaths = new TestApplicationPaths 
-            { 
-                DataPath = tempRoot 
+            var appPaths = new TestApplicationPaths
+            {
+                DataPath = tempRoot
             };
-            
+
             var config = new PluginConfiguration
             {
                 EnableManagedLocalInference = true,
@@ -28,34 +28,39 @@ public sealed class InferenceRunnerTests
                 ModelUrl = "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q6_K.gguf",
                 InferencePort = 11434
             };
-            
+
             var manager = new InferenceManager(appPaths, NullLogger<InferenceManager>.Instance, config);
-            
+
             // This will trigger the download and extraction
             // We use a timeout to prevent hanging the CI if there's a network issue
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-            
-            // We need to use Reflection or make the method internal to test it directly, 
+
+            // We need to use Reflection or make the method internal to test it directly,
             // but we can also just call StartAsync which calls it.
             // Let's call StartAsync to verify the full lifecycle.
             await manager.StartAsync(cts.Token);
-            
+
             var status = manager.GetStatus();
-            
-            // It might still be "Downloading" or "Initializing" depending on speed,
-            // but we want to see it eventually reach "Ready" or at least not fail with "Binary missing".
-            
-            // Wait up to 2 minutes for it to become Ready (heartbeat check)
+
+            // Wait up to 2 minutes for it to reach a state that confirms binary extraction
             var start = DateTime.UtcNow;
-            while (status.Status != "Ready" && (DateTime.UtcNow - start).TotalMinutes < 2)
+            while ((status.Status == "Idle" || status.Status == "Initializing") && (DateTime.UtcNow - start).TotalMinutes < 2)
             {
                 await Task.Delay(2000);
                 status = manager.GetStatus();
             }
 
             Assert.NotEqual("Runner binary missing and download failed", status.Error);
-            Assert.True(status.Status == "Ready" || status.Status == "Initializing", 
-                $"Expected Ready or Initializing, but got {status.Status}. Error: {status.Error}");
+
+            // If it reached DownloadingModel, it means EnsureBinaryExistsAsync worked
+            Assert.True(status.Status == "Ready" || status.Status == "Initializing" || status.Status == "DownloadingModel",
+                $"Expected Ready, Initializing, or DownloadingModel, but got {status.Status}. Error: {status.Error}");
+
+            // Verify binary exists on disk
+            var binaryName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "llama-server.exe" : "llama-server";
+            var binDir = Path.Combine(tempRoot, "plugins", "Shirarium", "bin", InferenceBinaryProvider.Version);
+            var files = Directory.GetFiles(binDir, binaryName, SearchOption.AllDirectories);
+            Assert.True(files.Length > 0, $"Binary {binaryName} should exist in {binDir}. Found: {string.Join(", ", files)}");
 
             await manager.StopAsync(CancellationToken.None);
         }
