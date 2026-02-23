@@ -52,6 +52,9 @@
                             <span id="ai-status-tag" class="sh-status-tag">Checking...</span>
                         </div>
                         <div id="ai-status-text">Connecting to local AI engine...</div>
+                        <div id="ai-progress-container" class="sh-table-wrap hidden" style="height: 8px; margin-top: 15px; background: #222; border: none;">
+                            <div id="ai-progress-bar" style="width: 0%; height: 100%; background: #33a1d6; transition: width 0.4s ease;"></div>
+                        </div>
                     </div>
 
                     <div id="card-ready" class="sh-card hidden" style="text-align: center;">
@@ -160,41 +163,48 @@
                 if (tabId === 'settings') loadSettings();
             }
 
-            async function refreshDash() {
-                try {
-                    var results = await Promise.all([
-                        api('shirarium/inference-status'),
-                        api('shirarium/organization-plan-view?pageSize=1')
-                    ]);
-                    
-                    var inf = results[0];
-                    var plan = results[1];
-                    state.plan = plan;
-
-                    var tag = el('ai-status-tag');
-                    if (inf.isDownloading) {
-                        tag.textContent = 'Learning...';
-                        tag.className = 'sh-status-tag status-wait';
-                        el('ai-status-text').textContent = 'AI is downloading its knowledge (' + (inf.downloadProgress || 0) + '%).';
-                    } else if (inf.isOnline) {
-                        tag.textContent = 'Active';
-                        tag.className = 'sh-status-tag status-ok';
-                        el('ai-status-text').textContent = 'The AI Brain is online and ready.';
-                    } else {
-                        tag.textContent = 'Offline';
-                        tag.className = 'sh-status-tag';
-                        el('ai-status-text').textContent = 'Enable AI in settings to improve results.';
-                    }
-
-                    if (plan.filteredEntries > 0) {
-                        el('card-ready').classList.remove('hidden');
-                        el('ready-text').textContent = 'AI found ' + plan.filteredEntries + ' improvements for your library.';
-                    } else {
-                        el('card-ready').classList.add('hidden');
-                    }
-                } catch (e) { console.error(e); }
-            }
-
+                        async function refreshDash() {
+                            try {
+                                var results = await Promise.all([
+                                    api('shirarium/inference-status'),
+                                    api('shirarium/organization-plan-view?pageSize=1')
+                                ]);
+            
+                                var inf = results[0];
+                                var plan = results[1];
+                                state.plan = plan;
+            
+                                var tag = el('ai-status-tag');
+                                var progressContainer = el('ai-progress-container');
+                                var progressBar = el('ai-progress-bar');
+                                var statusText = el('ai-status-text');
+            
+                                if (inf.isDownloading) {
+                                    tag.textContent = 'Learning...';
+                                    tag.className = 'sh-status-tag status-wait';
+                                    statusText.textContent = 'AI is downloading its knowledge (' + (inf.modelName || '...') + ').';
+                                    if (progressContainer) progressContainer.classList.remove('hidden');
+                                    if (progressBar) progressBar.style.width = (inf.downloadProgress || 0) + '%';
+                                } else if (inf.isOnline) {
+                                    tag.textContent = 'Active';
+                                    tag.className = 'sh-status-tag status-ok';
+                                    statusText.textContent = 'Brain online: ' + inf.modelName + ' (' + inf.p50LatencyMs.toFixed(1) + 'ms latency)';
+                                    if (progressContainer) progressContainer.classList.add('hidden');
+                                } else {
+                                    tag.textContent = 'Offline';
+                                    tag.className = 'sh-status-tag';
+                                    statusText.textContent = 'Enable AI in settings to improve library organization.';
+                                    if (progressContainer) progressContainer.classList.add('hidden');
+                                }
+            
+                                if (plan.filteredEntries > 0) {
+                                    el('card-ready').classList.remove('hidden');
+                                    el('ready-text').textContent = 'AI found ' + plan.filteredEntries + ' improvements for your library.';
+                                } else {
+                                    el('card-ready').classList.add('hidden');
+                                }
+                            } catch (e) { console.error("Dash refresh failed", e); }
+                        }
             async function refreshReview() {
                 Dashboard.showLoadingMsg();
                 try {
@@ -279,9 +289,22 @@
                 finally { Dashboard.hideLoadingMsg(); }
             }
 
+            // Polling logic
+            var pollHandle = null;
+            function startPolling() {
+                if (pollHandle) clearInterval(pollHandle);
+                pollHandle = setInterval(function() {
+                    // Only poll if the dash tab is active
+                    if (!el('panel-dash').classList.contains('hidden')) {
+                        refreshDash();
+                    }
+                }, 3000);
+            }
+
             // INIT
             document.querySelector('#ShirariumReviewPage').addEventListener('pageshow', function () {
                 refreshDash();
+                startPolling();
             });
 
             document.querySelectorAll('.sh-tab-btn').forEach(function(btn) {
