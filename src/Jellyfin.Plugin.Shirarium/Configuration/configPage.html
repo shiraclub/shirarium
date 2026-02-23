@@ -129,6 +129,16 @@
                                 <select is="emby-select" id="selectPreset"></select>
                                 <div id="preset-info" style="font-size:12px; color:#666; margin-top:5px;"></div>
                             </div>
+                            <div id="custom-model-container" class="hidden" style="margin:20px 0;">
+                                <div class="inputContainer">
+                                    <input is="emby-input" type="text" id="txtCustomUrl" label="Custom GGUF URL" placeholder="https://huggingface.co/.../model.gguf" />
+                                    <div class="fieldDescription">
+                                        Paste a direct <b>GGUF</b> download link. 
+                                        <a href="https://huggingface.co/models?search=gguf" target="_blank" style="color: #33a1d6; text-decoration: none;">Find models on Hugging Face &rarr;</a><br/>
+                                        <div style="margin-top:5px; opacity: 0.8;">Tip: Models between 1B and 4B parameters (like Llama 3.2 or Qwen 2.5) offer the best balance of speed and accuracy for Shirarium.</div>
+                                    </div>
+                                </div>
+                            </div>
                             <div style="margin-top:30px;">
                                 <button is="emby-button" type="submit" class="raised button-submit">Save Settings</button>
                             </div>
@@ -139,40 +149,41 @@
         </div>
     </div>
 
-    <script>
-        (function () {
-            var state = {
-                pluginId: new URLSearchParams(window.location.search).get('id'),
-                plan: null,
-                selection: new Set()
-            };
-
-            function el(id) { return document.getElementById(id); }
-            
-                                                                        async function api(path, method, body) {
-                                                                            var url = ApiClient.getUrl(path);
-                                                                            try {
-                                                                                return await ApiClient.ajax({
-                                                                                    type: method || 'GET',
-                                                                                    url: url,
-                                                                                    data: body ? JSON.stringify(body) : null,
-                                                                                    contentType: 'application/json',
-                                                                                    dataType: 'json'
-                                                                                });
-                                                                            } catch (err) {
-                                                                                console.error("[Shirarium] API Error:", path, err);
-                                                                                throw err;
-                                                                            }
-                                                                        }
-                                                            
-                                                                        var state = {
-                                                                            pluginId: '26639599-7389-408a-9860-310376d5423f',
-                                                                            selection: new Set(),
-                                                                            plan: null,
-                                                                            isRefreshingDash: false
-                                                                        };
-                                                            
-                                                                                    async function refreshDash() {
+            <script>
+                (function () {
+                    // Permanent identity of the Shirarium plugin
+                    var BF_ID = 'f8f6424f-3316-47ef-bfbe-b8138f7ef3ab';
+                    
+                    // Try to extract from URL (Standard), then from Hash (Router), finally fallback to hardcoded
+                    var pluginId = new URLSearchParams(window.location.search).get('id') || 
+                                   new URLSearchParams(window.location.hash.split('?')[1] || '').get('id') || 
+                                   BF_ID;
+                    
+                    var state = {
+                        pluginId: pluginId,
+                        selection: new Set(),
+                        plan: null,
+                        isRefreshingDash: false
+                    };    
+                            function el(id) { return document.getElementById(id); }
+                
+                            async function api(path, method, body) {
+                                var url = ApiClient.getUrl(path);
+                                try {
+                                    return await ApiClient.ajax({
+                                        type: method || 'GET',
+                                        url: url,
+                                        data: body ? JSON.stringify(body) : null,
+                                        contentType: 'application/json',
+                                        dataType: 'json'
+                                    });
+                                } catch (err) {
+                                    console.error("[Shirarium] API Error:", path, err);
+                                    throw err;
+                                }
+                            }
+                
+                            async function refreshDash() {
                                                                                         if (state.isRefreshingDash) return;
                                                                                         state.isRefreshingDash = true;
                                                                         
@@ -296,41 +307,66 @@
                                                         } finally { Dashboard.hideLoadingMsg(); }
                                                     }
                                         
-                                                    async function loadSettings() {
-                                                        try {
-                                                            var config = await ApiClient.getPluginConfiguration(state.pluginId);
-                                                            var presets = await api('shirarium/ai-model-presets');
-                                        
-                                                            el('chkEnableAi').checked = config.EnableAiParsing;
-                                                            var sel = el('selectPreset');
-                                                            sel.innerHTML = presets.Presets.map(function(p) {
-                                                                return '<option value="' + p.Id + '" ' + (p.Id === config.SelectedModelPreset ? 'selected' : '') + '>' + p.Name + '</option>';
-                                                            }).join('');
-                                        
-                                                            var updateInfo = function() {
-                                                                var p = presets.Presets.find(function(x) { return x.Id === sel.value; });
-                                                                if (p) el('preset-info').textContent = p.Rationale;
-                                                            };
-                                                            sel.onchange = updateInfo;
-                                                            updateInfo();
-                                                            state.config = config;
-                                                        } catch(e) {
-                                                            console.error("[Shirarium] Settings load failed", e);
-                                                        }
-                                                    }
-                                        
-                                                    async function saveSettings(e) {
-                                                        e.preventDefault();
-                                                        Dashboard.showLoadingMsg();
-                                                        try {
-                                                            state.config.EnableAiParsing = el('chkEnableAi').checked;
-                                                            state.config.SelectedModelPreset = el('selectPreset').value;
-                                                            await ApiClient.updatePluginConfiguration(state.pluginId, state.config);
-                                                            Dashboard.alert('Settings saved.');
-                                                        } finally { Dashboard.hideLoadingMsg(); }
-                                                    }
-                                        
-                                                    async function applySelected() {
+                                                                                                        async function loadSettings() {
+                                                                                                            try {
+                                                                                                                var config = await ApiClient.getPluginConfiguration(state.pluginId);
+                                                                                                                var presets = await api('shirarium/ai-model-presets');
+                                                    
+                                                                                                                                                                                                // Bind to EnableManagedLocalInference as per label
+                                                                                                                                                                                                el('chkEnableAi').checked = config.EnableManagedLocalInference;
+                                                                                                                                                                                                el('txtCustomUrl').value = config.CustomModelUrl || '';
+                                                                                                                
+                                                                                                                                                                                                var sel = el('selectPreset');
+                                                                                                                                                                                                sel.innerHTML = (presets.Presets || []).map(function(p) {
+                                                                                                                                                                                                    // Handle potential casing differences (Pascal vs Camel)
+                                                                                                                                                                                                    var id = p.Id || p.id;
+                                                                                                                                                                                                    var name = p.Name || p.name;
+                                                                                                                                                                                                    return '<option value="' + id + '" ' + (id === config.SelectedModelPreset ? 'selected' : '') + '>' + name + '</option>';
+                                                                                                                                                                                                }).join('');
+                                                                                                                
+                                                                                                                                                                                                var updateInfo = function() {
+                                                                                                                                                                                                    var val = sel.value;
+                                                                                                                                                                                                    var p = (presets.Presets || []).find(function(x) { return (x.Id || x.id) === val; });
+                                                                                                                                                                                                    if (p) el('preset-info').textContent = p.Rationale || p.rationale;
+                                                                                                                                                                                                    
+                                                                                                                                                                                                    if (val === 'custom') {
+                                                                                                                                                                                                        el('custom-model-container').classList.remove('hidden');
+                                                                                                                                                                                                    } else {
+                                                                                                                                                                                                        el('custom-model-container').classList.add('hidden');
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                };
+                                                                                                                                                                                                sel.onchange = updateInfo;
+                                                                                                                                                                                                updateInfo();
+                                                                                                                                                                                                state.config = config;
+                                                                                                                                                                                            } catch(e) {
+                                                                                                                                                                                                console.error("[Shirarium] Settings load failed", e);
+                                                                                                                                                                                            }
+                                                                                                                                                                                        }
+                                                                                                                
+                                                                                                                                                                                                                                                                async function saveSettings(e) {
+                                                                                                                                                                                                                                                                    e.preventDefault();
+                                                                                                                                                                                                                                                                    Dashboard.showLoadingMsg();
+                                                                                                                                                                                                                                                                    try {
+                                                                                                                                                                                                                                                                        // Save back to the correct property
+                                                                                                                                                                                                                                                                        state.config.EnableManagedLocalInference = el('chkEnableAi').checked;
+                                                                                                                                                                                                                                                                        // Also enable parsing if managed is enabled, for convenience
+                                                                                                                                                                                                                                                                        if (state.config.EnableManagedLocalInference) state.config.EnableAiParsing = true;
+                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                        var selectedId = el('selectPreset').value;
+                                                                                                                                                                                                                                                                        state.config.SelectedModelPreset = selectedId;
+                                                                                                                                                                                                                                                                        state.config.CustomModelUrl = el('txtCustomUrl').value;
+                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                        // Find the preset to get the URL
+                                                                                                                                                                                                                                                                        var presets = await api('shirarium/ai-model-presets');
+                                                                                                                                                                                                                                                                        var p = (presets.Presets || []).find(function(x) { return (x.Id || x.id) === selectedId; });
+                                                                                                                                                                                                                                                                        if (p && p.Url) {
+                                                                                                                                                                                                                                                                            state.config.ModelUrl = p.Url || p.url;
+                                                                                                                                                                                                                                                                        }
+                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                        await ApiClient.updatePluginConfiguration(state.pluginId, state.config);
+                                                                                                                                                                                                                                                                        Dashboard.alert('Settings saved.');
+                                                                                                                                                                                                                                                                    } finally { Dashboard.hideLoadingMsg(); }
+                                                                                                                                                                                                                                                                }                                                    async function applySelected() {
                                                         if (state.selection.size === 0) return;
                                                         Dashboard.showLoadingMsg();
                                                         try {

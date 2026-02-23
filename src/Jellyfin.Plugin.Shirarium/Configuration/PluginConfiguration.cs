@@ -90,9 +90,15 @@ public sealed class PluginConfiguration : BasePluginConfiguration
         /// Gets or sets the URL used to download the recommended model (Gemma 3 4B GGUF).
         /// </summary>
         public string ModelUrl { get; set; } = "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q6_K.gguf";
+
         /// <summary>
-    /// Gets or sets the destination root path used when generating organization plans.
-    /// </summary>
+        /// Gets or sets a custom GGUF download URL.
+        /// </summary>
+        public string CustomModelUrl { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the destination root path used when generating organization plans.
+        /// </summary>
     public string OrganizationRootPath { get; set; } = "/media";
 
     /// <summary>

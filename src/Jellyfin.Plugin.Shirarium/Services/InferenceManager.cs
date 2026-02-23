@@ -433,82 +433,84 @@ public sealed class InferenceManager : IHostedService, IDisposable
         return 0; // Fallback to CPU
     }
 
-    private async Task<string> EnsureModelExistsAsync(PluginConfiguration config, CancellationToken cancellationToken)
-    {
-        var modelUrl = config.ModelUrl;
-        var modelPath = config.LocalModelPath;
-
-        if (string.IsNullOrWhiteSpace(modelPath))
+        private async Task<string> EnsureModelExistsAsync(PluginConfiguration config, CancellationToken cancellationToken)
         {
-            var folder = Path.Combine(_applicationPaths.DataPath, "plugins", "Shirarium", "models");
-            Directory.CreateDirectory(folder);
-
-            // Use a unique filename based on the URL to allow multiple models to coexist
-            string fileName;
-            if (Uri.TryCreate(modelUrl, UriKind.Absolute, out var uri))
+            var modelUrl = config.SelectedModelPreset == "custom" && !string.IsNullOrWhiteSpace(config.CustomModelUrl)
+                ? config.CustomModelUrl
+                : config.ModelUrl;
+                
+            var modelPath = config.LocalModelPath;
+    
+            if (string.IsNullOrWhiteSpace(modelPath))
             {
-                fileName = Path.GetFileName(uri.LocalPath);
-                if (string.IsNullOrEmpty(fileName) || !fileName.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase))
+                var folder = Path.Combine(_applicationPaths.DataPath, "plugins", "Shirarium", "models");
+                Directory.CreateDirectory(folder);
+    
+                // Use a unique filename based on the URL to allow multiple models to coexist
+                string fileName;
+                if (Uri.TryCreate(modelUrl, UriKind.Absolute, out var uri))
+                {
+                    fileName = Path.GetFileName(uri.LocalPath);
+                    if (string.IsNullOrEmpty(fileName) || !fileName.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase))
+                    {
+                        fileName = $"model-{config.SelectedModelPreset}.gguf";
+                    }
+                }
+                else
                 {
                     fileName = $"model-{config.SelectedModelPreset}.gguf";
                 }
+    
+                modelPath = Path.Combine(folder, fileName);
             }
-            else
+    
+            if (File.Exists(modelPath) && new FileInfo(modelPath).Length > 1024 * 1024)
             {
-                fileName = "shirarium-custom-model.gguf";
+                _downloadProgress = 100.0;
+                return modelPath;
             }
-
-            modelPath = Path.Combine(folder, fileName);
-        }
-
-        if (File.Exists(modelPath) && new FileInfo(modelPath).Length > 1024 * 1024)
-        {
-            _downloadProgress = 100.0;
-            return modelPath;
-        }
-
-        if (!config.AutoDownloadModel)
-        {
-            return string.Empty;
-        }
-
-        _status = "DownloadingModel";
-        _logger.LogInformation("Downloading recommended LLM model to {Path}...", modelPath);
-        
-        try
-        {
-            using var response = await _httpClient.GetAsync(config.ModelUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            var totalBytes = response.Content.Headers.ContentLength;
-            using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var fileStream = new FileStream(modelPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
-
-            var buffer = new byte[8192];
-            var totalRead = 0L;
-            int read;
-            while ((read = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+    
+            if (!config.AutoDownloadModel)
             {
-                await fileStream.WriteAsync(buffer, 0, read, cancellationToken);
-                totalRead += read;
-                if (totalBytes.HasValue)
+                return string.Empty;
+            }
+    
+            _status = "DownloadingModel";
+            _logger.LogInformation("Downloading model from {Url} to {Path}...", modelUrl, modelPath);
+    
+            try
+            {
+                using var response = await _httpClient.GetAsync(modelUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                response.EnsureSuccessStatusCode();
+    
+                var totalBytes = response.Content.Headers.ContentLength;
+                using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                using var fileStream = new FileStream(modelPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+    
+                var buffer = new byte[8192];
+                var totalRead = 0L;
+                int read;
+                while ((read = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
                 {
-                    _downloadProgress = (double)totalRead / totalBytes.Value * 100.0;
+                    await fileStream.WriteAsync(buffer, 0, read, cancellationToken);
+                    totalRead += read;
+                    if (totalBytes.HasValue)
+                    {
+                        _downloadProgress = (double)totalRead / totalBytes.Value * 100.0;
+                    }
                 }
+    
+                _downloadProgress = 100.0;
+                _logger.LogInformation("Model download complete.");
+                return modelPath;
             }
-            
-            _downloadProgress = 100.0;
-            _logger.LogInformation("Model download complete.");
-            return modelPath;
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to download LLM model from {Url}", modelUrl);
+                if (File.Exists(modelPath)) File.Delete(modelPath);
+                return string.Empty;
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to download LLM model from {Url}", config.ModelUrl);
-            if (File.Exists(modelPath)) File.Delete(modelPath);
-            return string.Empty;
-        }
-    }
-
         /// <inheritdoc />
         public void Dispose()
         {
