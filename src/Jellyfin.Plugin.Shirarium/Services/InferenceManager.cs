@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.Shirarium.Services;
 
 /// <summary>
-/// Manages the lifecycle of the managed local inference engine (llama.cpp).
+/// Manages the lifecycle of the managed local LLM (llama.cpp).
 /// </summary>
 public sealed class InferenceManager : IHostedService, IDisposable
 {
@@ -22,107 +22,194 @@ public sealed class InferenceManager : IHostedService, IDisposable
     private string _status = "Idle";
     private string _error = string.Empty;
     private double _downloadProgress;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="InferenceManager"/> class.
-    /// </summary>
-    /// <param name="applicationPaths">Jellyfin application paths.</param>
-    /// <param name="logger">Logger instance.</param>
-    public InferenceManager(IApplicationPaths applicationPaths, ILogger<InferenceManager> logger)
-    {
-        _applicationPaths = applicationPaths;
-        _logger = logger;
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromHours(1) }; // Models are large
-    }
-
-    /// <summary>
-    /// Gets the current status of the inference engine.
-    /// </summary>
-    public (string Status, double Progress, string Error) GetStatus()
-    {
-        if (_runnerProcess != null && !_runnerProcess.HasExited)
+        private int _port = 11434;
+        private Dictionary<string, string> _metadata = new();
+        private CancellationTokenSource? _pollingCts;
+        private DateTime? _startTime;
+    
+        /// <summary>
+        /// Initializes a new instance of the <see cref="InferenceManager"/> class.
+        /// </summary>
+        /// <param name="applicationPaths">Jellyfin application paths.</param>
+        /// <param name="logger">Logger instance.</param>
+        public InferenceManager(IApplicationPaths applicationPaths, ILogger<InferenceManager> logger)
         {
-            return ("Ready", 100.0, string.Empty);
+            _applicationPaths = applicationPaths;
+            _logger = logger;
+            _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) }; 
         }
-
-        return (_status, _downloadProgress, _error);
-    }
-
-    /// <inheritdoc />
-    public Task StartAsync(CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("InferenceManager starting...");
-        
-        var config = Plugin.Instance?.Configuration;
-        if (config == null || !config.EnableManagedLocalInference)
-        {
-            _status = "Disabled";
-            return Task.CompletedTask;
-        }
-
-        if (_runnerProcess != null && !_runnerProcess.HasExited)
-        {
-            _status = "Ready";
-            return Task.CompletedTask;
-        }
-
-        // We run the heavy setup in a separate task to not block server startup
-        _ = Task.Run(async () => 
-        {
-            try 
+    
+            /// <summary>
+            /// Gets the current status of the LLM.
+            /// </summary>
+            public (string Status, double Progress, string Error, int Port, Dictionary<string, string> Metadata) GetStatus()
             {
-                _status = "Initializing";
-                var binaryPath = await EnsureBinaryExistsAsync(CancellationToken.None);
-                if (string.IsNullOrEmpty(binaryPath))
+                return (_status, _downloadProgress, _error, _port, _metadata);
+            }    
+            /// <inheritdoc />
+            public Task StartAsync(CancellationToken cancellationToken)
+            {
+                _logger.LogInformation("InferenceManager: Starting...");
+        
+                var config = Plugin.Instance?.Configuration;
+                if (config == null || !config.EnableManagedLocalInference)
                 {
-                    _status = "Error";
-                    _error = "Runner binary missing and download failed.";
-                    _logger.LogWarning(_error);
-                    return;
+                    _status = "Disabled";
+                    return Task.CompletedTask;
                 }
-
-                var modelPath = await EnsureModelExistsAsync(config, CancellationToken.None);
-                if (string.IsNullOrEmpty(modelPath))
+        
+                // If already running, just ensure the clock and polling are alive
+                if (_runnerProcess != null && !_runnerProcess.HasExited)
                 {
-                    _status = "Error";
-                    _error = "Model file missing and download failed.";
-                    _logger.LogWarning(_error);
-                    return;
+                    _status = "Ready";
+                    _startTime ??= DateTime.UtcNow;
+                    StartMetadataPolling();
+                    return Task.CompletedTask;
                 }
-
-                StartServer(binaryPath, modelPath, config.InferencePort);
-                _status = "Ready";
+        
+                // We run the heavy setup in a separate task to not block server startup
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        _status = "Initializing";
+                        _port = config.InferencePort;
+                        var binaryPath = await EnsureBinaryExistsAsync(CancellationToken.None);
+                        if (string.IsNullOrEmpty(binaryPath))
+                        {
+                            _status = "Error";
+                            _error = "Runner binary missing and download failed.";
+                            _logger.LogWarning(_error);
+                            return;
+                        }
+        
+                        var modelPath = await EnsureModelExistsAsync(config, CancellationToken.None);
+                        if (string.IsNullOrEmpty(modelPath))
+                        {
+                            _status = "Error";
+                            _error = "Model file missing and download failed.";
+                            _logger.LogWarning(_error);
+                            return;
+                        }
+        
+                        StartServer(binaryPath, modelPath, _port);
+                        
+                        _startTime = DateTime.UtcNow;
+                        _status = "Ready";
+                        _downloadProgress = 100.0;
+                        
+                        StartMetadataPolling();
+                    }
+                    catch (Exception ex)
+                    {
+                        _status = "Error";
+                        _error = ex.Message;
+                        _logger.LogError(ex, "Error initializing local LLM.");
+                    }
+                }, cancellationToken);
+        
+                return Task.CompletedTask;
+            }
+    
+        /// <inheritdoc />
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("InferenceManager stopping...");
+            _pollingCts?.Cancel();
+            _startTime = null;
+            try
+            {
+                if (_runnerProcess != null && !_runnerProcess.HasExited)
+                {
+                    _runnerProcess.Kill();
+                }
             }
             catch (Exception ex)
             {
-                _status = "Error";
-                _error = ex.Message;
-                _logger.LogError(ex, "Error initializing local inference engine.");
+                _logger.LogWarning(ex, "Failed to kill inference runner process.");
             }
-        }, cancellationToken);
-
-        return Task.CompletedTask;
-    }
-
-    /// <inheritdoc />
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("InferenceManager stopping...");
-        try
-        {
-            if (_runnerProcess != null && !_runnerProcess.HasExited)
-            {
-                _runnerProcess.Kill();
-            }
+            return Task.CompletedTask;
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to kill inference runner process.");
-        }
-        return Task.CompletedTask;
-    }
-
-    private async Task<string> EnsureBinaryExistsAsync(CancellationToken cancellationToken)
+    
+                    private void StartMetadataPolling()
+                    {
+                        _pollingCts?.Cancel();
+                        _pollingCts = new CancellationTokenSource();
+                        var token = _pollingCts.Token;
+                
+                        _logger.LogInformation("LLM Heartbeat: Starting polling loop on port {Port}...", _port);
+                
+                        _ = Task.Run(async () =>
+                        {
+                            var url = $"http://127.0.0.1:{_port}/props";
+                            
+                            while (!token.IsCancellationRequested)
+                            {
+                                if (_runnerProcess == null || _runnerProcess.HasExited) 
+                                {
+                                    _logger.LogWarning("LLM Heartbeat: LLM process is not active. Stopping polling.");
+                                    break;
+                                }
+                
+                                try
+                                {
+                                    var newMeta = new Dictionary<string, string>();
+                                    
+                                    // 1. Calculate Uptime
+                                    if (_startTime.HasValue)
+                                    {
+                                        var diff = DateTime.UtcNow - _startTime.Value;
+                                        newMeta["Uptime"] = $"{(int)diff.TotalHours:D2}:{diff.Minutes:D2}:{diff.Seconds:D2}.{diff.Milliseconds / 100}";
+                                    }
+                                    else
+                                    {
+                                        newMeta["Uptime"] = "00:00:00.0";
+                                    }
+                
+                                    // 2. Hardware Info
+                                    newMeta["Compute"] = DetectGpuLayers() > 0 ? "Vulkan/CUDA" : "CPU (AVX2)";
+                                    newMeta["PID"] = _runnerProcess.Id.ToString();
+                
+                                    // 3. Try fetch internal state
+                                    try
+                                    {
+                                        using var response = await _httpClient.GetAsync(url, token);
+                                        if (response.IsSuccessStatusCode)
+                                        {
+                                            var json = await response.Content.ReadAsStringAsync(token);
+                                            using var doc = System.Text.Json.JsonDocument.Parse(json);
+                                            var root = doc.RootElement;
+                
+                                            if (root.TryGetProperty("model_path", out var mp)) newMeta["Model"] = Path.GetFileName(mp.GetString()) ?? "Loaded";
+                                            else if (root.TryGetProperty("model_name", out var mn)) newMeta["Model"] = mn.GetString() ?? "Loaded";
+                                            
+                                            if (root.TryGetProperty("n_ctx", out var ctx)) newMeta["Context"] = ctx.GetInt32().ToString();
+                                            
+                                            _logger.LogInformation("LLM Heartbeat: Pulse OK. Uptime: {Uptime}", newMeta["Uptime"]);
+                                        }
+                                        else
+                                        {
+                                            _logger.LogWarning("LLM Heartbeat: Engine responded with {Code} at {Url}", response.StatusCode, url);
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        // Model weights are likely still loading into RAM/VRAM
+                                        _logger.LogInformation("LLM Heartbeat: Waiting for engine weights... ({Msg})", ex.Message);
+                                    }
+                
+                                    // 4. Atomic swap
+                                    _metadata = newMeta;
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex, "LLM Heartbeat: Fatal loop error.");
+                                }
+                
+                                await Task.Delay(2000, token);
+                            }
+                        }, token);
+                    }    private async Task<string> EnsureBinaryExistsAsync(CancellationToken cancellationToken)
     {
         var binFolder = Path.Combine(_applicationPaths.DataPath, "plugins", "Shirarium", "bin");
         Directory.CreateDirectory(binFolder);
@@ -245,21 +332,50 @@ public sealed class InferenceManager : IHostedService, IDisposable
             _logger.LogInformation("No compatible GPU detected. Falling back to CPU-only inference.");
         }
 
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = binaryPath,
-            Arguments = $"--model \"{modelPath}\" --port {port} --n-gpu-layers {gpuLayers}", 
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            WorkingDirectory = Path.GetDirectoryName(binaryPath)
-        };
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = binaryPath,
+                    Arguments = $"--model \"{modelPath}\" --port {port} --host 127.0.0.1 --n-gpu-layers {gpuLayers}",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    WorkingDirectory = Path.GetDirectoryName(binaryPath)
+                };
 
         try
         {
-            _runnerProcess = Process.Start(startInfo);
-            _logger.LogInformation("Local inference server started (PID: {Pid})", _runnerProcess?.Id);
+            _runnerProcess = new Process { StartInfo = startInfo };
+            _runnerProcess.EnableRaisingEvents = true;
+            _runnerProcess.Exited += (sender, args) =>
+            {
+                if (sender is Process p)
+                {
+                    var exitCode = p.ExitCode;
+                    var error = p.StandardError.ReadToEnd();
+                                        var output = p.StandardOutput.ReadToEnd();
+                                        
+                                        _logger.LogError("LLM Process Crashed! ExitCode: {Code}", exitCode);
+                                        if (!string.IsNullOrWhiteSpace(error)) _logger.LogError("LLM STDERR: {Err}", error);
+                                        if (!string.IsNullOrWhiteSpace(output)) _logger.LogError("LLM STDOUT: {Out}", output);
+                    
+                                        _status = "Error";
+                                        if (error.Contains("libgomp") || error.Contains("shared object"))
+                                        {
+                                            _error = "Missing dependency: libgomp1. (apt-get install libgomp1)";
+                                        }
+                                        else if (error.Contains("CUDA") || error.Contains("driver"))
+                                        {
+                                            _error = "GPU Driver Error. Try disabling GPU in settings.";
+                                        }
+                                        else
+                                        {
+                                            _error = $"Process exited with code {exitCode}. Check logs.";
+                                        }
+                                    }
+                                };            
+            _runnerProcess.Start();
+            _logger.LogInformation("Local inference server started (PID: {Pid})", _runnerProcess.Id);
         }
         catch (Exception ex)
         {
@@ -375,15 +491,16 @@ public sealed class InferenceManager : IHostedService, IDisposable
         }
     }
 
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        if (_isDisposed) return;
-        
-        _runnerProcess?.Kill();
-        _runnerProcess?.Dispose();
-        _httpClient.Dispose();
-        
-        _isDisposed = true;
-    }
-}
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            if (_isDisposed) return;
+    
+            _pollingCts?.Cancel();
+            _pollingCts?.Dispose();
+            _runnerProcess?.Kill();
+            _runnerProcess?.Dispose();
+            _httpClient.Dispose();
+    
+            _isDisposed = true;
+        }}

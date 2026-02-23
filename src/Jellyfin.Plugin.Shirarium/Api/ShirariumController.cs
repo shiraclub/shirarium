@@ -81,12 +81,14 @@ public sealed class ShirariumController : ControllerBase
             return Ok(new InferenceStatusResponse { Status = "NotInitialized" });
         }
 
-        var (status, progress, error) = manager.GetStatus();
+        var (status, progress, error, port, metadata) = manager.GetStatus();
         return Ok(new InferenceStatusResponse
         {
             Status = status,
             Progress = progress,
-            Error = error
+            Error = error,
+            Port = port,
+            Metadata = metadata
         });
     }
 

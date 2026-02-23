@@ -1,0 +1,4 @@
+FROM jellyfin/jellyfin:10.11.6
+
+# Install runtime dependencies for llama.cpp (OpenMP)
+RUN apt-get update && apt-get install -y libgomp1 && rm -rf /var/lib/apt/lists/*

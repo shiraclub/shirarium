@@ -24,4 +24,14 @@ public sealed class InferenceStatusResponse
     /// Gets the model being used.
     /// </summary>
     public string ModelName { get; init; } = "qwen3-4b-instruct";
+
+    /// <summary>
+    /// Gets the port the inference server is listening on.
+    /// </summary>
+    public int Port { get; init; }
+
+    /// <summary>
+    /// Gets additional technical metadata from the LLM.
+    /// </summary>
+    public Dictionary<string, string> Metadata { get; init; } = new();
 }

@@ -24,10 +24,14 @@
                 .status-fetching { background: #f1c40f; color: black; } /* Yellow */
                 .status-booting { background: #33a1d6; color: white; } /* Blue */
                 .status-error { background: #e74c3c; color: white; } /* Red */
-                .status-offline { background: #444; color: #aaa; } /* Grey */
+                                .status-offline { background: #444; color: #aaa; } /* Grey */
                 
-                .sh-table-wrap { overflow-x: auto; margin-top: 15px; border-radius: 4px; border: 1px solid #333; }
-                .sh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+                                .sh-metadata { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 15px; border-top: 1px solid #333; padding-top: 15px; }
+                                .sh-meta-item { background: #222; padding: 10px; border-radius: 4px; border: 1px solid #333; }
+                                .sh-meta-label { font-size: 10px; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+                                .sh-meta-value { font-size: 13px; color: #33a1d6; font-family: monospace; }
+                
+                                .sh-table-wrap { overflow-x: auto; margin-top: 15px; border-radius: 4px; border: 1px solid #333; }                .sh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
                 .sh-table th { background: #222; text-align: left; padding: 12px; border-bottom: 1px solid #333; color: #888; }
                 .sh-table td { padding: 12px; border-bottom: 1px solid #222; }
                 
@@ -55,6 +59,7 @@
                             <span id="ai-status-tag" class="sh-status-tag">Checking...</span>
                         </div>
                         <div id="ai-status-text">Connecting to local LLM...</div>
+                        <div id="ai-metadata" class="sh-metadata hidden"></div>
                         <div id="ai-progress-container" class="sh-table-wrap hidden" style="height: 8px; margin-top: 15px; background: #222; border: none;">
                             <div id="ai-progress-bar" style="width: 0%; height: 100%; background: #33a1d6; transition: width 0.4s ease;"></div>
                         </div>
@@ -167,29 +172,46 @@
                                                                             isRefreshingDash: false
                                                                         };
                                                             
-                                                                        async function refreshDash() {
-                                                                            if (state.isRefreshingDash) return;
-                                                                            state.isRefreshingDash = true;
-                                                            
-                                                                            try {
-                                                                                var inf = await api('shirarium/inference-status');
-                                                                                var plan = await api('shirarium/organization-plan-view?pageSize=1');
-                                                                                state.plan = plan;
-                                                            
-                                                                                var tag = el('ai-status-tag');
-                                                                                var progressContainer = el('ai-progress-container');
-                                                                                var progressBar = el('ai-progress-bar');
-                                                                                var statusText = el('ai-status-text');
-                                                            
-                                                                                                                        var status = inf.Status || 'Idle';
-                                                                                                                        var rawModel = inf.ModelName || 'Managed LLM';
-                                                                                                                        // Capitalize first letter of model name
-                                                                                                                        var modelName = rawModel.charAt(0).toUpperCase() + rawModel.slice(1);
-                                                                                                                        var progress = inf.Progress || 0;
-                                                                                                                        var filtered = plan ? plan.FilteredEntries : 0;
-                                                                                                    
-                                                                                                                                            if (status === 'DownloadingModel') {
-                                                                                                                                                tag.textContent = 'Fetching';
+                                                                                    async function refreshDash() {
+                                                                                        if (state.isRefreshingDash) return;
+                                                                                        state.isRefreshingDash = true;
+                                                                        
+                                                                                        try {
+                                                                                            var inf = await api('shirarium/inference-status');
+                                                                                            var plan = await api('shirarium/organization-plan-view?pageSize=1');
+                                                                                            console.log("[Shirarium] refreshDash: data received", { inf: inf, plan: plan });
+                                                                                            state.plan = plan;                                                            
+                                                                                                    var tag = el('ai-status-tag');
+                                                                                                    var progressContainer = el('ai-progress-container');
+                                                                                                    var progressBar = el('ai-progress-bar');
+                                                                                                    var statusText = el('ai-status-text');
+                                                                                                    var metaContainer = el('ai-metadata');
+                                                                                
+                                                                                                    var status = inf.Status || 'Idle';
+                                                                                                    var rawModel = inf.ModelName || 'Managed LLM';
+                                                                                                    // Capitalize first letter of model name
+                                                                                                    var modelName = rawModel.charAt(0).toUpperCase() + rawModel.slice(1);
+                                                                                                    var progress = inf.Progress || 0;
+                                                                                                    var filtered = plan ? plan.FilteredEntries : 0;
+                                                                                
+                                                                                                    // Update Technical Metadata
+                                                                                                    if (inf.Metadata && Object.keys(inf.Metadata).length > 0) {
+                                                                                                        metaContainer.classList.remove('hidden');
+                                                                                                        metaContainer.innerHTML = Object.keys(inf.Metadata).map(function(k) {
+                                                                                                            return '<div class="sh-meta-item">' +
+                                                                                                                '<div class="sh-meta-label">' + k + '</div>' +
+                                                                                                                '<div class="sh-meta-value">' + inf.Metadata[k] + '</div>' +
+                                                                                                                '</div>';
+                                                                                                        }).join('');
+                                                                                                        // If we have metadata (which includes Model), hide the redundant status text
+                                                                                                        if (status === 'Ready') statusText.classList.add('hidden');
+                                                                                                        else statusText.classList.remove('hidden');
+                                                                                                    } else {
+                                                                                                        metaContainer.classList.add('hidden');
+                                                                                                        statusText.classList.remove('hidden');
+                                                                                                    }
+                                                                                
+                                                                                                    if (status === 'DownloadingModel') {                                                                                                                                                tag.textContent = 'Fetching';
                                                                                                                                                 tag.className = 'sh-status-tag status-fetching';
                                                                                                                                                 statusText.textContent = 'Downloading: ' + modelName;
                                                                                                                                                 if (progressContainer) progressContainer.classList.remove('hidden');
