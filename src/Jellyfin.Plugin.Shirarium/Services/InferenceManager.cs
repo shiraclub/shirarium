@@ -166,28 +166,46 @@ public sealed class InferenceManager : IHostedService, IDisposable
                                         newMeta["Uptime"] = "00:00:00.0";
                                     }
                 
-                                    // 2. Hardware Info
-                                    newMeta["Compute"] = DetectGpuLayers() > 0 ? "Vulkan/CUDA" : "CPU (AVX2)";
-                                    newMeta["PID"] = _runnerProcess.Id.ToString();
-                
-                                    // 3. Try fetch internal state
-                                    try
-                                    {
-                                        using var response = await _httpClient.GetAsync(url, token);
-                                        if (response.IsSuccessStatusCode)
-                                        {
-                                            var json = await response.Content.ReadAsStringAsync(token);
-                                            using var doc = System.Text.Json.JsonDocument.Parse(json);
-                                            var root = doc.RootElement;
-                
-                                            if (root.TryGetProperty("model_path", out var mp)) newMeta["Model"] = Path.GetFileName(mp.GetString()) ?? "Loaded";
-                                            else if (root.TryGetProperty("model_name", out var mn)) newMeta["Model"] = mn.GetString() ?? "Loaded";
-                                            
-                                            if (root.TryGetProperty("n_ctx", out var ctx)) newMeta["Context"] = ctx.GetInt32().ToString();
-                                            
-                                            _logger.LogInformation("LLM Heartbeat: Pulse OK. Uptime: {Uptime}", newMeta["Uptime"]);
-                                        }
-                                        else
+                                                                        // 2. Hardware Info
+                                                                        newMeta["Compute"] = DetectGpuLayers() > 0 ? "Vulkan/CUDA" : "CPU (AVX2)";
+                                                                        
+                                                                        _runnerProcess.Refresh();
+                                                                        double memMb = _runnerProcess.WorkingSet64 / (1024.0 * 1024.0);
+                                                                        newMeta["RAM"] = memMb > 1024 ? $"{memMb / 1024.0:F2} GB" : $"{memMb:F0} MB";
+                                    
+                                                                        // 3. Try fetch internal state
+                                                                        try
+                                                                        {
+                                                                            using var response = await _httpClient.GetAsync(url, token);
+                                                                            if (response.IsSuccessStatusCode)
+                                                                            {
+                                                                                var json = await response.Content.ReadAsStringAsync(token);
+                                                                                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                                                                                var root = doc.RootElement;
+                                    
+                                                                                string rawName = "Loaded";
+                                                                                if (root.TryGetProperty("model_path", out var mp)) rawName = Path.GetFileName(mp.GetString()) ?? "Loaded";
+                                                                                else if (root.TryGetProperty("model_name", out var mn)) rawName = mn.GetString() ?? "Loaded";
+                                                                                
+                                                                                // Clean up model name (remove extension)
+                                                                                if (rawName.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase))
+                                                                                {
+                                                                                    rawName = Path.GetFileNameWithoutExtension(rawName);
+                                                                                }
+                                                                                newMeta["Model"] = rawName;
+                                                                                
+                                                                                // Context might be top-level or in default_generation_settings
+                                                                                if (root.TryGetProperty("n_ctx", out var ctx)) 
+                                                                                {
+                                                                                    newMeta["Context"] = ctx.GetInt32().ToString();
+                                                                                }
+                                                                                else if (root.TryGetProperty("default_generation_settings", out var dgs) && dgs.TryGetProperty("n_ctx", out var ctxNested))
+                                                                                {
+                                                                                    newMeta["Context"] = ctxNested.GetInt32().ToString();
+                                                                                }
+                                    
+                                                                                _logger.LogInformation("LLM Heartbeat: Pulse OK. Uptime: {Uptime} | RAM: {Ram}", newMeta["Uptime"], newMeta["RAM"]);
+                                                                            }                                        else
                                         {
                                             _logger.LogWarning("LLM Heartbeat: Engine responded with {Code} at {Url}", response.StatusCode, url);
                                         }
