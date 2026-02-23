@@ -34,10 +34,13 @@ public sealed class InferenceManager : IHostedService, IDisposable
     private readonly object _logLock = new();
     private const int MaxLogLines = 100;
 
-    public InferenceManager(IApplicationPaths applicationPaths, ILogger<InferenceManager> logger)
+    private readonly PluginConfiguration? _testConfig;
+
+    public InferenceManager(IApplicationPaths applicationPaths, ILogger<InferenceManager> logger, PluginConfiguration? testConfig = null)
     {
         _applicationPaths = applicationPaths;
         _logger = logger;
+        _testConfig = testConfig;
         _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
     }
 
@@ -70,8 +73,12 @@ public sealed class InferenceManager : IHostedService, IDisposable
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("InferenceManager: Starting...");
-        var config = Plugin.Instance?.Configuration;
+        var config = _testConfig ?? Plugin.Instance?.Configuration;
         if (config == null || !config.EnableManagedLocalInference)
+        {
+            _status = "Disabled";
+            return Task.CompletedTask;
+        }
         {
             _status = "Disabled";
             return Task.CompletedTask;

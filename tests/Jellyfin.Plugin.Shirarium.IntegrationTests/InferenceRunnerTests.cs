@@ -20,7 +20,15 @@ public sealed class InferenceRunnerTests
                 DataPath = tempRoot 
             };
             
-            var manager = new InferenceManager(appPaths, NullLogger<InferenceManager>.Instance);
+            var config = new PluginConfiguration
+            {
+                EnableManagedLocalInference = true,
+                SelectedModelPreset = "gemma-3-4b",
+                ModelUrl = "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q6_K.gguf",
+                InferencePort = 11434
+            };
+            
+            var manager = new InferenceManager(appPaths, NullLogger<InferenceManager>.Instance, config);
             
             // This will trigger the download and extraction
             // We use a timeout to prevent hanging the CI if there's a network issue
