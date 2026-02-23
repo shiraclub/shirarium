@@ -217,16 +217,34 @@ public sealed class InferenceManager : IHostedService, IDisposable
         if (downloadUrl == null) return string.Empty;
 
         _logger.LogInformation("Downloading llama-server binary ({Version})...", Version);
-        var tempZip = Path.Combine(Path.GetTempPath(), $"shirarium-bin-{Version}-{Guid.NewGuid():N}.zip");
+        var tempFile = Path.Combine(Path.GetTempPath(), $"shirarium-bin-{Version}-{Guid.NewGuid():N}" + (downloadUrl.EndsWith(".zip") ? ".zip" : ".tar.gz"));
         try
         {
             using (var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
             {
                 response.EnsureSuccessStatusCode();
-                using var fs = new FileStream(tempZip, FileMode.Create, FileAccess.Write, FileShare.None);
+                using var fs = new FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None);
                 await response.Content.CopyToAsync(fs, cancellationToken);
             }
-            ZipFile.ExtractToDirectory(tempZip, binFolder, true);
+
+            if (tempFile.EndsWith(".zip"))
+            {
+                ZipFile.ExtractToDirectory(tempFile, binFolder, true);
+            }
+            else
+            {
+                // .tar.gz extraction
+                using var fs = File.OpenRead(tempFile);
+                using var gzip = new GZipStream(fs, CompressionMode.Decompress);
+                var tarPath = tempFile + ".tar";
+                using (var tarFs = File.Create(tarPath))
+                {
+                    await gzip.CopyToAsync(tarFs, cancellationToken);
+                }
+                System.Formats.Tar.TarFile.ExtractToDirectory(tarPath, binFolder, true);
+                try { File.Delete(tarPath); } catch { }
+            }
+
             var foundBinary = Directory.GetFiles(binFolder, binaryName, SearchOption.AllDirectories).FirstOrDefault();
             if (foundBinary != null && !RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -238,14 +256,14 @@ public sealed class InferenceManager : IHostedService, IDisposable
             _logger.LogError(ex, "Failed to download or extract binary version {Version}", Version);
             return string.Empty; 
         }
-        finally { if (File.Exists(tempZip)) File.Delete(tempZip); }
+        finally { if (File.Exists(tempFile)) try { File.Delete(tempFile); } catch { } }
     }
 
     private string? GetBinaryUrl()
     {
         const string BaseUrl = "https://github.com/ggml-org/llama.cpp/releases/download/b8133/";
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return BaseUrl + "llama-b8133-bin-win-vulkan-x64.zip";
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return BaseUrl + "llama-b8133-bin-ubuntu-x64.zip";
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return BaseUrl + "llama-b8133-bin-ubuntu-x64.tar.gz";
         return null;
     }
 
