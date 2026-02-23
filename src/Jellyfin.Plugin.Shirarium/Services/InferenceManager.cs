@@ -261,9 +261,31 @@ public sealed class InferenceManager : IHostedService, IDisposable
 
     private string? GetBinaryUrl()
     {
-        const string BaseUrl = "https://github.com/ggml-org/llama.cpp/releases/download/b8133/";
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return BaseUrl + "llama-b8133-bin-win-vulkan-x64.zip";
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return BaseUrl + "llama-b8133-bin-ubuntu-x64.tar.gz";
+        const string Version = "b8133";
+        const string BaseUrl = $"https://github.com/ggml-org/llama.cpp/releases/download/{Version}/";
+        
+        var isArm64 = RuntimeInformation.OSArchitecture == Architecture.Arm64;
+        
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            // Windows is almost always x64 for Jellyfin; default to Vulkan for GPU support
+            // We can add a CPU fallback if Vulkan fails in a future iteration
+            return BaseUrl + $"llama-{Version}-bin-win-vulkan-x64.zip";
+        }
+        
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            // Standard Ubuntu build for Linux
+            return BaseUrl + $"llama-{Version}-bin-ubuntu-x64.tar.gz";
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            // macOS binaries are always tar.gz and split by Arch (Arm64 vs x64)
+            string arch = isArm64 ? "arm64" : "x64";
+            return BaseUrl + $"llama-{Version}-bin-macos-{arch}.tar.gz";
+        }
+
         return null;
     }
 
