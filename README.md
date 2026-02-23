@@ -47,6 +47,20 @@ Shirarium is distributed via a managed plugin repository for seamless updates.
 - **Scanning**: Hybrid `FilesystemCandidateProvider` + Jellyfin DB Cross-reference.
 - **AI**: Managed `llama-server` process (auto-downloaded) running Qwen 2.5 3B Instruct.
 
+## Configuration
+
+Go to **Dashboard -> Plugins -> Shirarium** to configure:
+
+- **AI Parsing**: Enable/Disable managed local inference.
+- **Path Templates**: Customize how movies and episodes are renamed.
+
+## Safety
+
+- No automatic file move/rename happens in the current pipeline.
+- Apply operations require explicit source-path selection.
+- Apply is guarded by plan fingerprint matching.
+- **Undo** is fully supported via the "History" tab or API.
+
 ## Benchmarks
 We evaluate Small Language Models (SLMs) for media filename parsing using **ShirariumBench**. Results below are from the `tier-b-synthetic.json` dataset (200 items).
 
@@ -65,20 +79,6 @@ We evaluate Small Language Models (SLMs) for media filename parsing using **Shir
 | SmolLM3 3B Instruct | 68.6% | 2464ms | 3B |
 
 Detailed reports and more models are available in the [`shirariumbench/`](shirariumbench/) directory.
-
-## Configuration
-
-Go to **Dashboard -> Plugins -> Shirarium** to configure:
-
-- **AI Parsing**: Enable/Disable managed local inference.
-- **Path Templates**: Customize how movies and episodes are renamed.
-
-## Safety
-
-- No automatic file move/rename happens in the current pipeline.
-- Apply operations require explicit source-path selection.
-- Apply is guarded by plan fingerprint matching.
-- **Undo** is fully supported via the "History" tab or API.
 
 ## Roadmap
 
