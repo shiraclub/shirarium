@@ -33,9 +33,10 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     public bool EnablePostScanTask { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets the maximum number of candidate items to parse per run.
+    /// Gets or sets the maximum number of candidate items to parse per run. 
+    /// Set to 0 for unlimited.
     /// </summary>
-    public int MaxItemsPerRun { get; set; } = 500;
+    public int MaxItemsPerRun { get; set; } = 0;
 
     /// <summary>
     /// Gets or sets the minimum confidence required for a suggestion to be stored.

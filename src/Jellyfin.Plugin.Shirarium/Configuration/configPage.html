@@ -157,6 +157,12 @@
                                 <div class="fieldDescription">Deeper analysis for "impossible" filenames (Anime, scene soup, hashes). Requires extra RAM.</div>
                             </div>
 
+                            <div class="inputContainer" style="margin:20px 0;">
+                                <label class="form-label" for="txtMaxItems">Scan Limit (Max Files)</label>
+                                <input is="emby-input" type="number" id="txtMaxItems" min="0" step="100" />
+                                <div class="fieldDescription">Number of files to analyze per scan. Set to <b>0</b> for <b>Unlimited</b> (caution: large libraries with LLM may take hours).</div>
+                            </div>
+
                             <div id="llm-details" class="hidden" style="margin-left: 20px; border-left: 2px solid #333; padding-left: 20px;">
                                 <div class="selectContainer" style="margin:20px 0;">
                                     <label class="form-label">LLM Model</label>
@@ -423,11 +429,11 @@
                     var config = await ApiClient.getPluginConfiguration(state.pluginId);     
                     var presets = await api('shirarium/ai-model-presets');
 
-                    el('chkEnableHeuristics').checked = config.EnableHeuristics !== false; 
-                    el('chkEnableAi').checked = config.EnableManagedLocalInference;
-                    el('txtCustomUrl').value = config.CustomModelUrl || '';
-
-                    var updateLlmVisibility = function() {
+                                        el('chkEnableHeuristics').checked = config.EnableHeuristics !== false;
+                                        el('chkEnableAi').checked = config.EnableManagedLocalInference;
+                                        el('txtMaxItems').value = config.MaxItemsPerRun || 0;
+                                        el('txtCustomUrl').value = config.CustomModelUrl || '';
+                                        var updateLlmVisibility = function() {
                         if (el('chkEnableAi').checked) el('llm-details').classList.remove('hidden');
                         else el('llm-details').classList.add('hidden');
                     };
@@ -464,6 +470,7 @@
                     state.config.EnableHeuristics = el('chkEnableHeuristics').checked;
                     state.config.EnableManagedLocalInference = el('chkEnableAi').checked;
                     state.config.EnableAiParsing = el('chkEnableAi').checked;
+                    state.config.MaxItemsPerRun = parseInt(el('txtMaxItems').value || '0', 10);
 
                     var selectedId = el('selectPreset').value;
                     state.config.SelectedModelPreset = selectedId;

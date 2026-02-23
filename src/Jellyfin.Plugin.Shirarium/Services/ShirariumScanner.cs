@@ -93,7 +93,7 @@ public sealed class ShirariumScanner
         }
 
         var extensions = ScanLogic.BuildExtensionSet(config.ScanFileExtensions);
-        var maxItems = Math.Max(1, config.MaxItemsPerRun);
+        var maxItems = config.MaxItemsPerRun;
         var minConfidence = Math.Clamp(config.MinConfidence, 0.0, 1.0);
 
         var suggestions = new List<ScanSuggestion>();
@@ -151,16 +151,15 @@ public sealed class ShirariumScanner
             }
             var reasons = reasonsList.ToArray();
 
-            candidateCount++;
-            IncrementBuckets(candidateReasonCounts, reasons);
+                        candidateCount++;
+                        IncrementBuckets(candidateReasonCounts, reasons);
             
-            if (parseAttemptCount >= maxItems)
-            {
-                skippedByLimitCount++;
-                continue;
-            }
-
-            parseAttemptCount++;
+                        if (maxItems > 0 && parseAttemptCount >= maxItems)
+                        {
+                            skippedByLimitCount++;
+                            continue;
+                        }
+                        parseAttemptCount++;
             ParseFilenameResponse? parsed = null;
             
             if (_parseFilenameAsync != null)
