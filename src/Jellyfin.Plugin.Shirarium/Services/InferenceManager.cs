@@ -23,6 +23,8 @@ public sealed class InferenceManager : IHostedService, IDisposable
     private string _error = string.Empty;
     private string _lastErrorOutput = string.Empty;
     private string? _activeModelPath;
+    private string? _modelName;
+    private string? _modelSource;
     private double _downloadProgress;
     private int _port = 11434;
     private Dictionary<string, string> _metadata = new();
@@ -39,10 +41,12 @@ public sealed class InferenceManager : IHostedService, IDisposable
         _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
     }
 
-    public (string Status, double Progress, string Error, int Port, Dictionary<string, string> Metadata, string ModelName) GetStatus()
+    public (string Status, double Progress, string Error, int Port, Dictionary<string, string> Metadata, string ModelName, string ModelSource) GetStatus()
     {
-        _metadata.TryGetValue("Model", out var modelName);
-        return (_status, _downloadProgress, _error, _port, _metadata, modelName ?? "LLM");
+        _metadata.TryGetValue("Model", out var liveModel);
+        var name = liveModel ?? _modelName ?? "LLM";
+        var source = _modelSource ?? "Local";
+        return (_status, _downloadProgress, _error, _port, _metadata, name, source);
     }
 
     public string[] GetLogs()
@@ -336,9 +340,16 @@ public sealed class InferenceManager : IHostedService, IDisposable
         string fileName = "model.gguf";
         if (Uri.TryCreate(modelUrl, UriKind.Absolute, out var uri))
         {
+            _modelSource = uri.Host;
             fileName = Path.GetFileName(uri.LocalPath);
             if (string.IsNullOrEmpty(fileName) || !fileName.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)) fileName = $"model-{config.SelectedModelPreset}.gguf";
         }
+        else 
+        {
+            _modelSource = "Local Path";
+        }
+        
+        _modelName = fileName;
         var modelPath = Path.Combine(folder, fileName);
 
         if (File.Exists(modelPath))
@@ -355,14 +366,16 @@ public sealed class InferenceManager : IHostedService, IDisposable
 
         _status = "DownloadingModel";
         _logger.LogInformation("Downloading model: {Url}", modelUrl);
+        var tempPath = modelPath + ".download";
         try
         {
+            if (File.Exists(tempPath)) File.Delete(tempPath);
             using var response = await _httpClient.GetAsync(modelUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
             var totalBytes = response.Content.Headers.ContentLength;
             using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var fileStream = new FileStream(modelPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
-            var buffer = new byte[8192];
+            using var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024, true);
+            var buffer = new byte[128 * 1024];
             long totalRead = 0;
             int read;
             while ((read = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
@@ -371,9 +384,15 @@ public sealed class InferenceManager : IHostedService, IDisposable
                 totalRead += read;
                 if (totalBytes.HasValue) _downloadProgress = (double)totalRead / totalBytes.Value * 100.0;
             }
+            await fileStream.FlushAsync(cancellationToken);
+            fileStream.Close();
+            
+            // Success! Atomic rename
+            if (File.Exists(modelPath)) File.Delete(modelPath);
+            File.Move(tempPath, modelPath);
             return modelPath;
         }
-        catch { if (File.Exists(modelPath)) File.Delete(modelPath); return string.Empty; }
+        catch { if (File.Exists(tempPath)) File.Delete(tempPath); return string.Empty; }
     }
 
     public void Dispose()

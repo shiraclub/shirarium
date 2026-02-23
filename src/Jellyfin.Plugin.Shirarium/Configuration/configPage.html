@@ -286,16 +286,17 @@
                         statusText.classList.remove('hidden');
                     }
 
-                                                            if (status === 'DownloadingModel') {
-                                                                tag.textContent = 'Fetching';
-                                                                tag.className = 'sh-status-tag status-fetching';
-                                                                
-                                                                var source = modelName.includes('huggingface') || modelName.includes('hf') ? 'Hugging Face' : 'External Source';
-                                                                statusText.innerHTML = 'Downloading <b>' + modelName + '</b><br/><small style="opacity:0.6;">Source: ' + source + '</small>';
-                                                                
-                                                                if (progressContainer) progressContainer.classList.remove('hidden');
-                                                                if (progressBar) progressBar.style.width = progress + '%';
-                                                            } else if (status === 'Initializing') {
+                                                                                if (status === 'DownloadingModel') {
+                                                                                    tag.textContent = 'Fetching';
+                                                                                    tag.className = 'sh-status-tag status-fetching';
+                                                                                    
+                                                                                    var src = inf.ModelSource || 'Direct Link';
+                                                                                    statusText.innerHTML = 'Downloading <b>' + modelName + '</b><br/><small style="opacity:0.6;">Source: ' + src + '</small>';
+                                                                                    
+                                                                                    if (progressContainer) progressContainer.classList.remove('hidden');
+                                                                                    if (progressBar) progressBar.style.width = progress + '%';
+                                                                                } else if (status === 'Initializing') {
+                                                            
                                                                 tag.textContent = 'Booting';
                         tag.className = 'sh-status-tag status-booting';
                         statusText.textContent = 'Starting LLM process...';

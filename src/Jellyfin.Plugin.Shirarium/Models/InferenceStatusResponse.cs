@@ -34,4 +34,9 @@ public sealed class InferenceStatusResponse
     /// Gets additional technical metadata from the LLM.
     /// </summary>
     public Dictionary<string, string> Metadata { get; init; } = new();
+
+    /// <summary>
+    /// Gets the origin source of the model (e.g. huggingface.co).
+    /// </summary>
+    public string? ModelSource { get; init; }
 }
