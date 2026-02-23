@@ -102,6 +102,23 @@ Both stacks share the same `./data/media` directory but maintain separate config
 - **Scanning**: Hybrid `FilesystemCandidateProvider` + Jellyfin DB Cross-reference.
 - **AI**: Managed `llama-server` process (auto-downloaded) running Qwen 2.5 3B Instruct.
 
+## Benchmarks
+
+We evaluate Small Language Models (SLMs) for media filename parsing using **ShirariumBench**. Results below are from the `tier-b-synthetic.json` dataset (200 items).
+
+**Hardware**: `RTX 5070` | `AMD64 Family 25` | `Windows 11`
+
+| Model | Accuracy | Latency | Params |
+| :--- | :--- | :--- | :--- |
+| **Gemma 3 4B IT** | **76.3%** | 2751ms | 4B |
+| Qwen 3 4B Thinking | 75.8% | 2580ms | 4B |
+| IBM Granite 3.3 2B | 75.8% | 2767ms | 2.5B |
+| Ministral 3 3B | 75.4% | 2447ms | 3B |
+| Qwen 3 4B Instruct | 75.3% | 2378ms | 4B |
+| Llama 3.2 3B | 71.9% | 2266ms | 3B |
+
+Detailed reports and more models are available in the [`benchmarks/`](benchmarks/) directory.
+
 ## Testing
 
 Run the full suite (Unit + Integration):
