@@ -67,10 +67,11 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>
         [
             new PluginPageInfo
             {
-                Name = Name,
+                Name = "ShirariumDashboard",
                 DisplayName = "Shirarium",
                 EnableInMainMenu = true,
-                MenuIcon = "face",
+                MenuIcon = "auto_awesome",
+                MenuSection = "User",
                 EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", GetType().Namespace)
             }
         ];
