@@ -491,7 +491,7 @@
                 if (state.selection.size === 0) return;
                 Dashboard.showLoadingMsg();
                 try {
-                    await api('shirarium/apply-reviewed-plan', 'POST', {
+                    await api('shirarium/apply-plan', 'POST', {
                         expectedPlanFingerprint: state.plan.PlanFingerprint,
                         sourcePaths: Array.from(state.selection)
                     });
