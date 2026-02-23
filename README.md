@@ -56,10 +56,13 @@ We evaluate Small Language Models (SLMs) for media filename parsing using **Shir
 | :--- | :--- | :--- | :--- |
 | **Gemma 3 4B IT** | **76.3%** | 2751ms | 4B |
 | Qwen 3 4B Thinking | 75.8% | 2580ms | 4B |
-| IBM Granite 3.3 2B | 75.8% | 2767ms | 2.5B |
-| Ministral 3 3B | 75.4% | 2447ms | 3B |
+| IBM Granite 3.3 2B Instruct | 75.8% | 2767ms | 2.5B |
+| Ministral 3 3B Instruct 2512 | 75.4% | 2447ms | 3B |
 | Qwen 3 4B Instruct | 75.3% | 2378ms | 4B |
-| Llama 3.2 3B | 71.9% | 2266ms | 3B |
+| Qwen 2.5 Coder 3B Instruct | 72.9% | 2406ms | 3B |
+| Llama 3.2 3B Instruct | 71.9% | 2266ms | 3B |
+| Phi-4 Mini Instruct | 69.3% | 4047ms | 3.8B |
+| SmolLM3 3B Instruct | 68.6% | 2464ms | 3B |
 
 Detailed reports and more models are available in the [`benchmarks/`](benchmarks/) directory.
 
