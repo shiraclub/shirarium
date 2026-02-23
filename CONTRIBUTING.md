@@ -66,6 +66,12 @@ BREAKING CHANGE: explain what changed and how to migrate.
 4. Do not introduce destructive media file operations by default.
 5. Keep cloud/LLM behavior optional and separated from core plugin behavior.
 
+## Architecture
+
+- **Core**: `src/Jellyfin.Plugin.Shirarium` - A native .NET plugin.
+- **Scanning**: Hybrid `FilesystemCandidateProvider` + Jellyfin DB Cross-reference.
+- **AI**: Managed `llama-server` process (auto-downloaded) running Qwen 2.5 3B Instruct.
+
 ## Quick Start (Dev)
 
 ### Prerequisites

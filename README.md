@@ -41,12 +41,6 @@ Shirarium is distributed via a managed plugin repository for seamless updates.
 4.  Navigate to the **Catalog** tab, find **Shirarium**, and click **Install**.
 5.  Restart your Jellyfin server.
 
-## Architecture
-
-- **Core**: `src/Jellyfin.Plugin.Shirarium` - A native .NET plugin.
-- **Scanning**: Hybrid `FilesystemCandidateProvider` + Jellyfin DB Cross-reference.
-- **AI**: Managed `llama-server` process (auto-downloaded) running Qwen 2.5 3B Instruct.
-
 ## Configuration
 
 Go to **Dashboard -> Plugins -> Shirarium** to configure:
