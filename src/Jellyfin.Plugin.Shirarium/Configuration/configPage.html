@@ -19,9 +19,12 @@
                 .sh-card { background: #1c1c1c; border-radius: 8px; padding: 24px; margin-bottom: 20px; border: 1px solid #333; }
                 .sh-card-title { font-size: 18px; margin-bottom: 15px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
                 
-                .sh-status-tag { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-                .status-ok { background: #33a1d6; color: white; }
-                .status-wait { background: #f1c40f; color: black; }
+                .sh-status-tag { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+                .status-ready { background: #27ae60; color: white; } /* Green */
+                .status-fetching { background: #f1c40f; color: black; } /* Yellow */
+                .status-booting { background: #33a1d6; color: white; } /* Blue */
+                .status-error { background: #e74c3c; color: white; } /* Red */
+                .status-offline { background: #444; color: #aaa; } /* Grey */
                 
                 .sh-table-wrap { overflow-x: auto; margin-top: 15px; border-radius: 4px; border: 1px solid #333; }
                 .sh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -48,10 +51,10 @@
                 <div id="panel-dash" class="sh-panel">
                     <div class="sh-card">
                         <div class="sh-card-title">
-                            <span>AI Brain Status</span>
+                            <span>LLM Status</span>
                             <span id="ai-status-tag" class="sh-status-tag">Checking...</span>
                         </div>
-                        <div id="ai-status-text">Connecting to local AI engine...</div>
+                        <div id="ai-status-text">Connecting to local LLM...</div>
                         <div id="ai-progress-container" class="sh-table-wrap hidden" style="height: 8px; margin-top: 15px; background: #222; border: none;">
                             <div id="ai-progress-bar" style="width: 0%; height: 100%; background: #33a1d6; transition: width 0.4s ease;"></div>
                         </div>
@@ -113,11 +116,11 @@
                             <div class="checkboxContainer" style="margin:20px 0;">
                                 <label>
                                     <input type="checkbox" is="emby-checkbox" id="chkEnableAi">
-                                    <span>Enable AI Brain</span>
+                                    <span>Enable Managed LLM</span>
                                 </label>
                             </div>
                             <div class="selectContainer" style="margin:20px 0;">
-                                <label class="form-label">AI Model</label>
+                                <label class="form-label">LLM Model</label>
                                 <select is="emby-select" id="selectPreset"></select>
                                 <div id="preset-info" style="font-size:12px; color:#666; margin-top:5px;"></div>
                             </div>
@@ -141,179 +144,225 @@
 
             function el(id) { return document.getElementById(id); }
             
-            function api(path, method, body) {
-                return new Promise(function(resolve, reject) {
-                    ApiClient.ajax({
-                        type: method || 'GET',
-                        url: ApiClient.getUrl(path),
-                        data: body ? JSON.stringify(body) : null,
-                        contentType: 'application/json',
-                        dataType: 'json',
-                        success: resolve,
-                        error: reject
-                    });
-                });
-            }
-
-            function switchTab(tabId) {
-                document.querySelectorAll('.sh-tab-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.tab === tabId); });
-                document.querySelectorAll('.sh-panel').forEach(function(p) { p.classList.toggle('hidden', p.id !== 'panel-' + tabId); });
-                if (tabId === 'dash') refreshDash();
-                if (tabId === 'review') refreshReview();
-                if (tabId === 'settings') loadSettings();
-            }
-
-                                    async function refreshDash() {
-                                        try {
-                                            var results = await Promise.all([
-                                                api('shirarium/inference-status'),
-                                                api('shirarium/organization-plan-view?pageSize=1')
-                                            ]);
-                        
-                                            var inf = results[0];
-                                            var plan = results[1];
-                                            state.plan = plan;
-                        
-                                            var tag = el('ai-status-tag');
-                                            var progressContainer = el('ai-progress-container');
-                                            var progressBar = el('ai-progress-bar');
-                                            var statusText = el('ai-status-text');
-                        
-                                            if (inf.Status === 'DownloadingModel') {
-                                                tag.textContent = 'Learning...';
-                                                tag.className = 'sh-status-tag status-wait';
-                                                statusText.textContent = 'AI is downloading its knowledge: ' + (inf.ModelName || '...');
-                                                if (progressContainer) progressContainer.classList.remove('hidden');
-                                                if (progressBar) progressBar.style.width = (inf.Progress || 0) + '%';
-                                            } else if (inf.Status === 'Ready') {
-                                                tag.textContent = 'Active';
-                                                tag.className = 'sh-status-tag status-ok';
-                                                statusText.textContent = 'Brain online: ' + inf.ModelName;
-                                                if (progressContainer) progressContainer.classList.add('hidden');
-                                            } else if (inf.Status === 'Error') {
-                                                tag.textContent = 'Error';
-                                                tag.className = 'sh-status-tag status-wait';
-                                                statusText.textContent = 'Brain error: ' + (inf.Error || 'Unknown error');
-                                                if (progressContainer) progressContainer.classList.add('hidden');
-                                            } else {
-                                                tag.textContent = 'Idle';
-                                                tag.className = 'sh-status-tag';
-                                                statusText.textContent = 'Brain is idle. Enable AI in settings to improve library organization.';
-                                                if (progressContainer) progressContainer.classList.add('hidden');
-                                            }
-                        
-                                            if (plan && plan.filteredEntries > 0) {
-                                                el('card-ready').classList.remove('hidden');
-                                                el('ready-text').textContent = 'AI found ' + plan.filteredEntries + ' improvements for your library.';
-                                            } else {
-                                                el('card-ready').classList.add('hidden');
-                                            }
-                                        } catch (e) { console.error("Dash refresh failed", e); }
-                                    }            async function refreshReview() {
-                Dashboard.showLoadingMsg();
-                try {
-                    var plan = await api('shirarium/organization-plan-view?pageSize=100');
-                    state.plan = plan;
-                    state.selection.clear();
-                    el('selectAll').checked = false;
-
-                    var tbody = el('table-body');
-                    tbody.innerHTML = '';
-                    
-                    if (!plan.entries || plan.entries.length === 0) {
-                        el('table-empty').classList.remove('hidden');
-                        el('btn-apply-main').disabled = true;
-                        return;
-                    }
-
-                    el('table-empty').classList.add('hidden');
-                    el('btn-apply-main').disabled = true;
-
-                    plan.entries.forEach(function(entry) {
-                        var row = document.createElement('tr');
-                        row.innerHTML = '<td><input type="checkbox" class="row-check" data-path="' + entry.sourcePath + '"></td>' +
-                            '<td><div style="font-family:monospace; font-size:11px;">' + entry.sourcePath + '</div></td>' +
-                            '<td><div style="color:#33a1d6;">' + (entry.effectiveTargetPath || '-') + '</div></td>';
-                        tbody.appendChild(row);
-                    });
-
-                    tbody.querySelectorAll('.row-check').forEach(function(chk) {
-                        chk.addEventListener('change', function(e) {
-                            if (e.target.checked) state.selection.add(e.target.dataset.path);
-                            else state.selection.delete(e.target.dataset.path);
-                            el('btn-apply-main').disabled = state.selection.size === 0;
-                        });
-                    });
-                } finally { Dashboard.hideLoadingMsg(); }
-            }
-
-            async function loadSettings() {
-                try {
-                    var config = await ApiClient.getPluginConfiguration(state.pluginId);
-                    var presets = await api('shirarium/ai-model-presets');
-                    
-                    el('chkEnableAi').checked = config.EnableAiParsing;
-                    var sel = el('selectPreset');
-                    sel.innerHTML = presets.presets.map(function(p) {
-                        return '<option value="' + p.id + '" ' + (p.id === config.SelectedModelPreset ? 'selected' : '') + '>' + p.name + '</option>';
-                    }).join('');
-                    
-                    var updateInfo = function() {
-                        var p = presets.presets.find(function(x) { return x.id === sel.value; });
-                        if (p) el('preset-info').textContent = p.rationale;
-                    };
-                    sel.onchange = updateInfo;
-                    updateInfo();
-                    state.config = config;
-                } catch(e) {}
-            }
-
-            async function saveSettings(e) {
-                e.preventDefault();
-                Dashboard.showLoadingMsg();
-                try {
-                    state.config.EnableAiParsing = el('chkEnableAi').checked;
-                    state.config.SelectedModelPreset = el('selectPreset').value;
-                    await ApiClient.updatePluginConfiguration(state.pluginId, state.config);
-                    Dashboard.alert('Settings saved.');
-                } finally { Dashboard.hideLoadingMsg(); }
-            }
-
-            async function applySelected() {
-                if (state.selection.size === 0) return;
-                Dashboard.showLoadingMsg();
-                try {
-                    await api('shirarium/apply-reviewed-plan', 'POST', {
-                        expectedPlanFingerprint: state.plan.planFingerprint,
-                        sourcePaths: Array.from(state.selection)
-                    });
-                    Dashboard.alert('Library updated!');
-                    refreshReview();
-                } catch(e) { Dashboard.alert('Failed: ' + e.message); }
-                finally { Dashboard.hideLoadingMsg(); }
-            }
-
-            // Polling logic
-            var pollHandle = null;
-            function startPolling() {
-                if (pollHandle) clearInterval(pollHandle);
-                pollHandle = setInterval(function() {
-                    if (!el('panel-dash').classList.contains('hidden')) {
-                        refreshDash();
-                    }
-                }, 3000);
-            }
-
-            function init() {
-                refreshDash();
-                startPolling();
-            }
-
-            // INIT
-            var page = document.querySelector('#ShirariumReviewPage');
-            page.addEventListener('pageshow', init);
-            page.addEventListener('viewshow', init);
-
+                                                                        async function api(path, method, body) {
+                                                                            var url = ApiClient.getUrl(path);
+                                                                            try {
+                                                                                return await ApiClient.ajax({
+                                                                                    type: method || 'GET',
+                                                                                    url: url,
+                                                                                    data: body ? JSON.stringify(body) : null,
+                                                                                    contentType: 'application/json',
+                                                                                    dataType: 'json'
+                                                                                });
+                                                                            } catch (err) {
+                                                                                console.error("[Shirarium] API Error:", path, err);
+                                                                                throw err;
+                                                                            }
+                                                                        }
+                                                            
+                                                                        var state = {
+                                                                            pluginId: '26639599-7389-408a-9860-310376d5423f',
+                                                                            selection: new Set(),
+                                                                            plan: null,
+                                                                            isRefreshingDash: false
+                                                                        };
+                                                            
+                                                                        async function refreshDash() {
+                                                                            if (state.isRefreshingDash) return;
+                                                                            state.isRefreshingDash = true;
+                                                            
+                                                                            try {
+                                                                                var inf = await api('shirarium/inference-status');
+                                                                                var plan = await api('shirarium/organization-plan-view?pageSize=1');
+                                                                                state.plan = plan;
+                                                            
+                                                                                var tag = el('ai-status-tag');
+                                                                                var progressContainer = el('ai-progress-container');
+                                                                                var progressBar = el('ai-progress-bar');
+                                                                                var statusText = el('ai-status-text');
+                                                            
+                                                                                                                        var status = inf.Status || 'Idle';
+                                                                                                                        var rawModel = inf.ModelName || 'Managed LLM';
+                                                                                                                        // Capitalize first letter of model name
+                                                                                                                        var modelName = rawModel.charAt(0).toUpperCase() + rawModel.slice(1);
+                                                                                                                        var progress = inf.Progress || 0;
+                                                                                                                        var filtered = plan ? plan.FilteredEntries : 0;
+                                                                                                    
+                                                                                                                                            if (status === 'DownloadingModel') {
+                                                                                                                                                tag.textContent = 'Fetching';
+                                                                                                                                                tag.className = 'sh-status-tag status-fetching';
+                                                                                                                                                statusText.textContent = 'Downloading: ' + modelName;
+                                                                                                                                                if (progressContainer) progressContainer.classList.remove('hidden');
+                                                                                                                                                if (progressBar) progressBar.style.width = progress + '%';
+                                                                                                                                            } else if (status === 'Initializing') {
+                                                                                                                                                tag.textContent = 'Booting';
+                                                                                                                                                tag.className = 'sh-status-tag status-booting';
+                                                                                                                                                statusText.textContent = 'Starting LLM process...';
+                                                                                                                                                if (progressContainer) progressContainer.classList.add('hidden');
+                                                                                                                                            } else if (status === 'Ready') {
+                                                                                                                                                tag.textContent = 'Loaded';
+                                                                                                                                                tag.className = 'sh-status-tag status-ready';
+                                                                                                                                                statusText.textContent = 'Model: ' + modelName;
+                                                                                                                                                if (progressContainer) progressContainer.classList.add('hidden');
+                                                                                                                                            } else if (status === 'Error') {
+                                                                                                                                                tag.textContent = 'Failed';
+                                                                                                                                                tag.className = 'sh-status-tag status-error';
+                                                                                                                                                statusText.textContent = 'Engine error: ' + (inf.Error || 'Critical failure');
+                                                                                                                                                if (progressContainer) progressContainer.classList.add('hidden');
+                                                                                                                                            } else {
+                                                                                                                                                tag.textContent = 'Offline';
+                                                                                                                                                tag.className = 'sh-status-tag status-offline';
+                                                                                                                                                statusText.textContent = 'Engine is ' + (status || 'idle').toLowerCase() + '.';
+                                                                                                                                                if (progressContainer) progressContainer.classList.add('hidden');
+                                                                                                                                            }                                                                                if (filtered > 0) {
+                                                                                    el('card-ready').classList.remove('hidden');
+                                                                                    el('ready-text').textContent = 'AI found ' + filtered + ' improvements for your library.';
+                                                                                } else {
+                                                                                    el('card-ready').classList.add('hidden');
+                                                                                }
+                                                                            } catch (e) {
+                                                                                console.error("[Shirarium] Dash update failed", e);
+                                                                            } finally {
+                                                                                state.isRefreshingDash = false;
+                                                                            }
+                                                                        }                                        function switchTab(tabId) {
+                                            console.log("[Shirarium] Switching to tab:", tabId);
+                                            document.querySelectorAll('.sh-tab-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.tab === tabId); });
+                                            document.querySelectorAll('.sh-panel').forEach(function(p) { p.classList.toggle('hidden', p.id !== 'panel-' + tabId); });
+                                            if (tabId === 'dash') refreshDash();
+                                            if (tabId === 'review') refreshReview();
+                                            if (tabId === 'settings') loadSettings();
+                                        }
+                            
+                                                    async function refreshReview() {
+                                                        Dashboard.showLoadingMsg();
+                                                        try {
+                                                            var plan = await api('shirarium/organization-plan-view?pageSize=100');
+                                                            state.plan = plan;
+                                                            state.selection.clear();
+                                                            el('selectAll').checked = false;
+                                        
+                                                            var tbody = el('table-body');
+                                                            tbody.innerHTML = '';
+                                        
+                                                            if (!plan.Entries || plan.Entries.length === 0) {
+                                                                el('table-empty').classList.remove('hidden');
+                                                                el('btn-apply-main').disabled = true;
+                                                                return;
+                                                            }
+                                        
+                                                            el('table-empty').classList.add('hidden');
+                                                            el('btn-apply-main').disabled = true;
+                                        
+                                                            plan.Entries.forEach(function(entry) {
+                                                                var row = document.createElement('tr');
+                                                                row.innerHTML = '<td><input type="checkbox" class="row-check" data-path="' + entry.SourcePath + '"></td>' +
+                                                                    '<td><div style="font-family:monospace; font-size:11px; word-break:break-all;">' + entry.SourcePath + '</div></td>' +
+                                                                    '<td><div style="color:#33a1d6; word-break:break-all;">' + (entry.EffectiveTargetPath || '-') + '</div></td>';
+                                                                tbody.appendChild(row);
+                                                            });
+                                        
+                                                            tbody.querySelectorAll('.row-check').forEach(function(chk) {
+                                                                chk.addEventListener('change', function(e) {
+                                                                    if (e.target.checked) state.selection.add(e.target.dataset.path);
+                                                                    else state.selection.delete(e.target.dataset.path);
+                                                                    el('btn-apply-main').disabled = state.selection.size === 0;
+                                                                });
+                                                            });
+                                                        } catch (e) {
+                                                            console.error("[Shirarium] Review refresh failed", e);
+                                                        } finally { Dashboard.hideLoadingMsg(); }
+                                                    }
+                                        
+                                                    async function loadSettings() {
+                                                        try {
+                                                            var config = await ApiClient.getPluginConfiguration(state.pluginId);
+                                                            var presets = await api('shirarium/ai-model-presets');
+                                        
+                                                            el('chkEnableAi').checked = config.EnableAiParsing;
+                                                            var sel = el('selectPreset');
+                                                            sel.innerHTML = presets.Presets.map(function(p) {
+                                                                return '<option value="' + p.Id + '" ' + (p.Id === config.SelectedModelPreset ? 'selected' : '') + '>' + p.Name + '</option>';
+                                                            }).join('');
+                                        
+                                                            var updateInfo = function() {
+                                                                var p = presets.Presets.find(function(x) { return x.Id === sel.value; });
+                                                                if (p) el('preset-info').textContent = p.Rationale;
+                                                            };
+                                                            sel.onchange = updateInfo;
+                                                            updateInfo();
+                                                            state.config = config;
+                                                        } catch(e) {
+                                                            console.error("[Shirarium] Settings load failed", e);
+                                                        }
+                                                    }
+                                        
+                                                    async function saveSettings(e) {
+                                                        e.preventDefault();
+                                                        Dashboard.showLoadingMsg();
+                                                        try {
+                                                            state.config.EnableAiParsing = el('chkEnableAi').checked;
+                                                            state.config.SelectedModelPreset = el('selectPreset').value;
+                                                            await ApiClient.updatePluginConfiguration(state.pluginId, state.config);
+                                                            Dashboard.alert('Settings saved.');
+                                                        } finally { Dashboard.hideLoadingMsg(); }
+                                                    }
+                                        
+                                                    async function applySelected() {
+                                                        if (state.selection.size === 0) return;
+                                                        Dashboard.showLoadingMsg();
+                                                        try {
+                                                            await api('shirarium/apply-reviewed-plan', 'POST', {
+                                                                expectedPlanFingerprint: state.plan.PlanFingerprint,
+                                                                sourcePaths: Array.from(state.selection)
+                                                            });
+                                                            Dashboard.alert('Library updated!');
+                                                            refreshReview();
+                                                        } catch(e) { 
+                                                            console.error("[Shirarium] Apply failed", e);
+                                                            Dashboard.alert('Failed: ' + e.message); 
+                                                        } finally { Dashboard.hideLoadingMsg(); }
+                                                    }
+                        // Polling logic
+                        var pollHandle = null;
+                        function startPolling() {
+                            if (pollHandle) {
+                                console.log("[Shirarium] Polling already active");
+                                return;
+                            }
+                            console.log("[Shirarium] Starting polling interval");
+                            pollHandle = setInterval(function() {
+                                if (!el('panel-dash').classList.contains('hidden')) {
+                                    refreshDash();
+                                }
+                            }, 3000);
+                        }
+            
+                        var isInitialized = false;
+                        function init() {
+                            if (isInitialized) {
+                                console.log("[Shirarium] Already initialized, skipping");
+                                return;
+                            }
+                            isInitialized = true;
+                            console.log("[Shirarium] Initializing dashboard for the first time...");
+                            refreshDash();
+                            startPolling();
+                        }
+            
+                        // INIT - Fallback to immediate init if page events don't fire
+                        console.log("[Shirarium] Script loaded, binding events...");
+                        var page = document.querySelector('#ShirariumReviewPage');
+                        if (page) {
+                            console.log("[Shirarium] Found page, binding events");
+                            page.addEventListener('pageshow', init);
+                            page.addEventListener('viewshow', init);
+                            // Force init after a short delay to ensure everything is ready
+                            setTimeout(init, 800);
+                        } else {
+                            console.warn("[Shirarium] Could not find #ShirariumReviewPage, initializing anyway...");
+                            init();
+                        }
             document.querySelectorAll('.sh-tab-btn').forEach(function(btn) {
                 btn.onclick = function() { switchTab(btn.dataset.tab); };
             });
