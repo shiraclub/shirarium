@@ -11,7 +11,7 @@
             <style>
                 .shirarium-container { padding: 20px 0; max-width: 900px; margin: 0 auto; }
                 .sh-header { margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 20px; }
-                .sh-header h1 { margin: 0; color: #52B54B; font-weight: 300; font-size: 32px; }
+                .sh-header h1 { margin: 0; color: #33a1d6; font-weight: 300; font-size: 32px; }
                 
                 .sh-tabs { display: flex; gap: 5px; margin-bottom: 25px; }
                 .sh-tab-btn { flex: 1; text-align: center; }
@@ -20,7 +20,7 @@
                 .sh-card-title { font-size: 18px; margin-bottom: 15px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
                 
                 .sh-status-tag { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-                .status-ok { background: #52B54B; color: white; }
+                .status-ok { background: #33a1d6; color: white; }
                 .status-wait { background: #f1c40f; color: black; }
                 
                 .sh-table-wrap { overflow-x: auto; margin-top: 15px; border-radius: 4px; border: 1px solid #333; }
@@ -219,7 +219,7 @@
                         var row = document.createElement('tr');
                         row.innerHTML = '<td><input type="checkbox" class="row-check" data-path="' + entry.sourcePath + '"></td>' +
                             '<td><div style="font-family:monospace; font-size:11px;">' + entry.sourcePath + '</div></td>' +
-                            '<td><div style="color:#52B54B;">' + (entry.effectiveTargetPath || '-') + '</div></td>';
+                            '<td><div style="color:#33a1d6;">' + (entry.effectiveTargetPath || '-') + '</div></td>';
                         tbody.appendChild(row);
                     });
 
