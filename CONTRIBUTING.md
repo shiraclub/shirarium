@@ -66,6 +66,75 @@ BREAKING CHANGE: explain what changed and how to migrate.
 4. Do not introduce destructive media file operations by default.
 5. Keep cloud/LLM behavior optional and separated from core plugin behavior.
 
+## Quick Start (Dev)
+
+### Prerequisites
+
+- Docker (Engine or Desktop) with Compose v2 (for testing/smoke tests only)
+- .NET SDK 9.0+
+- Python 3.10+
+
+### Setup
+
+1. Copy env file:
+
+```bash
+cp .env.example .env
+```
+
+2. Start Jellyfin dev instance:
+
+```bash
+python scripts/manage.py up
+```
+
+3. Seed test media (Optional but Recommended):
+
+   **Option A: Clean Dataset (Good for basic testing)**
+   ```bash
+   python scripts/manage.py seed --dataset datasets/regression/tier-b-synthetic.json --clean
+   ```
+
+   **Option B: Dirty "Chaos" Dataset (Realistic)**
+   ```bash
+   # First generate the dataset (requires python)
+   python scripts/harvest_synthetic_dataset.py
+
+   # Then seed it
+   python scripts/manage.py seed --dataset datasets/regression/tier-b-synthetic-dirty.json --clean
+   ```
+
+4. Build and reload plugin:
+
+```bash
+python scripts/manage.py reload
+```
+
+5. Open Jellyfin: `http://localhost:8097`
+
+### Dev vs Prod Stacks
+
+The local environment supports two distinct profiles managed via `docker-compose.yml`:
+
+- **Jellyfin Dev (Port 8097)**: Designed for rapid iteration. It maps the `./artifacts/plugin` directory directly into the container. Run `python scripts/manage.py reload` to rebuild the C# code and restart this container to see changes immediately.
+- **Jellyfin Prod (Port 8098)**: Simulates a clean production environment. It does not map local build artifacts, allowing you to test the official installation and update flows via the plugin repository.
+
+Both stacks share the same `./data/media` directory but maintain separate configuration and database folders under `./data/jellyfin` and `./data/jellyfin-prod` respectively.
+
+## Testing
+
+Run the full suite (Unit + Integration):
+
+```bash
+python scripts/manage.py test --integration
+```
+
+Or manually:
+
+```bash
+dotnet test tests/Jellyfin.Plugin.Shirarium.Tests/Jellyfin.Plugin.Shirarium.Tests.csproj -c Release
+```
+
 ## Development Checklist
 
 Before opening a PR, run what is relevant:
