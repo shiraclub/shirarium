@@ -24,6 +24,7 @@ public sealed class InferenceManager : IHostedService, IDisposable
     private string _lastErrorOutput = string.Empty;
     private double _downloadProgress;
     private int _port = 11434;
+    private static bool _forceRedownloadNextTime;
         private Dictionary<string, string> _metadata = new();
         private CancellationTokenSource? _pollingCts;
         private DateTime? _startTime;
@@ -427,29 +428,12 @@ public sealed class InferenceManager : IHostedService, IDisposable
                                                                                                                     {
                                                                                                                         _error = "Missing dependency: libgomp1. (apt-get install libgomp1)";
                                                                                                                     }
-                                                                                                                                                                else if (_lastErrorOutput.Contains("corrupted") || _lastErrorOutput.Contains("incomplete") || _lastErrorOutput.Contains("file bounds"))        
-                                                                                                                                                                {
-                                                                                                                                                                    _error = "Model file corrupted. Deleting and re-triggering download...";
-                                                                                                                                                                    // Try to delete it immediately so the next start attempt works
-                                                                                                                                                                    var config = Plugin.Instance?.Configuration;
-                                                                                                                                                                    if (config != null)
-                                                                                                                                                                    {
-                                                                                                                                                                        var folder = Path.Combine(_applicationPaths.DataPath, "plugins", "Shirarium", "models");
-                                                                                                                                                                        var modelUrl = config.SelectedModelPreset == "custom" && !string.IsNullOrWhiteSpace(config.CustomModelUrl) ? config.CustomModelUrl : config.ModelUrl;
-                                                                                                                                                                        string fileName;
-                                                                                                                                                                        if (Uri.TryCreate(modelUrl, UriKind.Absolute, out var uri))
-                                                                                                                                                                        {
-                                                                                                                                                                            fileName = Path.GetFileName(uri.LocalPath);
-                                                                                                                                                                            if (string.IsNullOrEmpty(fileName) || !fileName.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)) fileName = $"model-{config.SelectedModelPreset}.gguf";
-                                                                                                                                                                        }
-                                                                                                                                                                        else fileName = $"model-{config.SelectedModelPreset}.gguf";
-                                                                                                                                                                        
-                                                                                                                                                                        var modelPath = Path.Combine(folder, fileName);
-                                                                                                                                                                        try { if (File.Exists(modelPath)) File.Delete(modelPath); } catch {}
-                                                                                                                                                                    }
-                                                                                                                                                                }
-                                                                                                                    
-                                                                                                                    else if (_lastErrorOutput.Contains("CUDA") || _lastErrorOutput.Contains("driver"))
+                                                                                                                                                                                                            else if (_lastErrorOutput.Contains("corrupted") || _lastErrorOutput.Contains("incomplete") || _lastErrorOutput.Contains("file bounds"))        
+                                                                                                                                                                                                            {
+                                                                                                                                                                                                                _error = "Model file corrupted. Deleting and re-triggering download...";
+                                                                                                                                                                                                                _forceRedownloadNextTime = true;
+                                                                                                                                                                                                            }
+                                                                                                                                                                                                                                                                                    else if (_lastErrorOutput.Contains("CUDA") || _lastErrorOutput.Contains("driver"))
                                                                                                                     {
                                                                                                                         _error = "GPU Driver Error. Try disabling GPU in settings.";
                                                                                                                     }
@@ -534,22 +518,28 @@ public sealed class InferenceManager : IHostedService, IDisposable
                 modelPath = Path.Combine(folder, fileName);
             }
     
-            if (File.Exists(modelPath))
-            {
-                var info = new FileInfo(modelPath);
-                // Basic heuristic: no GGUF model we use is under 500MB. 
-                // If it is, it's almost certainly an interrupted download.
-                if (info.Length > 500 * 1024 * 1024)
-                {
-                    _downloadProgress = 100.0;
-                    return modelPath;
-                }
-                
-                _logger.LogWarning("Model file {Path} exists but is too small ({Size}MB). Likely corrupted. Deleting...", modelPath, info.Length / (1024 * 1024));
-                File.Delete(modelPath);
-            }
-    
-            if (!config.AutoDownloadModel)
+                        if (File.Exists(modelPath))
+                        {
+                            var info = new FileInfo(modelPath);
+                            
+                            if (_forceRedownloadNextTime)
+                            {
+                                _logger.LogWarning("Forcing re-download of model {Path} due to previous corruption error.", modelPath);
+                                try { File.Delete(modelPath); } catch (Exception ex) { _logger.LogError(ex, "Failed to delete corrupted model file."); }
+                                _forceRedownloadNextTime = false;
+                            }
+                            else if (info.Length > 500 * 1024 * 1024)
+                            {
+                                _downloadProgress = 100.0;
+                                return modelPath;
+                            }
+                            else
+                            {
+                                _logger.LogWarning("Model file {Path} exists but is too small ({Size}MB). Likely corrupted. Deleting...", modelPath, info.Length / (1024 * 1024));
+                                try { File.Delete(modelPath); } catch {}
+                            }
+                        }
+                        if (!config.AutoDownloadModel)
             {
                 return string.Empty;
             }
