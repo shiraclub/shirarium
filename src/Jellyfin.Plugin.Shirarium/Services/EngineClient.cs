@@ -30,31 +30,40 @@ public sealed class EngineClient
     /// <returns>The parse result.</returns>
     public async Task<ParseFilenameResponse?> ParseFilenameAsync(string path, CancellationToken cancellationToken)
     {
-        // 1. Heuristic Parse (Zero latency)
-        var result = _heuristicParser.Parse(path);
-
-        // 2. Check Configuration for AI
         var config = Plugin.Instance?.Configuration;
-        if (config == null || !config.EnableAiParsing)
-        {
-            return result;
-        }
+        bool heuristicsEnabled = config?.EnableHeuristics ?? true;
+        bool llmEnabled = config?.EnableAiParsing ?? true;
 
-        bool useAi = config.EnableManagedLocalInference || !string.IsNullOrWhiteSpace(config.ExternalOllamaUrl);
+        ParseFilenameResponse? heuristicResult = null;
 
-        // 3. AI Fallback logic
-        if (useAi && (result.Confidence < 0.90 || result.MediaType == "unknown"))
+        // 1. Try Heuristics first if enabled
+        if (heuristicsEnabled)
         {
-            var aiResult = await _ollamaService.ParseAsync(path, cancellationToken);
-            if (aiResult != null)
+            heuristicResult = _heuristicParser.Parse(path);
+            
+            // If heuristics are confident enough, return immediately to save LLM compute
+            if (heuristicResult.Confidence >= 0.90 && heuristicResult.MediaType != "unknown")
             {
-                // If AI is confident, return it.
-                // We could implement more complex merging here later.
-                return aiResult;
+                return heuristicResult;
             }
         }
 
-        return result;
+        // 2. Fallback to LLM if enabled
+        if (llmEnabled)
+        {
+            bool useAi = config?.EnableManagedLocalInference == true || !string.IsNullOrWhiteSpace(config?.ExternalOllamaUrl);
+            if (useAi)
+            {
+                var aiResult = await _ollamaService.ParseAsync(path, cancellationToken);
+                if (aiResult != null)
+                {
+                    return aiResult;
+                }
+            }
+        }
+
+        // 3. Last ditch: return heuristic result even if low confidence, or null
+        return heuristicResult;
     }
 
     /// <summary>

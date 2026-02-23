@@ -12,29 +12,30 @@
                 .shirarium-container { padding: 20px 0; max-width: 900px; margin: 0 auto; }
                 .sh-header { margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 20px; }
                 .sh-header h1 { margin: 0; color: #33a1d6; font-weight: 300; font-size: 32px; }
-                
+
                 .sh-tabs { display: flex; gap: 5px; margin-bottom: 25px; }
                 .sh-tab-btn { flex: 1; text-align: center; }
 
                 .sh-card { background: #1c1c1c; border-radius: 8px; padding: 24px; margin-bottom: 20px; border: 1px solid #333; }
                 .sh-card-title { font-size: 18px; margin-bottom: 15px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
-                
+
                 .sh-status-tag { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
-                .status-ready { background: #27ae60; color: white; } /* Green */
-                .status-fetching { background: #f1c40f; color: black; } /* Yellow */
-                .status-booting { background: #33a1d6; color: white; } /* Blue */
-                .status-error { background: #e74c3c; color: white; } /* Red */
-                                .status-offline { background: #444; color: #aaa; } /* Grey */
-                
-                                .sh-metadata { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 15px; border-top: 1px solid #333; padding-top: 15px; }
-                                .sh-meta-item { background: #222; padding: 10px; border-radius: 4px; border: 1px solid #333; }
-                                .sh-meta-label { font-size: 10px; color: #888; text-transform: uppercase; margin-bottom: 4px; }
-                                .sh-meta-value { font-size: 13px; color: #33a1d6; font-family: monospace; }
-                
-                                .sh-table-wrap { overflow-x: auto; margin-top: 15px; border-radius: 4px; border: 1px solid #333; }                .sh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+                .status-ready { background: #27ae60; color: white; }
+                .status-fetching { background: #f1c40f; color: black; }
+                .status-booting { background: #33a1d6; color: white; }
+                .status-error { background: #e74c3c; color: white; }
+                .status-offline { background: #444; color: #aaa; }
+
+                .sh-metadata { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 15px; border-top: 1px solid #333; padding-top: 15px; }
+                .sh-meta-item { background: #222; padding: 10px; border-radius: 4px; border: 1px solid #333; }
+                .sh-meta-label { font-size: 10px; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+                .sh-meta-value { font-size: 13px; color: #33a1d6; font-family: monospace; }
+
+                .sh-table-wrap { overflow-x: auto; margin-top: 15px; border-radius: 4px; border: 1px solid #333; }
+                .sh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
                 .sh-table th { background: #222; text-align: left; padding: 12px; border-bottom: 1px solid #333; color: #888; }
                 .sh-table td { padding: 12px; border-bottom: 1px solid #222; }
-                
+
                 .hidden { display: none !important; }
                 .sh-btn-big { font-size: 1.2em !important; padding: 1em 2em !important; }
             </style>
@@ -67,7 +68,7 @@
 
                     <div id="card-ready" class="sh-card hidden" style="text-align: center;">
                         <h2 style="margin-top:0;">Good news!</h2>
-                        <p id="ready-text">We found improvements for your library.</p>
+                        <p id="ready-text">Shirarium found improvements for your library.</p>
                         <button is="emby-button" type="button" class="raised button-submit sh-btn-big" id="btn-start-review">
                             <span>Review Changes Now</span>
                         </button>
@@ -99,11 +100,10 @@
                                     <tr>
                                         <th style="width:30px;"><input type="checkbox" id="selectAll"></th>
                                         <th>Original File</th>
-                                        <th>AI Suggestion</th>
+                                        <th>Shirarium Suggestion</th>
                                     </tr>
                                 </thead>
                                 <tbody id="table-body">
-                                    <!-- Rows -->
                                 </tbody>
                             </table>
                         </div>
@@ -116,29 +116,42 @@
                 <!-- SETTINGS -->
                 <div id="panel-settings" class="sh-panel hidden">
                     <div class="sh-card">
-                        <div class="sh-card-title">Settings</div>
+                        <div class="sh-card-title">Parsing Engines</div>
                         <form id="settings-form">
                             <div class="checkboxContainer" style="margin:20px 0;">
                                 <label>
-                                    <input type="checkbox" is="emby-checkbox" id="chkEnableAi">
-                                    <span>Enable Managed LLM</span>
+                                    <input type="checkbox" is="emby-checkbox" id="chkEnableHeuristics">
+                                    <span>Enable Heuristics</span>
                                 </label>
+                                <div class="fieldDescription">Instant pattern matching. CPU-friendly and works for 90% of standard filenames.</div>
                             </div>
-                            <div class="selectContainer" style="margin:20px 0;">
-                                <label class="form-label">LLM Model</label>
-                                <select is="emby-select" id="selectPreset"></select>
-                                <div id="preset-info" style="font-size:12px; color:#666; margin-top:5px;"></div>
+
+                            <div class="checkboxContainer" style="margin:20px 0;">
+                                <label>
+                                    <input type="checkbox" is="emby-checkbox" id="chkEnableAi">
+                                    <span>Enable LLM (Large Language Model)</span>
+                                </label>
+                                <div class="fieldDescription">Deeper analysis for "impossible" filenames (Anime, scene soup, hashes). Requires extra RAM.</div>
                             </div>
-                            <div id="custom-model-container" class="hidden" style="margin:20px 0;">
-                                <div class="inputContainer">
-                                    <input is="emby-input" type="text" id="txtCustomUrl" label="Custom GGUF URL" placeholder="https://huggingface.co/.../model.gguf" />
-                                    <div class="fieldDescription">
-                                        Paste a direct <b>GGUF</b> download link. 
-                                        <a href="https://huggingface.co/models?search=gguf" target="_blank" style="color: #33a1d6; text-decoration: none;">Find models on Hugging Face &rarr;</a><br/>
-                                        <div style="margin-top:5px; opacity: 0.8;">Tip: Models between 1B and 4B parameters (like Llama 3.2 or Qwen 2.5) offer the best balance of speed and accuracy for Shirarium.</div>
+
+                            <div id="llm-details" class="hidden" style="margin-left: 20px; border-left: 2px solid #333; padding-left: 20px;">
+                                <div class="selectContainer" style="margin:20px 0;">
+                                    <label class="form-label">LLM Model</label>
+                                    <select is="emby-select" id="selectPreset"></select>
+                                    <div id="preset-info" style="font-size:12px; color:#666; margin-top:5px;"></div>
+                                </div>
+                                <div id="custom-model-container" class="hidden" style="margin:20px 0;">
+                                    <div class="inputContainer">
+                                        <input is="emby-input" type="text" id="txtCustomUrl" label="Custom GGUF URL" placeholder="https://huggingface.co/.../model.gguf" />
+                                        <div class="fieldDescription">
+                                            Paste a direct <b>GGUF</b> download link. 
+                                            <a href="https://huggingface.co/models?search=gguf" target="_blank" style="color: #33a1d6; text-decoration: none;">Find models on Hugging Face &rarr;</a><br/>
+                                            <div style="margin-top:5px; opacity: 0.8;">Tip: Models between 1B and 4B parameters (like Llama 3.2 or Qwen 2.5) offer the best balance of speed and accuracy for Shirarium.</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+
                             <div style="margin-top:30px;">
                                 <button is="emby-button" type="submit" class="raised button-submit">Save Settings</button>
                             </div>
@@ -149,282 +162,272 @@
         </div>
     </div>
 
-            <script>
-                (function () {
-                    // Permanent identity of the Shirarium plugin
-                    var BF_ID = 'f8f6424f-3316-47ef-bfbe-b8138f7ef3ab';
+    <script>
+        (function () {
+            var BF_ID = 'f8f6424f-3316-47ef-bfbe-b8138f7ef3ab';
+            var pluginId = new URLSearchParams(window.location.search).get('id') || 
+                           new URLSearchParams(window.location.hash.split('?')[1] || '').get('id') || 
+                           BF_ID;
+
+            var state = {
+                pluginId: pluginId,
+                selection: new Set(),
+                plan: null,
+                isRefreshingDash: false
+            };
+
+            function el(id) { return document.getElementById(id); }
+
+            async function api(path, method, body) {
+                var url = ApiClient.getUrl(path);
+                try {
+                    return await ApiClient.ajax({
+                        type: method || 'GET',
+                        url: url,
+                        data: body ? JSON.stringify(body) : null,
+                        contentType: 'application/json',
+                        dataType: 'json'
+                    });
+                } catch (err) {
+                    console.error("[Shirarium] API Error:", path, err);
+                    throw err;
+                }
+            }
+
+            async function refreshDash() {
+                if (state.isRefreshingDash) return;
+                state.isRefreshingDash = true;
+
+                try {
+                    var inf = await api('shirarium/inference-status');
+                    var plan = await api('shirarium/organization-plan-view?pageSize=1');
+                    state.plan = plan;
+
+                    var tag = el('ai-status-tag');
+                    var progressContainer = el('ai-progress-container');
+                    var progressBar = el('ai-progress-bar');
+                    var statusText = el('ai-status-text');
+                    var metaContainer = el('ai-metadata');
+
+                    var status = inf.Status || 'Idle';
+                    var rawModel = inf.ModelName || 'Managed LLM';
+                    var modelName = rawModel.charAt(0).toUpperCase() + rawModel.slice(1);
+                    var progress = inf.Progress || 0;
+                    var filtered = plan ? plan.FilteredEntries : 0;
+
+                    if (inf.Metadata && Object.keys(inf.Metadata).length > 0) {
+                        metaContainer.classList.remove('hidden');
+                        metaContainer.innerHTML = Object.keys(inf.Metadata).map(function(k) {
+                            return '<div class="sh-meta-item">' +
+                                '<div class="sh-meta-label">' + k + '</div>' +
+                                '<div class="sh-meta-value">' + inf.Metadata[k] + '</div>' +
+                                '</div>';
+                        }).join('');
+                        if (status === 'Ready') statusText.classList.add('hidden');
+                        else statusText.classList.remove('hidden');
+                    } else {
+                        metaContainer.classList.add('hidden');
+                        statusText.classList.remove('hidden');
+                    }
+
+                    if (status === 'DownloadingModel') {                                                  
+                        tag.textContent = 'Fetching';
+                        tag.className = 'sh-status-tag status-fetching';
+                        statusText.textContent = 'Downloading: ' + modelName;
+                        if (progressContainer) progressContainer.classList.remove('hidden');
+                        if (progressBar) progressBar.style.width = progress + '%';
+                    } else if (status === 'Initializing') {       
+                        tag.textContent = 'Booting';
+                        tag.className = 'sh-status-tag status-booting';
+                        statusText.textContent = 'Starting LLM process...';
+                        if (progressContainer) progressContainer.classList.add('hidden');
+                    } else if (status === 'Ready') {
+                        tag.textContent = 'Loaded';
+                        tag.className = 'sh-status-tag status-ready';
+                        statusText.textContent = 'Model: ' + modelName;
+                        if (progressContainer) progressContainer.classList.add('hidden');
+                    } else if (status === 'Error') {
+                        tag.textContent = 'Failed';
+                        tag.className = 'sh-status-tag status-error';
+                        statusText.textContent = 'Engine error: ' + (inf.Error || 'Critical failure');
+                        if (progressContainer) progressContainer.classList.add('hidden');
+                    } else {
+                        tag.textContent = 'Offline';
+                        tag.className = 'sh-status-tag status-offline';
+                        statusText.textContent = 'Engine is ' + (status || 'idle').toLowerCase() + '.';
+                        if (progressContainer) progressContainer.classList.add('hidden');
+                    }                                             
+
+                    if (filtered > 0) {
+                        el('card-ready').classList.remove('hidden');
+                        el('ready-text').textContent = 'Shirarium found ' + filtered + ' improvements for your library.';     
+                    } else {
+                        el('card-ready').classList.add('hidden');
+                    }
+                } catch (e) {
+                    console.error("[Shirarium] Dash update failed", e);
+                } finally {
+                    state.isRefreshingDash = false;
+                }
+            }
+
+            function switchTab(tabId) {
+                document.querySelectorAll('.sh-tab-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.tab === tabId); });
+                document.querySelectorAll('.sh-panel').forEach(function(p) { p.classList.toggle('hidden', p.id !== 'panel-' + tabId); });
+                if (tabId === 'dash') refreshDash();
+                if (tabId === 'review') refreshReview();
+                if (tabId === 'settings') loadSettings();
+            }
+
+            async function refreshReview() {
+                Dashboard.showLoadingMsg();
+                try {
+                    var plan = await api('shirarium/organization-plan-view?pageSize=100');
+                    state.plan = plan;
+                    state.selection.clear();
+                    el('selectAll').checked = false;
+
+                    var tbody = el('table-body');
+                    tbody.innerHTML = '';
+
+                    if (!plan.Entries || plan.Entries.length === 0) {
+                        el('table-empty').classList.remove('hidden');
+                        el('btn-apply-main').disabled = true;
+                        return;
+                    }
+
+                    el('table-empty').classList.add('hidden');
+                    el('btn-apply-main').disabled = true;
+
+                    plan.Entries.forEach(function(entry) {
+                        var row = document.createElement('tr');
+                        row.innerHTML = '<td><input type="checkbox" class="row-check" data-path="' + entry.SourcePath + '"></td>' +
+                            '<td><div style="font-family:monospace; font-size:11px; word-break:break-all;">' + entry.SourcePath + '</div></td>' + 
+                            '<td><div style="color:#33a1d6; word-break:break-all;">' + (entry.EffectiveTargetPath || '-') + '</div></td>';        
+                        tbody.appendChild(row);
+                    });
+
+                    tbody.querySelectorAll('.row-check').forEach(function(chk) {
+                        chk.addEventListener('change', function(e) {
+                            if (e.target.checked) state.selection.add(e.target.dataset.path);
+                            else state.selection.delete(e.target.dataset.path);
+                            el('btn-apply-main').disabled = state.selection.size === 0;
+                        });
+                    });
+                } catch (e) {
+                    console.error("[Shirarium] Review refresh failed", e);
+                } finally { Dashboard.hideLoadingMsg(); }
+            }
+
+            async function loadSettings() {
+                try {
+                    var config = await ApiClient.getPluginConfiguration(state.pluginId);     
+                    var presets = await api('shirarium/ai-model-presets');
+
+                    el('chkEnableHeuristics').checked = config.EnableHeuristics !== false; 
+                    el('chkEnableAi').checked = config.EnableManagedLocalInference;
+                    el('txtCustomUrl').value = config.CustomModelUrl || '';
+
+                    var updateLlmVisibility = function() {
+                        if (el('chkEnableAi').checked) el('llm-details').classList.remove('hidden');
+                        else el('llm-details').classList.add('hidden');
+                    };
+                    el('chkEnableAi').onchange = updateLlmVisibility;
+                    updateLlmVisibility();
+
+                    var sel = el('selectPreset');
+                    sel.innerHTML = (presets.Presets || []).map(function(p) {
+                        var id = p.Id || p.id;
+                        var name = p.Name || p.name;
+                        return '<option value="' + id + '" ' + (id === config.SelectedModelPreset ? 'selected' : '') + '>' + name + '</option>';
+                    }).join('');
+
+                    var updateInfo = function() {
+                        var val = sel.value;
+                        var p = (presets.Presets || []).find(function(x) { return (x.Id || x.id) === val; });
+                        if (p) el('preset-info').textContent = p.Rationale || p.rationale;
+                        
+                        if (val === 'custom') el('custom-model-container').classList.remove('hidden');
+                        else el('custom-model-container').classList.add('hidden');
+                    };
+                    sel.onchange = updateInfo;
+                    updateInfo();
+                    state.config = config;
+                } catch(e) {
+                    console.error("[Shirarium] Settings load failed", e);
+                }
+            }
+
+            async function saveSettings(e) {
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+                try {
+                    state.config.EnableHeuristics = el('chkEnableHeuristics').checked;
+                    state.config.EnableManagedLocalInference = el('chkEnableAi').checked;
+                    state.config.EnableAiParsing = el('chkEnableAi').checked;
+
+                    var selectedId = el('selectPreset').value;
+                    state.config.SelectedModelPreset = selectedId;
+                    state.config.CustomModelUrl = el('txtCustomUrl').value;
                     
-                    // Try to extract from URL (Standard), then from Hash (Router), finally fallback to hardcoded
-                    var pluginId = new URLSearchParams(window.location.search).get('id') || 
-                                   new URLSearchParams(window.location.hash.split('?')[1] || '').get('id') || 
-                                   BF_ID;
+                    var presets = await api('shirarium/ai-model-presets');
+                    var p = (presets.Presets || []).find(function(x) { return (x.Id || x.id) === selectedId; });
+                    if (p && p.Url) state.config.ModelUrl = p.Url || p.url;
                     
-                    var state = {
-                        pluginId: pluginId,
-                        selection: new Set(),
-                        plan: null,
-                        isRefreshingDash: false
-                    };    
-                            function el(id) { return document.getElementById(id); }
-                
-                            async function api(path, method, body) {
-                                var url = ApiClient.getUrl(path);
-                                try {
-                                    return await ApiClient.ajax({
-                                        type: method || 'GET',
-                                        url: url,
-                                        data: body ? JSON.stringify(body) : null,
-                                        contentType: 'application/json',
-                                        dataType: 'json'
-                                    });
-                                } catch (err) {
-                                    console.error("[Shirarium] API Error:", path, err);
-                                    throw err;
-                                }
-                            }
-                
-                            async function refreshDash() {
-                                                                                        if (state.isRefreshingDash) return;
-                                                                                        state.isRefreshingDash = true;
-                                                                        
-                                                                                        try {
-                                                                                            var inf = await api('shirarium/inference-status');
-                                                                                            var plan = await api('shirarium/organization-plan-view?pageSize=1');
-                                                                                            console.log("[Shirarium] refreshDash: data received", { inf: inf, plan: plan });
-                                                                                            state.plan = plan;                                                            
-                                                                                                    var tag = el('ai-status-tag');
-                                                                                                    var progressContainer = el('ai-progress-container');
-                                                                                                    var progressBar = el('ai-progress-bar');
-                                                                                                    var statusText = el('ai-status-text');
-                                                                                                    var metaContainer = el('ai-metadata');
-                                                                                
-                                                                                                    var status = inf.Status || 'Idle';
-                                                                                                    var rawModel = inf.ModelName || 'Managed LLM';
-                                                                                                    // Capitalize first letter of model name
-                                                                                                    var modelName = rawModel.charAt(0).toUpperCase() + rawModel.slice(1);
-                                                                                                    var progress = inf.Progress || 0;
-                                                                                                    var filtered = plan ? plan.FilteredEntries : 0;
-                                                                                
-                                                                                                    // Update Technical Metadata
-                                                                                                    if (inf.Metadata && Object.keys(inf.Metadata).length > 0) {
-                                                                                                        metaContainer.classList.remove('hidden');
-                                                                                                        metaContainer.innerHTML = Object.keys(inf.Metadata).map(function(k) {
-                                                                                                            return '<div class="sh-meta-item">' +
-                                                                                                                '<div class="sh-meta-label">' + k + '</div>' +
-                                                                                                                '<div class="sh-meta-value">' + inf.Metadata[k] + '</div>' +
-                                                                                                                '</div>';
-                                                                                                        }).join('');
-                                                                                                        // If we have metadata (which includes Model), hide the redundant status text
-                                                                                                        if (status === 'Ready') statusText.classList.add('hidden');
-                                                                                                        else statusText.classList.remove('hidden');
-                                                                                                    } else {
-                                                                                                        metaContainer.classList.add('hidden');
-                                                                                                        statusText.classList.remove('hidden');
-                                                                                                    }
-                                                                                
-                                                                                                    if (status === 'DownloadingModel') {                                                                                                                                                tag.textContent = 'Fetching';
-                                                                                                                                                tag.className = 'sh-status-tag status-fetching';
-                                                                                                                                                statusText.textContent = 'Downloading: ' + modelName;
-                                                                                                                                                if (progressContainer) progressContainer.classList.remove('hidden');
-                                                                                                                                                if (progressBar) progressBar.style.width = progress + '%';
-                                                                                                                                            } else if (status === 'Initializing') {
-                                                                                                                                                tag.textContent = 'Booting';
-                                                                                                                                                tag.className = 'sh-status-tag status-booting';
-                                                                                                                                                statusText.textContent = 'Starting LLM process...';
-                                                                                                                                                if (progressContainer) progressContainer.classList.add('hidden');
-                                                                                                                                            } else if (status === 'Ready') {
-                                                                                                                                                tag.textContent = 'Loaded';
-                                                                                                                                                tag.className = 'sh-status-tag status-ready';
-                                                                                                                                                statusText.textContent = 'Model: ' + modelName;
-                                                                                                                                                if (progressContainer) progressContainer.classList.add('hidden');
-                                                                                                                                            } else if (status === 'Error') {
-                                                                                                                                                tag.textContent = 'Failed';
-                                                                                                                                                tag.className = 'sh-status-tag status-error';
-                                                                                                                                                statusText.textContent = 'Engine error: ' + (inf.Error || 'Critical failure');
-                                                                                                                                                if (progressContainer) progressContainer.classList.add('hidden');
-                                                                                                                                            } else {
-                                                                                                                                                tag.textContent = 'Offline';
-                                                                                                                                                tag.className = 'sh-status-tag status-offline';
-                                                                                                                                                statusText.textContent = 'Engine is ' + (status || 'idle').toLowerCase() + '.';
-                                                                                                                                                if (progressContainer) progressContainer.classList.add('hidden');
-                                                                                                                                            }                                                                                if (filtered > 0) {
-                                                                                    el('card-ready').classList.remove('hidden');
-                                                                                    el('ready-text').textContent = 'Shirarium found ' + filtered + ' improvements for your library.';
-                                                                                } else {
-                                                                                    el('card-ready').classList.add('hidden');
-                                                                                }
-                                                                            } catch (e) {
-                                                                                console.error("[Shirarium] Dash update failed", e);
-                                                                            } finally {
-                                                                                state.isRefreshingDash = false;
-                                                                            }
-                                                                        }                                        function switchTab(tabId) {
-                                            console.log("[Shirarium] Switching to tab:", tabId);
-                                            document.querySelectorAll('.sh-tab-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.tab === tabId); });
-                                            document.querySelectorAll('.sh-panel').forEach(function(p) { p.classList.toggle('hidden', p.id !== 'panel-' + tabId); });
-                                            if (tabId === 'dash') refreshDash();
-                                            if (tabId === 'review') refreshReview();
-                                            if (tabId === 'settings') loadSettings();
-                                        }
-                            
-                                                    async function refreshReview() {
-                                                        Dashboard.showLoadingMsg();
-                                                        try {
-                                                            var plan = await api('shirarium/organization-plan-view?pageSize=100');
-                                                            state.plan = plan;
-                                                            state.selection.clear();
-                                                            el('selectAll').checked = false;
-                                        
-                                                            var tbody = el('table-body');
-                                                            tbody.innerHTML = '';
-                                        
-                                                            if (!plan.Entries || plan.Entries.length === 0) {
-                                                                el('table-empty').classList.remove('hidden');
-                                                                el('btn-apply-main').disabled = true;
-                                                                return;
-                                                            }
-                                        
-                                                            el('table-empty').classList.add('hidden');
-                                                            el('btn-apply-main').disabled = true;
-                                        
-                                                            plan.Entries.forEach(function(entry) {
-                                                                var row = document.createElement('tr');
-                                                                row.innerHTML = '<td><input type="checkbox" class="row-check" data-path="' + entry.SourcePath + '"></td>' +
-                                                                    '<td><div style="font-family:monospace; font-size:11px; word-break:break-all;">' + entry.SourcePath + '</div></td>' +
-                                                                    '<td><div style="color:#33a1d6; word-break:break-all;">' + (entry.EffectiveTargetPath || '-') + '</div></td>';
-                                                                tbody.appendChild(row);
-                                                            });
-                                        
-                                                            tbody.querySelectorAll('.row-check').forEach(function(chk) {
-                                                                chk.addEventListener('change', function(e) {
-                                                                    if (e.target.checked) state.selection.add(e.target.dataset.path);
-                                                                    else state.selection.delete(e.target.dataset.path);
-                                                                    el('btn-apply-main').disabled = state.selection.size === 0;
-                                                                });
-                                                            });
-                                                        } catch (e) {
-                                                            console.error("[Shirarium] Review refresh failed", e);
-                                                        } finally { Dashboard.hideLoadingMsg(); }
-                                                    }
-                                        
-                                                                                                        async function loadSettings() {
-                                                                                                            try {
-                                                                                                                var config = await ApiClient.getPluginConfiguration(state.pluginId);
-                                                                                                                var presets = await api('shirarium/ai-model-presets');
-                                                    
-                                                                                                                                                                                                // Bind to EnableManagedLocalInference as per label
-                                                                                                                                                                                                el('chkEnableAi').checked = config.EnableManagedLocalInference;
-                                                                                                                                                                                                el('txtCustomUrl').value = config.CustomModelUrl || '';
-                                                                                                                
-                                                                                                                                                                                                var sel = el('selectPreset');
-                                                                                                                                                                                                sel.innerHTML = (presets.Presets || []).map(function(p) {
-                                                                                                                                                                                                    // Handle potential casing differences (Pascal vs Camel)
-                                                                                                                                                                                                    var id = p.Id || p.id;
-                                                                                                                                                                                                    var name = p.Name || p.name;
-                                                                                                                                                                                                    return '<option value="' + id + '" ' + (id === config.SelectedModelPreset ? 'selected' : '') + '>' + name + '</option>';
-                                                                                                                                                                                                }).join('');
-                                                                                                                
-                                                                                                                                                                                                var updateInfo = function() {
-                                                                                                                                                                                                    var val = sel.value;
-                                                                                                                                                                                                    var p = (presets.Presets || []).find(function(x) { return (x.Id || x.id) === val; });
-                                                                                                                                                                                                    if (p) el('preset-info').textContent = p.Rationale || p.rationale;
-                                                                                                                                                                                                    
-                                                                                                                                                                                                    if (val === 'custom') {
-                                                                                                                                                                                                        el('custom-model-container').classList.remove('hidden');
-                                                                                                                                                                                                    } else {
-                                                                                                                                                                                                        el('custom-model-container').classList.add('hidden');
-                                                                                                                                                                                                    }
-                                                                                                                                                                                                };
-                                                                                                                                                                                                sel.onchange = updateInfo;
-                                                                                                                                                                                                updateInfo();
-                                                                                                                                                                                                state.config = config;
-                                                                                                                                                                                            } catch(e) {
-                                                                                                                                                                                                console.error("[Shirarium] Settings load failed", e);
-                                                                                                                                                                                            }
-                                                                                                                                                                                        }
-                                                                                                                
-                                                                                                                                                                                                                                                                async function saveSettings(e) {
-                                                                                                                                                                                                                                                                    e.preventDefault();
-                                                                                                                                                                                                                                                                    Dashboard.showLoadingMsg();
-                                                                                                                                                                                                                                                                    try {
-                                                                                                                                                                                                                                                                        // Save back to the correct property
-                                                                                                                                                                                                                                                                        state.config.EnableManagedLocalInference = el('chkEnableAi').checked;
-                                                                                                                                                                                                                                                                        // Also enable parsing if managed is enabled, for convenience
-                                                                                                                                                                                                                                                                        if (state.config.EnableManagedLocalInference) state.config.EnableAiParsing = true;
-                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                        var selectedId = el('selectPreset').value;
-                                                                                                                                                                                                                                                                        state.config.SelectedModelPreset = selectedId;
-                                                                                                                                                                                                                                                                        state.config.CustomModelUrl = el('txtCustomUrl').value;
-                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                        // Find the preset to get the URL
-                                                                                                                                                                                                                                                                        var presets = await api('shirarium/ai-model-presets');
-                                                                                                                                                                                                                                                                        var p = (presets.Presets || []).find(function(x) { return (x.Id || x.id) === selectedId; });
-                                                                                                                                                                                                                                                                        if (p && p.Url) {
-                                                                                                                                                                                                                                                                            state.config.ModelUrl = p.Url || p.url;
-                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                        await ApiClient.updatePluginConfiguration(state.pluginId, state.config);
-                                                                                                                                                                                                                                                                        Dashboard.alert('Settings saved.');
-                                                                                                                                                                                                                                                                    } finally { Dashboard.hideLoadingMsg(); }
-                                                                                                                                                                                                                                                                }                                                    async function applySelected() {
-                                                        if (state.selection.size === 0) return;
-                                                        Dashboard.showLoadingMsg();
-                                                        try {
-                                                            await api('shirarium/apply-reviewed-plan', 'POST', {
-                                                                expectedPlanFingerprint: state.plan.PlanFingerprint,
-                                                                sourcePaths: Array.from(state.selection)
-                                                            });
-                                                            Dashboard.alert('Library updated!');
-                                                            refreshReview();
-                                                        } catch(e) { 
-                                                            console.error("[Shirarium] Apply failed", e);
-                                                            Dashboard.alert('Failed: ' + e.message); 
-                                                        } finally { Dashboard.hideLoadingMsg(); }
-                                                    }
-                        // Polling logic
-                        var pollHandle = null;
-                        function startPolling() {
-                            if (pollHandle) {
-                                console.log("[Shirarium] Polling already active");
-                                return;
-                            }
-                            console.log("[Shirarium] Starting polling interval");
-                            pollHandle = setInterval(function() {
-                                if (!el('panel-dash').classList.contains('hidden')) {
-                                    refreshDash();
-                                }
-                            }, 3000);
-                        }
-            
-                        var isInitialized = false;
-                        function init() {
-                            if (isInitialized) {
-                                console.log("[Shirarium] Already initialized, skipping");
-                                return;
-                            }
-                            isInitialized = true;
-                            console.log("[Shirarium] Initializing dashboard for the first time...");
-                            refreshDash();
-                            startPolling();
-                        }
-            
-                        // INIT - Fallback to immediate init if page events don't fire
-                        console.log("[Shirarium] Script loaded, binding events...");
-                        var page = document.querySelector('#ShirariumReviewPage');
-                        if (page) {
-                            console.log("[Shirarium] Found page, binding events");
-                            page.addEventListener('pageshow', init);
-                            page.addEventListener('viewshow', init);
-                            // Force init after a short delay to ensure everything is ready
-                            setTimeout(init, 800);
-                        } else {
-                            console.warn("[Shirarium] Could not find #ShirariumReviewPage, initializing anyway...");
-                            init();
-                        }
+                    await ApiClient.updatePluginConfiguration(state.pluginId, state.config);
+                    Dashboard.alert('Settings saved.');
+                } catch (e) {
+                    console.error("[Shirarium] Save failed", e);
+                } finally { Dashboard.hideLoadingMsg(); }
+            }
+
+            async function applySelected() {
+                if (state.selection.size === 0) return;
+                Dashboard.showLoadingMsg();
+                try {
+                    await api('shirarium/apply-reviewed-plan', 'POST', {
+                        expectedPlanFingerprint: state.plan.PlanFingerprint,
+                        sourcePaths: Array.from(state.selection)
+                    });
+                    Dashboard.alert('Library updated!');
+                    refreshReview();
+                } catch(e) {
+                    console.error("[Shirarium] Apply failed", e);
+                    Dashboard.alert('Failed: ' + e.message);
+                } finally { Dashboard.hideLoadingMsg(); }
+            }
+
+            var pollHandle = null;
+            function startPolling() {
+                if (pollHandle) return;
+                pollHandle = setInterval(function() {
+                    if (!el('panel-dash').classList.contains('hidden')) {
+                        refreshDash();
+                    }
+                }, 3000);
+            }
+
+            var isInitialized = false;
+            function init() {
+                if (isInitialized) return;
+                isInitialized = true;
+                refreshDash();
+                startPolling();
+            }
+
+            var page = document.querySelector('#ShirariumReviewPage');
+            if (page) {
+                page.addEventListener('pageshow', init);
+                page.addEventListener('viewshow', init);
+                setTimeout(init, 800);
+            } else {
+                init();
+            }
+
             document.querySelectorAll('.sh-tab-btn').forEach(function(btn) {
                 btn.onclick = function() { switchTab(btn.dataset.tab); };
             });
-            
+
             el('btn-start-review').onclick = function() { switchTab('review'); };
             el('btn-apply-main').onclick = applySelected;
             el('settings-form').onsubmit = saveSettings;
@@ -436,7 +439,6 @@
                 });
                 el('btn-apply-main').disabled = state.selection.size === 0;
             };
-
         })();
     </script>
 </div>

@@ -13,6 +13,11 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     public string ExternalOllamaUrl { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets a value indicating whether native pattern-matching heuristics are enabled.
+    /// </summary>
+    public bool EnableHeuristics { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets a value indicating whether filename parsing via engine is enabled.
     /// </summary>
     public bool EnableAiParsing { get; set; } = true;
