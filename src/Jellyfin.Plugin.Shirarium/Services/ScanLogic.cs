@@ -85,7 +85,9 @@ internal static class ScanLogic
         if (height >= 720) return "720p";
         if (height >= 480) return "480p";
         if (height >= 360) return "360p";
-        return $"{height}p";
+        if (height >= 240) return "240p";
+        
+        return null;
     }
 
     internal static string? GetVideoCodec(object item)

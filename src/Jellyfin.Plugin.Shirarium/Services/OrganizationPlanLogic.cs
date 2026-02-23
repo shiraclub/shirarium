@@ -609,9 +609,15 @@ internal static class OrganizationPlanLogic
 
         // Clean up any lingering spaces before dots or separators
         relativePath = relativePath.Replace(" .", ".")
+                                   .Replace(" .", ".") // Repeat for stability
                                    .Replace(" /", "/")
+                                   .Replace("/ ", "/")
                                    .Replace(" \\", "\\")
+                                   .Replace("\\ ", "\\")
                                    .Trim();
+        
+        // Final sanity check: if the path ends with a space before the extension would be added, trim it.
+        relativePath = relativePath.TrimEnd();
 
         return !string.IsNullOrWhiteSpace(relativePath);
     }

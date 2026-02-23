@@ -220,47 +220,63 @@ public sealed class HeuristicParser
             }
         }
 
-        // Match Year
-        int? year = null;
-        var yearParenMatch = YearParenRe.Match(stem);
-        if (yearParenMatch.Success)
-        {
-            year = int.Parse(yearParenMatch.Groups[1].Value);
-            if (mediaType == "unknown") mediaType = "movie";
-            
-            int idx = stem.IndexOf(yearParenMatch.Value, StringComparison.Ordinal);
-            if (idx > 2) titleStem = stem.Substring(0, idx);
-        }
-        else
-        {
-            var yearMatch = YearRe.Match(stem);
-            if (yearMatch.Success)
-            {
-                int foundYear = int.Parse(yearMatch.Groups[1].Value);
-                string afterYear = stem.Substring(yearMatch.Index + yearMatch.Length).ToLowerInvariant();
-                bool isFollowedByJunk = CommonJunk.Any(j => afterYear.Contains(j));
-                bool isAtStart = yearMatch.Index < 2;
-
-                if (isAtStart && !isFollowedByJunk && !stem.TrimEnd().EndsWith(foundYear.ToString()))
+                // Match Year
+                int? year = null;
+                var yearParenMatch = YearParenRe.Match(stem);
+                if (yearParenMatch.Success)
                 {
-                    // Likely a title starting with a number like "2012 (2009)" -> title is 2012
-                    titleStem = stem;
-                }
-                else if (isFollowedByJunk || stem.TrimEnd().EndsWith(foundYear.ToString()))
-                {
-                    year = foundYear;
+                    year = int.Parse(yearParenMatch.Groups[1].Value);
                     if (mediaType == "unknown") mediaType = "movie";
-                    titleStem = stem.Substring(0, yearMatch.Index);
+        
+                    int idx = stem.IndexOf(yearParenMatch.Value, StringComparison.Ordinal);
+                    if (idx > 2) titleStem = stem.Substring(0, idx);
                 }
                 else
                 {
-                    if (mediaType == "unknown") mediaType = "movie";
-                    year = foundYear;
+                    var yearMatch = YearRe.Match(stem);
+                    if (yearMatch.Success)
+                    {
+                        int foundYear = int.Parse(yearMatch.Groups[1].Value);
+                        string afterYear = stem.Substring(yearMatch.Index + yearMatch.Length).ToLowerInvariant();
+                        bool isFollowedByJunk = CommonJunk.Any(j => afterYear.Contains(j));
+                        bool isAtStart = yearMatch.Index < 2;
+        
+                        // If the year is at the start, it's ONLY a year if junk follows it immediately.
+                        // Otherwise, it's likely a title like "1917" or "2012".
+                        if (isAtStart)
+                        {
+                            if (isFollowedByJunk)
+                            {
+                                year = foundYear;
+                                if (mediaType == "unknown") mediaType = "movie";
+                                titleStem = stem.Substring(0, yearMatch.Index);
+                            }
+                            else
+                            {
+                                // Look for another year later in the string
+                                var secondYearMatch = YearRe.Match(stem, yearMatch.Index + yearMatch.Length);
+                                if (secondYearMatch.Success)
+                                {
+                                    year = int.Parse(secondYearMatch.Groups[1].Value);
+                                    if (mediaType == "unknown") mediaType = "movie";
+                                    titleStem = stem.Substring(0, secondYearMatch.Index);
+                                }
+                            }
+                        }
+                        else if (isFollowedByJunk || stem.TrimEnd().EndsWith(foundYear.ToString()))
+                        {
+                            year = foundYear;
+                            if (mediaType == "unknown") mediaType = "movie";
+                            titleStem = stem.Substring(0, yearMatch.Index);
+                        }
+                        else
+                        {
+                            if (mediaType == "unknown") mediaType = "movie";
+                            year = foundYear;
+                        }
+                    }
                 }
-            }
-        }
-
-        // Final fallback for anime seasons (S4)
+                // Final fallback for anime seasons (S4)
         if (mediaType == "unknown")
         {
             if (StandaloneSeasonRe.IsMatch(stem) || stem.Contains("season", StringComparison.OrdinalIgnoreCase))
