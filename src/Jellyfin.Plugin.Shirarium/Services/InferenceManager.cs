@@ -427,10 +427,28 @@ public sealed class InferenceManager : IHostedService, IDisposable
                                                                                                                     {
                                                                                                                         _error = "Missing dependency: libgomp1. (apt-get install libgomp1)";
                                                                                                                     }
-                                                                                                                    else if (_lastErrorOutput.Contains("corrupted") || _lastErrorOutput.Contains("incomplete") || _lastErrorOutput.Contains("file bounds"))        
-                                                                                                                    {
-                                                                                                                        _error = "Model file corrupted. Try switching models to re-trigger download.";
-                                                                                                                    }
+                                                                                                                                                                else if (_lastErrorOutput.Contains("corrupted") || _lastErrorOutput.Contains("incomplete") || _lastErrorOutput.Contains("file bounds"))        
+                                                                                                                                                                {
+                                                                                                                                                                    _error = "Model file corrupted. Deleting and re-triggering download...";
+                                                                                                                                                                    // Try to delete it immediately so the next start attempt works
+                                                                                                                                                                    var config = Plugin.Instance?.Configuration;
+                                                                                                                                                                    if (config != null)
+                                                                                                                                                                    {
+                                                                                                                                                                        var folder = Path.Combine(_applicationPaths.DataPath, "plugins", "Shirarium", "models");
+                                                                                                                                                                        var modelUrl = config.SelectedModelPreset == "custom" && !string.IsNullOrWhiteSpace(config.CustomModelUrl) ? config.CustomModelUrl : config.ModelUrl;
+                                                                                                                                                                        string fileName;
+                                                                                                                                                                        if (Uri.TryCreate(modelUrl, UriKind.Absolute, out var uri))
+                                                                                                                                                                        {
+                                                                                                                                                                            fileName = Path.GetFileName(uri.LocalPath);
+                                                                                                                                                                            if (string.IsNullOrEmpty(fileName) || !fileName.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)) fileName = $"model-{config.SelectedModelPreset}.gguf";
+                                                                                                                                                                        }
+                                                                                                                                                                        else fileName = $"model-{config.SelectedModelPreset}.gguf";
+                                                                                                                                                                        
+                                                                                                                                                                        var modelPath = Path.Combine(folder, fileName);
+                                                                                                                                                                        try { if (File.Exists(modelPath)) File.Delete(modelPath); } catch {}
+                                                                                                                                                                    }
+                                                                                                                                                                }
+                                                                                                                    
                                                                                                                     else if (_lastErrorOutput.Contains("CUDA") || _lastErrorOutput.Contains("driver"))
                                                                                                                     {
                                                                                                                         _error = "GPU Driver Error. Try disabling GPU in settings.";
