@@ -70,7 +70,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>
                 Name = Name,
                 DisplayName = "Shirarium",
                 EnableInMainMenu = true,
-                MenuIcon = "android",
+                MenuIcon = "face",
                 EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", GetType().Namespace)
             }
         ];
