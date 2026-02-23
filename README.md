@@ -64,7 +64,7 @@ We evaluate Small Language Models (SLMs) for media filename parsing using **Shir
 | Phi-4 Mini Instruct | 69.3% | 4047ms | 3.8B |
 | SmolLM3 3B Instruct | 68.6% | 2464ms | 3B |
 
-Detailed reports and more models are available in the [`benchmarks/`](benchmarks/) directory.
+Detailed reports and more models are available in the [`shirariumbench/`](shirariumbench/) directory.
 
 ## Configuration
 

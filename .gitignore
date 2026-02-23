@@ -28,6 +28,6 @@ datasets/regression/*-harvested.json
 datasets/regression/tier-b-synthetic-dirty.json
 
 # Benchmarking
-benchmarks/models/
-benchmarks/bin/
-benchmarks/reports/
+shirariumbench/models/
+shirariumbench/bin/
+shirariumbench/reports/

@@ -81,14 +81,6 @@
       "quant": "Q6_K"
     },
     {
-      "id": "qwen3-30b-a3b-moe",
-      "name": "Qwen 3 30B MoE (3.3B Active)",
-      "url": "https://huggingface.co/bartowski/Qwen_Qwen3-30B-A3B-Instruct-GGUF/resolve/main/Qwen_Qwen3-30B-A3B-Instruct-Q4_K_M.gguf",
-      "filename": "qwen3-30b-a3b-moe-q4_k_m.gguf",
-      "parameters": "3.3B*",
-      "quant": "Q4_K_M"
-    },
-    {
       "id": "deepseek-r1-llama-8b",
       "name": "DeepSeek R1 Distill Llama 8B",
       "url": "https://huggingface.co/bartowski/DeepSeek-R1-Distill-Llama-8B-GGUF/resolve/main/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf",

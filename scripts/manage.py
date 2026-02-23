@@ -513,7 +513,7 @@ def cmd_api(args):
 
 def cmd_bench(args):
     """Run ShirariumBench LLM evaluator."""
-    runner = REPO_ROOT / "benchmarks" / "runner.py"
+    runner = REPO_ROOT / "shirariumbench" / "runner.py"
     cmd = [sys.executable, str(runner), "--dataset", args.dataset]
     if args.limit > 0:
         cmd.extend(["--limit", str(args.limit)])

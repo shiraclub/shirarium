@@ -8,6 +8,7 @@ import signal
 import zipfile
 import sys
 import threading
+import platform
 from pathlib import Path
 from typing import Dict, Any, List
 
@@ -19,31 +20,46 @@ def load_dotenv():
                 key, value = line.split("=", 1)
                 os.environ[key.strip()] = value.strip()
 
+def get_hardware_info() -> Dict[str, str]:
+    info = {
+        "os": f"{platform.system()} {platform.release()}",
+        "cpu": platform.processor() or "Unknown CPU",
+        "gpu": "Unknown GPU",
+        "ram": f"{round(sys.maxsize / (1024**3) * 8)}GB" # Rough estimate
+    }
+    try:
+        # Try to get GPU name via nvidia-smi
+        cmd = ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"]
+        gpu = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL).strip()
+        if gpu: info["gpu"] = gpu
+    except: pass
+    return info
+
 class ShirariumBench:
     def __init__(self, port: int = 8080):
         self.port = port
         self.api_url = f"http://localhost:{port}"
-        self.models_dir = Path("benchmarks/models")
-        self.reports_dir = Path("benchmarks/reports")
-        self.bin_dir = Path("benchmarks/bin")
+        self.models_dir = Path("shirariumbench/models")
+        self.reports_dir = Path("shirariumbench/reports")
+        self.bin_dir = Path("shirariumbench/bin")
         self.models_dir.mkdir(exist_ok=True)
         self.reports_dir.mkdir(exist_ok=True)
         self.bin_dir.mkdir(exist_ok=True)
         self.server_logs = []
+        self.hw = get_hardware_info()
 
     def ensure_llama_server(self) -> str:
         binary_name = "llama-server.exe" if os.name == 'nt' else "llama-server"
         local_binary = self.bin_dir / binary_name
-        if local_binary.exists(): 
+        if local_binary.exists():
             return str(local_binary)
-        
+
         try:
             subprocess.check_call([binary_name, "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return binary_name
         except: pass
 
         print(f"INFO: llama-server not found. Downloading...")
-        # Use b8123+ for SOTA architecture support and optimizations
         base_url = "https://github.com/ggml-org/llama.cpp/releases/download/b8123/"
         if os.name == 'nt':
             url = base_url + "llama-b8123-bin-win-vulkan-x64.zip"
@@ -57,40 +73,45 @@ class ShirariumBench:
 
     def download_model(self, model_info: Dict[str, Any]):
         target = self.models_dir / model_info["filename"]
-        if target.exists(): return target
+        if target.exists() and target.stat().st_size > 1000000: return target
+
         print(f"INFO: Downloading {model_info['name']}...")
         hf_token = os.environ.get("HF_TOKEN")
-        cmd = ["curl", "-L", "--progress-bar", model_info["url"], "-o", str(target)]
+        # Use curl.exe directly on Windows to avoid PowerShell aliases
+        exe = "curl.exe" if os.name == 'nt' else "curl"
+        cmd = [exe, "-L", "-C", "-", "--progress-bar", model_info["url"], "-o", str(target)]
         if hf_token: cmd.extend(["-H", f"Authorization: Bearer {hf_token}"])
         subprocess.run(cmd)
         return target
 
     def start_server(self, model_path: Path, binary_path: str, n_gpu_layers: int = 0):
-        # UPGRADE: Force f16 KV cache to ensure everything stays on GPU
+        # Deterministic seed + Flash Attention + f16 KV
         cmd = [
-            binary_path, 
-            "-m", str(model_path), 
-            "--port", str(self.port), 
-            "--n-gpu-layers", str(n_gpu_layers), 
+            binary_path,
+            "-m", str(model_path),
+            "--port", str(self.port),
+            "--n-gpu-layers", str(n_gpu_layers),
             "--ctx-size", "2048",
             "--flash-attn", "on",
             "--cache-type-k", "f16",
-            "--cache-type-v", "f16"
+            "--cache-type-v", "f16",
+            "--seed", "42",
+            "--log-disable"
         ]
         self.server_logs = []
         process = subprocess.Popen(
-            cmd, 
-            stdout=subprocess.PIPE, 
+            cmd,
+            stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
         )
-        
+
         def log_reader(proc):
             for line in iter(proc.stdout.readline, ""):
                 self.server_logs.append(line.strip())
-        
+
         threading.Thread(target=log_reader, args=(process,), daemon=True).start()
 
         for i in range(60):
@@ -101,7 +122,7 @@ class ShirariumBench:
                     return process
             except: pass
             time.sleep(2)
-        
+
         process.kill()
         raise Exception("Server timeout. Logs:\n" + "\n".join(self.server_logs[-20:]))
 
@@ -136,7 +157,12 @@ class ShirariumBench:
         try:
             response = requests.post(
                 f"{self.api_url}/v1/chat/completions",
-                json={"messages": messages, "temperature": 0.0, "response_format": {"type": "json_object", "schema": schema}},
+                json={
+                    "messages": messages,
+                    "temperature": 0.0,
+                    "seed": 42,
+                    "response_format": {"type": "json_object", "schema": schema}
+                },
                 timeout=60
             )
             result_text = response.json()["choices"][0]["message"]["content"]
@@ -152,67 +178,104 @@ class ShirariumBench:
         fields = ["Title", "Year", "Season", "Episode", "Resolution"]
         correct = 0
         for f in fields:
-            if str(expected.get(f) or expected.get(f.lower())).lower().strip() == \
-               str(actual.get(f) or actual.get(f.lower())).lower().strip():
+            exp_val = str(expected.get(f) or expected.get(f.lower()) or "").lower().strip()
+            act_val = str(actual.get(f) or actual.get(f.lower()) or "").lower().strip()
+            if not exp_val and not act_val: # Both null/empty
+                correct += 1
+            elif exp_val == act_val:
                 correct += 1
         return correct / len(fields)
 
     def run_benchmark(self, model_info: Dict[str, Any], dataset_path: str, n_gpu_layers: int = 0, limit: int = 0):
-        print(f"\n>>> Model: {model_info['name']}")
+        print(f"\n>>> Running: {model_info['name']}")
         binary_path = self.ensure_llama_server()
         model_path = self.download_model(model_info)
         server_process = self.start_server(model_path, binary_path, n_gpu_layers)
-        
+
         try:
             with open(dataset_path, 'r', encoding='utf-8') as f:
                 items = json.load(f).get("entries", [])
             if limit > 0: items = items[:limit]
-            
+
             total_lat, total_acc = 0, 0
             for idx, item in enumerate(items):
                 filename = os.path.basename(item.get("relativePath", ""))
                 expected = item.get("expected") or item
                 actual, lat = self.parse_with_llm(filename)
                 acc = self.calculate_score(expected, actual)
-                
-                # Single-line, clean feedback
-                print(f"  [{idx+1}/{len(items)}] {acc*100:>3.0f}% | {lat:>5.0f}ms | {filename[:40]}", end="\r")
-                
+
+                # Visual progress
+                sys.stdout.write(f"\r  Progress: [{idx+1}/{len(items)}] {acc*100:>3.0f}% | {lat:>5.0f}ms | {filename[:40]}")
+                sys.stdout.flush()
+
                 total_lat += lat
                 total_acc += acc
-                
+
             avg_lat, avg_acc = total_lat / len(items), total_acc / len(items)
-            print(f"\n  Final: Acc={avg_acc*100:.1f}%, Latency={avg_lat:.0f}ms")
+            print(f"\n  Result: Acc={avg_acc*100:.1f}%, Latency={avg_lat:.0f}ms")
             return {"id": model_info["id"], "name": model_info["name"], "acc": avg_acc, "lat": avg_lat}
         finally:
-            subprocess.call(['taskkill', '/F', '/T', '/PID', str(server_process.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if os.name == 'nt':
+                subprocess.call(['taskkill', '/F', '/T', '/PID', str(server_process.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                os.killpg(os.getpgid(server_process.pid), signal.SIGTERM)
 
 if __name__ == "__main__":
     load_dotenv()
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", default="datasets/regression/tier-a-golden.json")
-    parser.add_argument("--limit", type=int, default=0)
-    parser.add_argument("--model", help="Specific model ID")
+    parser.add_argument("--limit", type=int, default=0, help="Limit items per model")
+    parser.add_argument("--model", help="Specific model ID (default: all)")
     parser.add_argument("--ngl", type=int, default=99, help="Number of GPU layers")
+    parser.add_argument("--output", help="Specific output filename")
     args = parser.parse_args()
-    
-    with open("benchmarks/models.json", 'r') as f: manifest = json.load(f)
+
+    with open("shirariumbench/models.json", 'r') as f: manifest = json.load(f)
     bench = ShirariumBench()
-    summaries = []
+
     models = [m for m in manifest["models"] if not args.model or m["id"] == args.model]
-    
+
+    print(f"--- ShirariumBench Automation ---")
+    print(f"Dataset: {args.dataset} (Limit: {args.limit if args.limit > 0 else 'All'})")
+    print(f"Hardware: {bench.hw['cpu']} | {bench.hw['gpu']}")
+    print(f"Models to test: {len(models)}")
+
+    summaries = []
     for m in models:
         try:
             res = bench.run_benchmark(m, args.dataset, n_gpu_layers=args.ngl, limit=args.limit)
             if res: summaries.append(res)
         except Exception as e:
-            print(f"!! Failed {m['name']}: {e}")
-            
-    report_path = Path("benchmarks/reports") / f"summary_{int(time.time())}.md"
+            print(f"\n!! Failed {m['name']}: {e}")
+
+    # Sorting: Highest Accuracy first, then lowest Latency
     summaries.sort(key=lambda x: (-x["acc"], x["lat"]))
+
+    # Generate Markdown Report
+    report_content = [
+        f"# ShirariumBench Results\n",
+        f"- **Date**: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+        f"- **Dataset**: `{args.dataset}` (Limit: {args.limit})",
+        f"- **Hardware**: `{bench.hw['cpu']}` | `{bench.hw['gpu']}` | `{bench.hw['os']}`",
+        f"- **Config**: NGL={args.ngl}, Seed=42, Temperature=0.0\n",
+        "| Model | Accuracy | Latency | Params | Quant |",
+        "| :--- | :--- | :--- | :--- | :--- |"
+    ]
+
+    for r in summaries:
+        m_meta = next(m for m in manifest["models"] if m["id"] == r["id"])
+        report_content.append(f"| {r['name']} | {r['acc']*100:.1f}% | {r['lat']:.0f}ms | {m_meta['parameters']} | {m_meta['quant']} |")
+
+    # Save timestamped report
+    ts = int(time.time())
+    report_path = bench.reports_dir / (args.output or f"summary_{ts}.md")
     with open(report_path, 'w') as f:
-        f.write("# ShirariumBench Summary\n\n| Model | Accuracy | Latency | Params | Quant |\n| :--- | :--- | :--- | :--- | :--- |\n")
-        for r in summaries:
-            m_meta = next(m for m in manifest["models"] if m["id"] == r["id"])
-            f.write(f"| {r['name']} | {r['acc']*100:.1f}% | {r['lat']:.0f}ms | {m_meta['parameters']} | {m_meta['quant']} |\n")
-    print(f"\nFinal report: {report_path}")
+        f.write("\n".join(report_content))
+
+    # Save as 'latest.md' for README sync
+    with open(bench.reports_dir / "latest.md", 'w') as f:
+        f.write("\n".join(report_content))
+
+    print(f"\n--- Final Results ---\n")
+    print("\n".join(report_content[5:]))
+    print(f"\nReports saved to: {report_path} and shirariumbench/reports/latest.md")
